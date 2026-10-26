@@ -10,7 +10,6 @@ import {
   FileText,
   FolderPlus,
   LayoutDashboard,
-  ListTodo,
   Menu,
   PanelLeftClose,
   Search,
@@ -95,7 +94,6 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
         badge: null,
         children: [
           { key: 'projects', label: 'Projects', path: '/projects', icon: Briefcase, badge: null },
-          { key: 'tasks', label: 'Tasks', path: '/tasks', icon: ListTodo, badge: null },
           { key: 'my_tasks', label: 'My Task', path: '/my-tasks', icon: UserCheck, badge: null },
           { key: 'project_configuration', label: 'Configuration', path: '/projects/configuration', icon: Settings2, badge: null },
         ],
