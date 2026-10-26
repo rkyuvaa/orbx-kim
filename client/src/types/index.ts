@@ -131,10 +131,10 @@ export interface VehicleModel {
 }
 
 export interface VehicleModelInput {
-  name: string;
-  vehicle_price: number;
-  down_payment: number;
-  loan_amount: number;
+  name?: string;
+  vehicle_price?: number;
+  down_payment?: number;
+  loan_amount?: number;
 }
 
 export interface StageConfig {

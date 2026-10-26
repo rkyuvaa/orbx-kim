@@ -29,12 +29,28 @@ import { formatAmount } from '@/utils/format';
 import type { VehicleModel } from '@/types';
 
 const formSchema = z.object({
-  name: z.string().min(2, 'Model name is required'),
-  vehicle_price: z.coerce.number({ invalid_type_error: 'Required' }).positive('Must be positive'),
-  down_payment: z.coerce
-    .number({ invalid_type_error: 'Required' })
-    .nonnegative('Cannot be negative'),
-  loan_amount: z.coerce.number({ invalid_type_error: 'Required' }).positive('Must be positive'),
+  name: z.string().optional().default(''),
+  vehicle_price: z
+    .union([z.number(), z.string(), z.nan()])
+    .optional()
+    .transform((val) => {
+      const n = Number(val);
+      return Number.isFinite(n) && n >= 0 ? n : 0;
+    }),
+  down_payment: z
+    .union([z.number(), z.string(), z.nan()])
+    .optional()
+    .transform((val) => {
+      const n = Number(val);
+      return Number.isFinite(n) && n >= 0 ? n : 0;
+    }),
+  loan_amount: z
+    .union([z.number(), z.string(), z.nan()])
+    .optional()
+    .transform((val) => {
+      const n = Number(val);
+      return Number.isFinite(n) && n >= 0 ? n : 0;
+    }),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -62,9 +78,9 @@ function ModelFormDialog({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: '',
-      vehicle_price: 0,
-      down_payment: 0,
-      loan_amount: 0,
+      vehicle_price: '' as any,
+      down_payment: '' as any,
+      loan_amount: '' as any,
     },
   });
 
@@ -77,9 +93,9 @@ function ModelFormDialog({
     skipAutoCalc.current = true;
     reset({
       name: editing?.name ?? '',
-      vehicle_price: editing?.vehicle_price ?? 0,
-      down_payment: editing?.down_payment ?? 0,
-      loan_amount: editing?.loan_amount ?? 0,
+      vehicle_price: editing?.vehicle_price !== undefined ? editing.vehicle_price : ('' as any),
+      down_payment: editing?.down_payment !== undefined ? editing.down_payment : ('' as any),
+      loan_amount: editing?.loan_amount !== undefined ? editing.loan_amount : ('' as any),
     });
     window.setTimeout(() => {
       skipAutoCalc.current = false;
@@ -88,18 +104,21 @@ function ModelFormDialog({
 
   useEffect(() => {
     if (skipAutoCalc.current) return;
-    if (Number.isFinite(Number(price)) && Number.isFinite(Number(downPayment))) {
-      const loan = Number(price) - Number(downPayment);
-      if (loan > 0) setValue('loan_amount', loan);
+    const numPrice = Number(price);
+    const numDown = Number(downPayment);
+    if (Number.isFinite(numPrice) && Number.isFinite(numDown) && numPrice > 0) {
+      const loan = Math.max(0, numPrice - numDown);
+      setValue('loan_amount', loan);
     }
   }, [price, downPayment, setValue]);
 
   const onSubmit = async (values: FormValues) => {
+    const finalName = values.name?.trim() || (editing ? editing.name : `Vehicle Model ${Date.now().toString().slice(-4)}`);
     const body = {
-      name: values.name,
-      vehicle_price: values.vehicle_price,
-      down_payment: values.down_payment,
-      loan_amount: values.loan_amount,
+      name: finalName,
+      vehicle_price: Number(values.vehicle_price) || 0,
+      down_payment: Number(values.down_payment) || 0,
+      loan_amount: Number(values.loan_amount) || 0,
     };
     try {
       if (editing) {
@@ -124,7 +143,8 @@ function ModelFormDialog({
         <DialogContent>
           <TextField
             fullWidth
-            label="Model name"
+            label="Model name (optional)"
+            placeholder="e.g. Konwert EV Pro"
             margin="dense"
             error={Boolean(errors.name)}
             helperText={errors.name?.message}
@@ -133,8 +153,9 @@ function ModelFormDialog({
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <TextField
               fullWidth
-              label="Vehicle price (₹)"
+              label="Vehicle price (₹) (optional)"
               type="number"
+              placeholder="0"
               margin="dense"
               error={Boolean(errors.vehicle_price)}
               helperText={errors.vehicle_price?.message}
@@ -142,8 +163,9 @@ function ModelFormDialog({
             />
             <TextField
               fullWidth
-              label="Down payment (₹)"
+              label="Down payment (₹) (optional)"
               type="number"
+              placeholder="0"
               margin="dense"
               error={Boolean(errors.down_payment)}
               helperText={errors.down_payment?.message}
@@ -152,10 +174,11 @@ function ModelFormDialog({
           </div>
           <TextField
             fullWidth
-            label="Loan amount (₹)"
+            label="Loan amount (₹) (optional)"
             type="number"
+            placeholder="0"
             margin="dense"
-            helperText="Auto-calculated as vehicle price minus down payment; you can override it."
+            helperText="Auto-calculated as price minus down payment; you can override it or leave blank."
             error={Boolean(errors.loan_amount)}
             {...register('loan_amount')}
           />

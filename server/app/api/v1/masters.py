@@ -94,12 +94,27 @@ def create_vehicle_model(
     db: Session = Depends(get_db),
     user: User = Depends(require_roles(UserRole.ADMIN)),
 ):
-    _ensure_unique(db, VehicleModel, VehicleModel.name, payload.name)
+    name = (payload.name or "").strip()
+    if not name:
+        count = db.query(VehicleModel).count() + 1
+        name = f"Vehicle Model {count}"
+        while db.query(VehicleModel).filter(VehicleModel.name == name).first():
+            count += 1
+            name = f"Vehicle Model {count}"
+    else:
+        _ensure_unique(db, VehicleModel, VehicleModel.name, name)
+
+    vehicle_price = float(payload.vehicle_price or 0.0)
+    down_payment = float(payload.down_payment or 0.0)
+    loan_amount = float(payload.loan_amount or 0.0)
+    if not loan_amount and vehicle_price > down_payment:
+        loan_amount = vehicle_price - down_payment
+
     model = VehicleModel(
-        name=payload.name,
-        vehicle_price=payload.vehicle_price,
-        down_payment=payload.down_payment,
-        loan_amount=payload.loan_amount,
+        name=name,
+        vehicle_price=vehicle_price,
+        down_payment=down_payment,
+        loan_amount=loan_amount,
     )
     db.add(model)
     db.commit()
@@ -118,10 +133,16 @@ def update_vehicle_model(
     if not model:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vehicle model not found")
     data = payload.model_dump(exclude_unset=True)
-    if data.get("name") is not None:
-        _ensure_unique(db, VehicleModel, VehicleModel.name, data["name"], exclude_id=model_id)
+    if "name" in data and data["name"] is not None:
+        name = data["name"].strip()
+        if name:
+            _ensure_unique(db, VehicleModel, VehicleModel.name, name, exclude_id=model_id)
+            data["name"] = name
+        else:
+            del data["name"]
     for field, value in data.items():
-        setattr(model, field, value)
+        if value is not None:
+            setattr(model, field, value)
     db.add(model)
     db.commit()
     db.refresh(model)

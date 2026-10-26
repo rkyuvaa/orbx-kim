@@ -7,17 +7,17 @@ from app.models.enums import ApplicationStatus, UserRole
 
 
 class VehicleModelCreate(BaseModel):
-    name: str = Field(min_length=2, max_length=120)
-    vehicle_price: float = Field(gt=0)
-    down_payment: float = Field(ge=0)
-    loan_amount: float = Field(gt=0)
+    name: str = Field(default="", max_length=120)
+    vehicle_price: float = Field(default=0.0, ge=0)
+    down_payment: float = Field(default=0.0, ge=0)
+    loan_amount: float = Field(default=0.0, ge=0)
 
 
 class VehicleModelUpdate(BaseModel):
-    name: str | None = Field(default=None, min_length=2, max_length=120)
-    vehicle_price: float | None = Field(default=None, gt=0)
+    name: str | None = Field(default=None, max_length=120)
+    vehicle_price: float | None = Field(default=None, ge=0)
     down_payment: float | None = Field(default=None, ge=0)
-    loan_amount: float | None = Field(default=None, gt=0)
+    loan_amount: float | None = Field(default=None, ge=0)
 
 
 class VehicleModelOut(BaseModel):
