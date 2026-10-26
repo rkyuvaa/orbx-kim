@@ -138,13 +138,12 @@ export default function EditLeadDialog({ open, onClose, lead }: EditLeadDialogPr
       <form onSubmit={handleSubmit(onSubmit)}>
         <DialogContent sx={{ pt: 1 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {/* 1. Customer Name & 2. Phone Number */}
+            {/* Customer Name & Phone Number */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <TextField
                 fullWidth
                 size="small"
-                label="1. Customer Name *"
-                placeholder="Enter customer full name"
+                label="Customer Name *"
                 error={Boolean(errors.customer_name)}
                 helperText={errors.customer_name?.message}
                 {...register('customer_name')}
@@ -152,143 +151,116 @@ export default function EditLeadDialog({ open, onClose, lead }: EditLeadDialogPr
               <TextField
                 fullWidth
                 size="small"
-                label="2. Phone Number *"
-                placeholder="Enter 10-digit mobile number"
+                label="Phone Number *"
                 error={Boolean(errors.customer_phone)}
                 helperText={errors.customer_phone?.message}
                 {...register('customer_phone')}
               />
             </div>
 
-            {/* 3. Vehicle Number & 4. Customer Vehicle Model */}
+            {/* Vehicle Number & Customer Vehicle Model */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <TextField
                 fullWidth
                 size="small"
-                label="3. Vehicle Number"
-                placeholder="e.g. MH 02 AB 1234"
+                label="Vehicle Number"
                 {...register('vehicle_number')}
               />
-              <div>
-                <Select
-                  fullWidth
-                  displayEmpty
-                  size="small"
-                  value={modelId || ''}
-                  onChange={(e) => setValue('vehicle_model_id', String(e.target.value))}
-                  renderValue={(val) =>
-                    val
-                      ? models.find((m) => String(m.id) === val)?.name ?? val
-                      : '4. Customer Vehicle Model (Select)'
-                  }
-                >
-                  <MenuItem value="">
-                    <em>4. Customer Vehicle Model (Select)</em>
+              <TextField
+                select
+                fullWidth
+                size="small"
+                label="Customer Vehicle Model"
+                value={modelId || ''}
+                onChange={(e) => setValue('vehicle_model_id', String(e.target.value))}
+              >
+                <MenuItem value="">
+                  <span style={{ color: '#7A8B80' }}>Select vehicle model</span>
+                </MenuItem>
+                {loadingModels && <MenuItem disabled>Loading models…</MenuItem>}
+                {!loadingModels && models.length === 0 && (
+                  <MenuItem disabled>No models configured — add in CRM Configuration</MenuItem>
+                )}
+                {models.map((m) => (
+                  <MenuItem key={m.id} value={String(m.id)}>
+                    {m.name}
                   </MenuItem>
-                  {loadingModels && <MenuItem disabled>Loading models…</MenuItem>}
-                  {!loadingModels && models.length === 0 && (
-                    <MenuItem disabled>No models configured — add in CRM Configuration</MenuItem>
-                  )}
-                  {models.map((m) => (
-                    <MenuItem key={m.id} value={String(m.id)}>
-                      {m.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </div>
+                ))}
+              </TextField>
             </div>
 
-            {/* 5. Vehicle Year & Fuel Type */}
+            {/* Vehicle Year & Fuel Type */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <TextField
                 fullWidth
                 size="small"
-                label="5. Vehicle Year"
-                placeholder="e.g. 2024"
+                label="Vehicle Year"
                 {...register('vehicle_year')}
               />
-              <div>
-                <Select
-                  fullWidth
-                  displayEmpty
-                  size="small"
-                  value={selectedFuelType || ''}
-                  onChange={(e) => setValue('fuel_type', String(e.target.value))}
-                  renderValue={(val) =>
-                    val
-                      ? fuelTypes.find((f) => f.value === val)?.label ?? val
-                      : 'Fuel Type (Select)'
-                  }
-                >
-                  <MenuItem value="">
-                    <em>Fuel Type (Select)</em>
+              <TextField
+                select
+                fullWidth
+                size="small"
+                label="Fuel Type"
+                value={selectedFuelType || ''}
+                onChange={(e) => setValue('fuel_type', String(e.target.value))}
+              >
+                <MenuItem value="">
+                  <span style={{ color: '#7A8B80' }}>Select fuel type</span>
+                </MenuItem>
+                {fuelTypes.length === 0 && (
+                  <MenuItem disabled>No fuel types configured — add in Configuration</MenuItem>
+                )}
+                {fuelTypes.map((f) => (
+                  <MenuItem key={f.id} value={f.value}>
+                    {f.label}
                   </MenuItem>
-                  {fuelTypes.length === 0 && (
-                    <MenuItem disabled>No fuel types configured — add in Configuration</MenuItem>
-                  )}
-                  {fuelTypes.map((f) => (
-                    <MenuItem key={f.id} value={f.value}>
-                      {f.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </div>
+                ))}
+              </TextField>
             </div>
 
-            {/* 6. Customer Status & Source */}
+            {/* Customer Status & Source */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div>
-                <Select
-                  fullWidth
-                  displayEmpty
-                  size="small"
-                  value={selectedCustomerStatus || ''}
-                  onChange={(e) => setValue('customer_status', String(e.target.value))}
-                  renderValue={(val) =>
-                    val
-                      ? customerStatuses.find((s) => s.value === val)?.label ?? val
-                      : '6. Customer Status (Select)'
-                  }
-                >
-                  <MenuItem value="">
-                    <em>6. Customer Status (Select)</em>
+              <TextField
+                select
+                fullWidth
+                size="small"
+                label="Customer Status"
+                value={selectedCustomerStatus || ''}
+                onChange={(e) => setValue('customer_status', String(e.target.value))}
+              >
+                <MenuItem value="">
+                  <span style={{ color: '#7A8B80' }}>Select customer status</span>
+                </MenuItem>
+                {customerStatuses.length === 0 && (
+                  <MenuItem disabled>No customer statuses configured — add in Configuration</MenuItem>
+                )}
+                {customerStatuses.map((s) => (
+                  <MenuItem key={s.id} value={s.value}>
+                    {s.label}
                   </MenuItem>
-                  {customerStatuses.length === 0 && (
-                    <MenuItem disabled>No customer statuses configured — add in Configuration</MenuItem>
-                  )}
-                  {customerStatuses.map((s) => (
-                    <MenuItem key={s.id} value={s.value}>
-                      {s.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </div>
-              <div>
-                <Select
-                  fullWidth
-                  displayEmpty
-                  size="small"
-                  value={selectedSource || ''}
-                  onChange={(e) => setValue('lead_source', String(e.target.value))}
-                  renderValue={(val) =>
-                    val
-                      ? sources.find((src) => src.value === val)?.label ?? val
-                      : 'Source (Select)'
-                  }
-                >
-                  <MenuItem value="">
-                    <em>Source (Select)</em>
+                ))}
+              </TextField>
+              <TextField
+                select
+                fullWidth
+                size="small"
+                label="Source"
+                value={selectedSource || ''}
+                onChange={(e) => setValue('lead_source', String(e.target.value))}
+              >
+                <MenuItem value="">
+                  <span style={{ color: '#7A8B80' }}>Select source</span>
+                </MenuItem>
+                {sources.length === 0 && (
+                  <MenuItem disabled>No sources configured — add in Configuration</MenuItem>
+                )}
+                {sources.map((src) => (
+                  <MenuItem key={src.id} value={src.value}>
+                    {src.label}
                   </MenuItem>
-                  {sources.length === 0 && (
-                    <MenuItem disabled>No sources configured — add in Configuration</MenuItem>
-                  )}
-                  {sources.map((src) => (
-                    <MenuItem key={src.id} value={src.value}>
-                      {src.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </div>
+                ))}
+              </TextField>
             </div>
 
             {/* Coupon Code & Responsible */}
@@ -297,32 +269,25 @@ export default function EditLeadDialog({ open, onClose, lead }: EditLeadDialogPr
                 fullWidth
                 size="small"
                 label="Coupon Code"
-                placeholder="e.g. PROMO2026"
                 {...register('coupon_code')}
               />
-              <div>
-                <Select
-                  fullWidth
-                  displayEmpty
-                  size="small"
-                  value={selectedAssignedTo || ''}
-                  onChange={(e) => setValue('assigned_to', String(e.target.value))}
-                  renderValue={(val) => {
-                    if (!val) return 'Responsible (Select User)';
-                    const matched = users.find((u) => String(u.id) === val);
-                    return matched ? `${matched.full_name} (${matched.role})` : val;
-                  }}
-                >
-                  <MenuItem value="">
-                    <em>Responsible (Select User)</em>
+              <TextField
+                select
+                fullWidth
+                size="small"
+                label="Responsible"
+                value={selectedAssignedTo || ''}
+                onChange={(e) => setValue('assigned_to', String(e.target.value))}
+              >
+                <MenuItem value="">
+                  <span style={{ color: '#7A8B80' }}>Select responsible user</span>
+                </MenuItem>
+                {users.map((u) => (
+                  <MenuItem key={u.id} value={String(u.id)}>
+                    {u.full_name} ({u.role})
                   </MenuItem>
-                  {users.map((u) => (
-                    <MenuItem key={u.id} value={String(u.id)}>
-                      {u.full_name} ({u.role})
-                    </MenuItem>
-                  ))}
-                </Select>
-              </div>
+                ))}
+              </TextField>
             </div>
 
             {/* Created on & Last updated on (Auto-captured, non-editable) */}
@@ -330,7 +295,7 @@ export default function EditLeadDialog({ open, onClose, lead }: EditLeadDialogPr
               <TextField
                 fullWidth
                 size="small"
-                label="Created on (Auto-captured)"
+                label="Created on"
                 value={lead?.created_at ? formatDate(lead.created_at) : '—'}
                 disabled
                 slotProps={{
@@ -343,7 +308,7 @@ export default function EditLeadDialog({ open, onClose, lead }: EditLeadDialogPr
               <TextField
                 fullWidth
                 size="small"
-                label="Last updated on (Auto-captured)"
+                label="Last updated on"
                 value={lead?.updated_at ? formatDate(lead.updated_at) : '—'}
                 disabled
                 slotProps={{
@@ -355,33 +320,27 @@ export default function EditLeadDialog({ open, onClose, lead }: EditLeadDialogPr
               />
             </div>
 
-            {/* 7. Lost / Lost Reason */}
-            <div>
-              <Select
-                fullWidth
-                displayEmpty
-                size="small"
-                value={selectedLostReason || ''}
-                onChange={(e) => setValue('lost_reason', String(e.target.value))}
-                renderValue={(val) =>
-                  val
-                    ? lostReasons.find((r) => r.value === val)?.label ?? val
-                    : '7. Lost / Lost Reason (Select if applicable)'
-                }
-              >
-                <MenuItem value="">
-                  <em>7. Lost / Lost Reason (Select if applicable)</em>
+            {/* Lost Reason */}
+            <TextField
+              select
+              fullWidth
+              size="small"
+              label="Lost Reason"
+              value={selectedLostReason || ''}
+              onChange={(e) => setValue('lost_reason', String(e.target.value))}
+            >
+              <MenuItem value="">
+                <span style={{ color: '#7A8B80' }}>Select lost reason (if applicable)</span>
+              </MenuItem>
+              {lostReasons.length === 0 && (
+                <MenuItem disabled>No lost reasons configured — add in Configuration</MenuItem>
+              )}
+              {lostReasons.map((r) => (
+                <MenuItem key={r.id} value={r.value}>
+                  {r.label}
                 </MenuItem>
-                {lostReasons.length === 0 && (
-                  <MenuItem disabled>No lost reasons configured — add in Configuration</MenuItem>
-                )}
-                {lostReasons.map((r) => (
-                  <MenuItem key={r.id} value={r.value}>
-                    {r.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </div>
+              ))}
+            </TextField>
           </div>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2.5, pt: 1 }}>
