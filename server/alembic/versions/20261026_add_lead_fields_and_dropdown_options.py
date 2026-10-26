@@ -38,6 +38,13 @@ def upgrade() -> None:
 
     # 2. Add new columns to applications table
     if 'applications' in existing_tables:
+        # Convert lead_source to VARCHAR if PostgreSQL
+        try:
+            if conn.dialect.name == "postgresql":
+                conn.execute(sa.text('ALTER TABLE applications ALTER COLUMN lead_source TYPE VARCHAR(100) USING lead_source::text'))
+        except Exception:
+            pass
+
         app_cols = [c['name'] for c in inspector.get_columns('applications')]
         with op.batch_alter_table('applications') as batch_op:
             if 'vehicle_number' not in app_cols:

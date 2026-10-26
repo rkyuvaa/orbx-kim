@@ -98,6 +98,16 @@ def _ensure_schema_migrations():
                 except Exception:
                     pass
 
+        # Ensure lead_source on applications is VARCHAR instead of ENUM on PostgreSQL
+        if "applications" in existing_tables:
+            try:
+                with engine.begin() as conn:
+                    if engine.dialect.name == "postgresql":
+                        conn.execute(text('ALTER TABLE applications ALTER COLUMN lead_source TYPE VARCHAR(100) USING lead_source::text'))
+            except Exception as ls_err:
+                import logging
+                logging.error(f"Failed to convert lead_source to VARCHAR: {ls_err}")
+
         # 3. Seed default task statuses if empty
         if "task_statuses" in existing_tables:
             try:

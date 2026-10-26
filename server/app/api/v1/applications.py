@@ -329,12 +329,24 @@ def get_application_activity(
         return []
 
 
+def _ensure_lead_source_varchar(db: Session) -> None:
+    try:
+        bind = db.get_bind()
+        if bind.dialect.name == "postgresql":
+            from sqlalchemy import text
+            db.execute(text('ALTER TABLE applications ALTER COLUMN lead_source TYPE VARCHAR(100) USING lead_source::text'))
+            db.commit()
+    except Exception:
+        db.rollback()
+
+
 @router.post("", response_model=ApplicationOut, status_code=status.HTTP_201_CREATED)
 def create_application(
     payload: ApplicationCreate,
     db: Session = Depends(get_db),
     user: User = Depends(require_permission("create", "leads")),
 ):
+    _ensure_lead_source_varchar(db)
     try:
         app_number = next_app_no(db)
         app_status = payload.status or ApplicationStatus.LEAD
@@ -401,6 +413,7 @@ def update_application(
     db: Session = Depends(get_db),
     user: User = Depends(require_permission("edit", "leads")),
 ):
+    _ensure_lead_source_varchar(db)
     data = payload.model_dump(exclude_unset=True)
 
     # Track field changes for activity log
