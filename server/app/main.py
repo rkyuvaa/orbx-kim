@@ -154,6 +154,39 @@ def _ensure_schema_migrations():
         except Exception as reseq_err:
             import logging
             logging.error(f"Task resequence error: {reseq_err}")
+
+        # 6. Auto-clean legacy sample opportunity records
+        try:
+            with engine.begin() as conn:
+                for tbl, col in [
+                    ("activities", "application_id"),
+                    ("deliveries", "application_id"),
+                    ("disbursements", "application_id"),
+                    ("documents", "application_id"),
+                    ("finance_submissions", "application_id"),
+                    ("sanctions", "application_id"),
+                    ("verifications", "application_id"),
+                    ("activity_logs", "application_id"),
+                    ("planned_activities", "application_id"),
+                    ("crm_lead_custom_field_values", "application_id"),
+                    ("financier_document_access_tokens", "application_id"),
+                    ("financier_document_access_logs", "application_id"),
+                ]:
+                    try:
+                        conn.execute(
+                            text(f'DELETE FROM "{tbl}" WHERE "{col}" IN (SELECT id FROM applications WHERE status != \'LEAD\' AND app_no LIKE \'APP-%\')')
+                        )
+                    except Exception:
+                        pass
+                try:
+                    conn.execute(
+                        text("DELETE FROM applications WHERE status != 'LEAD' AND app_no LIKE 'APP-%'")
+                    )
+                except Exception:
+                    pass
+        except Exception as clean_err:
+            import logging
+            logging.error(f"Opportunity sample cleanup error: {clean_err}")
     except Exception as err:
         import logging
         logging.error(f"Migration check error: {err}")

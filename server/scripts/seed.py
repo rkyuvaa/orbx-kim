@@ -53,73 +53,27 @@ PHONE_BASE = ["9812000000", "9823000000", "9834000000", "9845000000", "985600000
               "9743300000", "9754400000", "9765500000", "9776600000", "9787700000",
               "9798800000", "9620000000", "9631100000", "9642200000", "9653300000"]
 # (app_no, name, phone, amount, status, updated_ago, extra)
-FEATURED = [
-    ("APP-125", "Ramesh Kumar", "9876543210", 450000, ApplicationStatus.QUERY, timedelta(hours=60)),
-    ("APP-124", "Kumar S.", "9765432100", 520000, ApplicationStatus.SANCTIONED, timedelta(hours=4)),
-    ("APP-123", "Arun M.", "9654321000", 400000, ApplicationStatus.FINANCE, timedelta(hours=33.6)),
-    ("APP-122", "Suresh P.", "9543210000", 480000, ApplicationStatus.REJECTED, timedelta(hours=100.8)),
-    ("APP-121", "Priya L.", "9432100000", 500000, ApplicationStatus.DELIVERY, timedelta(hours=6)),
-    ("APP-120", "Venkat R.", "9320000000", 380000, ApplicationStatus.COMPLETED, timedelta(hours=48)),
-    ("APP-119", "Divya K.", "9211000000", 460000, ApplicationStatus.VERIFICATION, timedelta(hours=27)),
-    ("APP-118", "Selvam N.", "9102000000", 430000, ApplicationStatus.QUERY, timedelta(hours=60)),
-    ("APP-116", "Rajesh T.", "8904000000", 470000, ApplicationStatus.VERIFICATION, timedelta(hours=54)),
-    ("APP-115", "Anitha S.", "8805000000", 420000, ApplicationStatus.VERIFICATION, timedelta(hours=24)),
-    ("APP-114", "Mani R.", "8706000000", 490000, ApplicationStatus.DISBURSEMENT, timedelta(hours=100.8)),
-    ("APP-113", "Bala K.", "8607000000", 440000, ApplicationStatus.VERIFICATION, timedelta(hours=48)),
-    ("APP-112", "Deepa M.", "8508000000", 390000, ApplicationStatus.QUERY, timedelta(hours=74.4)),
-    ("APP-111", "Joseph V.", "8409000000", 510000, ApplicationStatus.QUERY, timedelta(hours=50.4)),
-    ("APP-110", "Lakshmi P.", "8300000000", 370000, ApplicationStatus.QUERY, timedelta(hours=33.6)),
-    ("APP-109", "Mohan R.", "8211000000", 530000, ApplicationStatus.QUERY, timedelta(hours=26.4)),
-    ("APP-108", "Shiva K.", "8122000000", 360000, ApplicationStatus.DISBURSEMENT, timedelta(hours=81.6)),
-    ("APP-105", "Karthik R.", "9003000000", 410000, ApplicationStatus.FINANCE, timedelta(hours=3.4)),
-]
+FEATURED = []
 
-QUERY_NOTES = {
-    "APP-125": "Bank Statement re-upload required",
-    "APP-118": "Finance query — salary proof needed",
-    "APP-112": "KYC document expired",
-    "APP-111": "Address proof mismatch",
-    "APP-110": "PAN card unclear — resubmit",
-    "APP-109": "Bank statement period incomplete",
-}
+QUERY_NOTES = {}
 
-QUERY_WAIT_HOURS = {
-    "APP-125": 4 + 18 / 60,
-    "APP-118": 60,
-    "APP-112": 74.4,
-    "APP-111": 50.4,
-    "APP-110": 33.6,
-    "APP-109": 26.4,
-}
+QUERY_WAIT_HOURS = {}
 
 STATUS_COUNTS = {
     ApplicationStatus.LEAD: 128,
-    ApplicationStatus.APPLICATION: 96,
-    ApplicationStatus.VERIFICATION: 38,
-    ApplicationStatus.FINANCE: 29,
-    ApplicationStatus.QUERY: 6,
-    ApplicationStatus.SANCTIONED: 44,
-    ApplicationStatus.DELIVERY: 18,
-    ApplicationStatus.DISBURSEMENT: 19,
-    ApplicationStatus.COMPLETED: 188,
-    ApplicationStatus.REJECTED: 664,
 }
 
 TODAY_LEADS = 24
 UNASSIGNED_LEADS = 8
-SALES_ASSIGNED = {"APP-125", "APP-124", "APP-123", "APP-122", "APP-121", "APP-120",
-                  "APP-119", "APP-118", "APP-116", "APP-115", "APP-114", "APP-113"}
+SALES_ASSIGNED = set()
 
-WAIT_WHO = {
-    "APP-123": ("ABC Finance", 2 + 40 / 60),
-    "APP-105": ("PQR Finance", 3 + 20 / 60),
-}
+WAIT_WHO = {}
 
-VERIF_WAIT = {"APP-119": 27, "APP-113": 48}
-DOC_WAIT = {"APP-116": 54, "APP-115": 24}
+VERIF_WAIT = {}
+DOC_WAIT = {}
 
-DISB_PENDING = {"APP-114": 100.8, "APP-108": 81.6}
-DISB_PENDING_FILLER_HOURS = [4, 6, 8, 10]
+DISB_PENDING = {}
+DISB_PENDING_FILLER_HOURS = []
 
 COMPANIES = [
     ("ABC Finance", 48, 39, 4, 1.4),
@@ -155,21 +109,9 @@ DEFAULT_ACTIVITY_TYPES = [
     ("Meeting", "In-person or virtual meeting"),
 ]
 
-NOTIFICATIONS = [
-    "Finance query raised on APP-118",
-    "Document pending for APP-116",
-    "New application APP-125 assigned to you",
-    "Disbursement awaiting UTR for APP-114",
-    "Sanction approved for APP-124",
-]
+NOTIFICATIONS = []
 
-ACTIVITIES = [
-    ("APP-125", "Moved APP-125 to Query — bank statement re-upload"),
-    ("APP-124", "Sanction approved for APP-124"),
-    ("APP-118", "Finance query raised on APP-118"),
-    ("APP-119", "Document uploaded for APP-119"),
-    ("APP-120", "Application APP-120 marked completed"),
-]
+ACTIVITIES = []
 
 
 def _gen_filler(status: ApplicationStatus, idx: int, app_no: str, models: list[VehicleModel]) -> Application:
