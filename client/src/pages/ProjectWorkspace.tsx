@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -29,16 +29,11 @@ import {
   Briefcase,
   Users,
   Clock,
-  FileText,
   DollarSign,
   Calendar,
   CheckCircle2,
   AlertCircle,
   User,
-  PenTool,
-  Eraser,
-  Download,
-  RotateCcw,
 } from 'lucide-react';
 import { useGetProjectQuery, useUpdateProjectMutation } from '@/api/projectsApi';
 import { useUsersQuery } from '@/api/mastersApi';
@@ -46,7 +41,6 @@ import ProjectTasksList from '@/components/projects/ProjectTasksList';
 import ProjectMilestonesList from '@/components/projects/ProjectMilestonesList';
 import { formatStandardDateTime, time24To12, time12To24 } from '@/utils/format';
 import ProjectTimelineView from '@/components/projects/ProjectTimelineView';
-import ProjectTimesheetsView from '@/components/projects/ProjectTimesheetsView';
 import ProjectTeamView from '@/components/projects/ProjectTeamView';
 import AutoSaveStatusBadge from '@/components/common/AutoSaveStatusBadge';
 import { useAutoSave } from '@/hooks/useAutoSave';
@@ -145,64 +139,9 @@ export default function ProjectWorkspace() {
     return `${diffDays} Days`;
   }, [targetStartDate, targetEndDate]);
 
-  // Whiteboard Canvas State
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [penColor, setPenColor] = useState('#203020');
-  const [penLineWidth, setPenLineWidth] = useState(3);
-
   const handleTabChange = (_event: React.SyntheticEvent, newValue: string) => {
     autoSave.flushPending();
     setTab(newValue);
-  };
-
-  // Canvas Drawing Handlers
-  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    const rect = canvas.getBoundingClientRect();
-    ctx.beginPath();
-    ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
-    setIsDrawing(true);
-  };
-
-  const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDrawing) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    const rect = canvas.getBoundingClientRect();
-    ctx.strokeStyle = penColor;
-    ctx.lineWidth = penLineWidth;
-    ctx.lineCap = 'round';
-    ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
-    ctx.stroke();
-  };
-
-  const stopDrawing = () => {
-    setIsDrawing(false);
-  };
-
-  const handleClearCanvas = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-    }
-  };
-
-  const handleDownloadCanvas = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const image = canvas.toDataURL('image/png');
-    const link = document.createElement('a');
-    link.href = image;
-    link.download = `${project?.name || 'Project'}_Whiteboard_Design.png`;
-    link.click();
   };
 
   if (isLoading) {
@@ -376,10 +315,7 @@ export default function ProjectWorkspace() {
           <Tab label="Milestones" value="milestones" />
           <Tab label="Timeline (Gantt)" value="timeline" />
           <Tab label="Team" value="team" />
-          <Tab label="Timesheets" value="timesheets" />
-          <Tab label="Whiteboard" value="whiteboard" />
           <Tab label="Expenses" value="expenses" />
-          <Tab label="Documents" value="documents" />
         </Tabs>
       </Box>
 
@@ -690,71 +626,6 @@ export default function ProjectWorkspace() {
         {tab === 'milestones' && <ProjectMilestonesList projectId={id!} />}
         {tab === 'timeline' && <ProjectTimelineView projectId={id!} />}
         {tab === 'team' && <ProjectTeamView projectId={id!} />}
-        {tab === 'timesheets' && <ProjectTimesheetsView projectId={id!} />}
-
-        {/* ── CLICKUP WHITEBOARD / CANVAS TAB ────────────────────────────── */}
-        {tab === 'whiteboard' && (
-          <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: '8px', p: 2 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography variant="h6" sx={{ fontWeight: 700, color: 'text.primary', display: 'flex', alignItems: 'center', gap: 1 }}>
-                <PenTool size={20} color={isDark ? '#16C47F' : '#203020'} /> Project Interactive Whiteboard
-              </Typography>
-
-              {/* Whiteboard Controls */}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <Box sx={{ display: 'flex', gap: 0.8, alignItems: 'center' }}>
-                  {['#203020', '#2563EB', '#D97706', '#DC2626', '#0F172A'].map((c) => (
-                    <Box
-                      key={c}
-                      onClick={() => setPenColor(c)}
-                      sx={{
-                        width: 20,
-                        height: 20,
-                        borderRadius: '50%',
-                        bgcolor: c,
-                        cursor: 'pointer',
-                        border: penColor === c ? (isDark ? '2px solid #16C47F' : '2px solid #000') : 'none',
-                      }}
-                    />
-                  ))}
-                </Box>
-
-                <Button
-                  size="small"
-                  variant="outlined"
-                  startIcon={<RotateCcw size={14} />}
-                  onClick={handleClearCanvas}
-                  sx={{ textTransform: 'none', fontSize: 12 }}
-                >
-                  Clear Canvas
-                </Button>
-
-                <Button
-                  size="small"
-                  variant="contained"
-                  startIcon={<Download size={14} />}
-                  onClick={handleDownloadCanvas}
-                  sx={{ bgcolor: '#203020', '&:hover': { bgcolor: '#2A402A' }, textTransform: 'none', fontSize: 12, fontWeight: 600 }}
-                >
-                  Export Design
-                </Button>
-              </Box>
-            </Box>
-
-            <Box sx={{ border: '2px dashed', borderColor: 'divider', borderRadius: '8px', overflow: 'hidden', bgcolor: isDark ? '#181D22' : '#FFFFFF' }}>
-              <canvas
-                ref={canvasRef}
-                width={1000}
-                height={550}
-                onMouseDown={startDrawing}
-                onMouseMove={draw}
-                onMouseUp={stopDrawing}
-                onMouseLeave={stopDrawing}
-                style={{ cursor: 'crosshair', display: 'block', width: '100%', height: '550px' }}
-              />
-            </Box>
-          </Paper>
-        )}
 
         {tab === 'expenses' && (
           <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: '8px', p: 4, textAlign: 'center' }}>
@@ -762,16 +633,6 @@ export default function ProjectWorkspace() {
             <Typography variant="h6" sx={{ fontWeight: 700, color: 'text.primary' }}>Project Expenses</Typography>
             <Typography variant="body2" color="textSecondary" sx={{ mt: 0.5 }}>
               Track purchase orders, vendor invoices, and material costs logged against {project.name}.
-            </Typography>
-          </Paper>
-        )}
-
-        {tab === 'documents' && (
-          <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: '8px', p: 4, textAlign: 'center' }}>
-            <FileText size={32} color={isDark ? '#16C47F' : '#203020'} style={{ marginBottom: 8 }} />
-            <Typography variant="h6" sx={{ fontWeight: 700, color: 'text.primary' }}>Project Documents</Typography>
-            <Typography variant="body2" color="textSecondary" sx={{ mt: 0.5 }}>
-              Centralized file attachment repository for engineering blueprints, customer approvals, and invoices.
             </Typography>
           </Paper>
         )}
