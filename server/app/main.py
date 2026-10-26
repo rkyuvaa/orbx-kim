@@ -103,7 +103,9 @@ def _ensure_schema_migrations():
             try:
                 with engine.begin() as conn:
                     if engine.dialect.name == "postgresql":
+                        conn.execute(text('DROP INDEX IF EXISTS ix_applications_lead_source'))
                         conn.execute(text('ALTER TABLE applications ALTER COLUMN lead_source TYPE VARCHAR(100) USING lead_source::text'))
+                        conn.execute(text('CREATE INDEX IF NOT EXISTS ix_applications_lead_source ON applications (lead_source)'))
             except Exception as ls_err:
                 import logging
                 logging.error(f"Failed to convert lead_source to VARCHAR: {ls_err}")
