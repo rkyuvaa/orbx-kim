@@ -13,6 +13,7 @@ from app.core.security import (
 )
 from app.db.session import get_db
 from app.models import User
+from app.models.user import UserStatus
 from app.schemas.auth import (
     ChangePasswordRequest,
     LoginRequest,
@@ -42,11 +43,20 @@ def _clear_refresh_cookie(response: Response) -> None:
         key=settings.refresh_token_cookie_name,
         path=settings.api_v1_prefix + "/auth",
     )
+    response.delete_cookie(
+        key=settings.refresh_token_cookie_name,
+        path=settings.api_v1_prefix,
+    )
+    response.delete_cookie(
+        key=settings.refresh_token_cookie_name,
+        path="/",
+    )
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(payload: LoginRequest, response: Response, db: Session = Depends(get_db)):
-    user = authenticate_user(db, payload)
+def login(request: Request, payload: LoginRequest, response: Response, db: Session = Depends(get_db)):
+    client_ip = request.client.host if request.client else None
+    user = authenticate_user(db, payload, client_ip=client_ip)
     refresh = create_refresh_token(str(user.id))
     _set_refresh_cookie(response, refresh)
     access = create_access_token(str(user.id), user.role.value)
@@ -62,13 +72,33 @@ def refresh(request: Request, response: Response, db: Session = Depends(get_db))
         )
     try:
         payload = decode_token(token, expected_type="refresh")
-    except jwt.PyJWTError:
+    except (jwt.PyJWTError, Exception):
+        _clear_refresh_cookie(response)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired refresh token"
         ) from None
-    user = db.get(User, int(payload["sub"]))
+
+    sub = payload.get("sub")
+    if not sub:
+        _clear_refresh_cookie(response)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload")
+
+    try:
+        user_id = int(sub)
+    except (ValueError, TypeError):
+        _clear_refresh_cookie(response)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token subject")
+
+    user = db.get(User, user_id)
     if user is None:
+        _clear_refresh_cookie(response)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+
+    if user.status != UserStatus.ACTIVE:
+        _clear_refresh_cookie(response)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Account is inactive or locked"
+        )
 
     new_refresh = create_refresh_token(str(user.id))
     _set_refresh_cookie(response, new_refresh)
@@ -93,7 +123,7 @@ def update_profile(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    user.full_name = payload.full_name
+    user.full_name = payload.full_name.strip()
     db.add(user)
     db.commit()
     db.refresh(user)

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.models.enums import UserRole
 
@@ -6,6 +6,20 @@ from app.models.enums import UserRole
 class LoginRequest(BaseModel):
     email: str = Field(min_length=1, max_length=255)
     password: str = Field(min_length=1, max_length=128)
+
+    @field_validator("email")
+    @classmethod
+    def validate_email_not_empty(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("Email or username cannot be empty or whitespace only")
+        return v.strip()
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_not_empty(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("Password cannot be empty or whitespace only")
+        return v
 
 
 class UserOut(BaseModel):
@@ -27,6 +41,13 @@ class TokenResponse(BaseModel):
 class ChangePasswordRequest(BaseModel):
     current_password: str = Field(min_length=6)
     new_password: str = Field(min_length=8, max_length=128)
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_new_password_not_empty(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("New password cannot be whitespace only")
+        return v
 
 
 class ProfileUpdateRequest(BaseModel):

@@ -29,11 +29,27 @@ export const baseQueryWithReauth: BaseQueryFn<string | FetchArgs, unknown, Fetch
   api,
   extraOptions,
 ) => {
+  const endpointUrl = typeof args === 'string' ? args : (args?.url || '');
+  const isAuthEndpoint =
+    endpointUrl.includes('/auth/login') ||
+    endpointUrl.includes('/auth/refresh') ||
+    endpointUrl.includes('/auth/logout');
+
   // Wait until any active refresh has unlocked mutex before issuing request
   await mutex.waitForUnlock();
   let result = await rawBaseQuery(args, api, extraOptions);
 
+  // CRITICAL SECURITY FIX: Never attempt to refresh or auto-authenticate on login/refresh/logout endpoints.
+  // When login fails with 401, return the 401 error immediately so failed logins are never converted to successful sessions.
   if (result.error && result.error.status === 401) {
+    if (isAuthEndpoint) {
+      if (endpointUrl.includes('/auth/login')) {
+        // Ensure no stale credentials linger on failed login
+        api.dispatch(logout());
+      }
+      return result;
+    }
+
     if (!mutex.isLocked()) {
       const release = await mutex.acquire();
       try {

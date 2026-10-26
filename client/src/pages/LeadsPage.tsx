@@ -608,11 +608,20 @@ export default function LeadsPage() {
             ) : isError ? (
               <div style={{ padding: 24, textAlign: 'center' }}>
                 <Button variant="outlined" onClick={refetch}>
-                  Retry loading leads
+                  {isOpportunityRoute ? 'Retry loading opportunities' : 'Retry loading leads'}
                 </Button>
               </div>
             ) : rows.length === 0 ? (
-              <EmptyState title="No leads found" hint={searchQ ? `No results for "${searchQ}".` : "Leads will appear here as they are captured."} />
+              <EmptyState
+                title={isOpportunityRoute ? 'No opportunities found' : 'No leads found'}
+                hint={
+                  searchQ
+                    ? `No results for "${searchQ}".`
+                    : isOpportunityRoute
+                    ? 'Opportunities will appear here as they are created or converted.'
+                    : 'Leads will appear here as they are captured.'
+                }
+              />
             ) : (
               <>
                 <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 960 }}>
@@ -749,7 +758,7 @@ export default function LeadsPage() {
           ) : isError ? (
             <div style={{ padding: 24, textAlign: 'center' }}>
               <Button variant="outlined" onClick={refetch}>
-                Retry loading leads
+                {isOpportunityRoute ? 'Retry loading opportunities' : 'Retry loading leads'}
               </Button>
             </div>
           ) : (
@@ -847,7 +856,7 @@ export default function LeadsPage() {
                             margin: '8px 0',
                           }}
                         >
-                          No leads in {col.label}
+                          {isOpportunityRoute ? `No opportunities in ${col.label}` : `No leads in ${col.label}`}
                         </div>
                       ) : (
                         colApps.map((app) => (

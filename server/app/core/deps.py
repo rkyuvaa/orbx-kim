@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.security import decode_token
 from app.db.session import get_db
 from app.models import Application, ApplicationStatus, User, UserRole
+from app.models.user import UserStatus
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -23,13 +24,33 @@ def get_current_user(
         )
     try:
         payload = decode_token(credentials.credentials, expected_type="access")
-    except jwt.PyJWTError:
+    except (jwt.PyJWTError, Exception):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token"
         ) from None
-    user = db.get(User, int(payload["sub"]))
+
+    sub = payload.get("sub")
+    if not sub:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload"
+        )
+
+    try:
+        user_id = int(sub)
+    except (ValueError, TypeError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token subject"
+        )
+
+    user = db.get(User, user_id)
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+
+    if user.status != UserStatus.ACTIVE:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Account is inactive or locked"
+        )
+
     return user
 
 

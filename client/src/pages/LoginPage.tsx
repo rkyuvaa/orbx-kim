@@ -17,21 +17,34 @@ import { Eye, EyeOff, LockKeyhole, Mail } from 'lucide-react';
 
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { useLoginMutation } from '@/api/authApi';
-import { setCredentials } from '@/auth/authSlice';
+import { setCredentials, logout } from '@/auth/authSlice';
 
 const loginSchema = z.object({
   email: z
     .string()
+    .trim()
     .min(1, 'Email or username is required'),
   password: z
     .string()
-    .min(1, 'Password is required'),
+    .min(1, 'Password is required')
+    .refine((val) => val.trim().length > 0, {
+      message: 'Password cannot be empty or whitespace only',
+    }),
 });
 
 type LoginForm = z.infer<typeof loginSchema>;
 
 function extractErrorMessage(err: any): string | null {
   if (!err) return null;
+  if (err?.status === 401) {
+    return 'Invalid email or password.';
+  }
+  if (err?.status === 429) {
+    const detail = err?.data?.detail;
+    return typeof detail === 'string'
+      ? detail
+      : 'Too many failed login attempts. Account is temporarily locked. Please try again later.';
+  }
   const detail = err?.data?.detail;
   if (typeof detail === 'string') return detail;
   if (Array.isArray(detail)) {
@@ -55,7 +68,7 @@ function extractErrorMessage(err: any): string | null {
   }
   if (typeof err?.data?.message === 'string') return err.data.message;
   if (typeof err?.message === 'string') return err.message;
-  return 'Invalid credentials. Please try again.';
+  return 'Invalid email or password.';
 }
 
 export default function LoginPage() {
@@ -93,17 +106,24 @@ export default function LoginPage() {
   };
 
   const onSubmit = async (values: LoginForm) => {
-    // 3. Trim unnecessary spaces from the username/email field
     const trimmedEmail = values.email.trim();
-    // 4. Do not automatically trim or modify the password
     const rawPassword = values.password;
+
+    if (!trimmedEmail || !rawPassword || !rawPassword.trim()) {
+      return;
+    }
 
     try {
       const result = await login({ email: trimmedEmail, password: rawPassword } as any).unwrap();
-      dispatch(setCredentials({ token: result.access_token, user: result.user }));
-      navigate(from, { replace: true });
+      if (result?.access_token && result?.user) {
+        dispatch(setCredentials({ token: result.access_token, user: result.user }));
+        navigate(from, { replace: true });
+      } else {
+        dispatch(logout());
+      }
     } catch {
-      // Error is caught and surfaced via RTK Query `error` state
+      // Securely wipe any stale auth and ensure the user stays on the login page
+      dispatch(logout());
     }
   };
 
