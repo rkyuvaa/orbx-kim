@@ -1,7 +1,8 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import type { AutoSaveStatus } from '@/components/common/AutoSaveStatusBadge';
 
-export interface UseAutoSaveOptions {
+export interface UseAutoSaveOptions<T = Record<string, any>> {
+  initialValues?: T;
   onSave: (patch: Record<string, any>) => Promise<any>;
   onSuccess?: (patch: Record<string, any>, response?: any) => void;
   onError?: (patch: Record<string, any>, error: any) => void;
@@ -36,10 +37,17 @@ export function areValuesEqual(valA: any, valB: any): boolean {
   return false;
 }
 
-export function useAutoSave({ onSave, onSuccess, onError }: UseAutoSaveOptions) {
+export function useAutoSave<T extends Record<string, any> = Record<string, any>>({
+  initialValues,
+  onSave,
+  onSuccess,
+  onError,
+}: UseAutoSaveOptions<T>) {
   const [status, setStatus] = useState<AutoSaveStatus>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+
+  const initialValuesRef = useRef<Record<string, any>>(initialValues ? { ...initialValues } : {});
 
   const onSaveRef = useRef(onSave);
   onSaveRef.current = onSave;
@@ -56,13 +64,19 @@ export function useAutoSave({ onSave, onSuccess, onError }: UseAutoSaveOptions) 
   // Track pending un-blurred changes so they are saved if unmounting / switching tabs
   const pendingPatchRef = useRef<Record<string, { value: any; originalValue: any }>>({});
 
+  const resetInitialValues = useCallback((newInitialValues: Record<string, any>) => {
+    initialValuesRef.current = { ...newInitialValues };
+  }, []);
+
   const saveField = useCallback(
-    async (fieldName: string, value: any, originalValue: any): Promise<boolean> => {
+    async (fieldName: string, value: any, originalValue?: any): Promise<boolean> => {
       // Remove from pending since we are saving now
       delete pendingPatchRef.current[fieldName];
 
+      const baseline = originalValue !== undefined ? originalValue : initialValuesRef.current[fieldName];
+
       // Prevent unnecessary duplicate API calls
-      if (areValuesEqual(value, originalValue)) {
+      if (areValuesEqual(value, baseline)) {
         return true;
       }
 
@@ -73,6 +87,7 @@ export function useAutoSave({ onSave, onSuccess, onError }: UseAutoSaveOptions) 
 
       try {
         const response = await onSaveRef.current(patch);
+        initialValuesRef.current[fieldName] = value;
         setStatus('saved');
         setLastSaved(new Date());
         failedPatchRef.current = null;
@@ -82,7 +97,7 @@ export function useAutoSave({ onSave, onSuccess, onError }: UseAutoSaveOptions) 
         return true;
       } catch (err: any) {
         setStatus('error');
-        failedPatchRef.current = { patch, originalValues: { [fieldName]: originalValue } };
+        failedPatchRef.current = { patch, originalValues: { [fieldName]: baseline } };
         let msg = 'Failed to save changes';
         if (typeof err?.data?.detail === 'string') {
           msg = err.data.detail;
@@ -104,13 +119,15 @@ export function useAutoSave({ onSave, onSuccess, onError }: UseAutoSaveOptions) 
   );
 
   const saveMultiple = useCallback(
-    async (patch: Record<string, any>, originalValues: Record<string, any>): Promise<boolean> => {
+    async (patch: Record<string, any>, originalValues?: Record<string, any>): Promise<boolean> => {
       const filteredPatch: Record<string, any> = {};
+      const baseValues = originalValues || initialValuesRef.current;
       let hasChanges = false;
 
       for (const key of Object.keys(patch)) {
         delete pendingPatchRef.current[key];
-        if (!areValuesEqual(patch[key], originalValues[key])) {
+        const baseline = baseValues[key];
+        if (!areValuesEqual(patch[key], baseline)) {
           filteredPatch[key] = patch[key];
           hasChanges = true;
         }
@@ -125,6 +142,7 @@ export function useAutoSave({ onSave, onSuccess, onError }: UseAutoSaveOptions) 
 
       try {
         const response = await onSaveRef.current(filteredPatch);
+        Object.assign(initialValuesRef.current, filteredPatch);
         setStatus('saved');
         setLastSaved(new Date());
         failedPatchRef.current = null;
@@ -134,7 +152,7 @@ export function useAutoSave({ onSave, onSuccess, onError }: UseAutoSaveOptions) 
         return true;
       } catch (err: any) {
         setStatus('error');
-        failedPatchRef.current = { patch: filteredPatch, originalValues };
+        failedPatchRef.current = { patch: filteredPatch, originalValues: baseValues };
         let msg = 'Failed to save changes';
         if (typeof err?.data?.detail === 'string') {
           msg = err.data.detail;
@@ -161,13 +179,18 @@ export function useAutoSave({ onSave, onSuccess, onError }: UseAutoSaveOptions) 
     return saveMultiple(patch, originalValues);
   }, [saveMultiple]);
 
-  const registerPendingChange = useCallback((fieldName: string, value: any, originalValue: any) => {
-    if (areValuesEqual(value, originalValue)) {
+  const registerPendingChange = useCallback((fieldName: string, value: any, originalValue?: any) => {
+    const baseline = originalValue !== undefined ? originalValue : initialValuesRef.current[fieldName];
+    if (areValuesEqual(value, baseline)) {
       delete pendingPatchRef.current[fieldName];
     } else {
-      pendingPatchRef.current[fieldName] = { value, originalValue };
+      pendingPatchRef.current[fieldName] = { value, originalValue: baseline };
     }
   }, []);
+
+  const setPendingField = useCallback((fieldName: string, value: any) => {
+    registerPendingChange(fieldName, value, initialValuesRef.current[fieldName]);
+  }, [registerPendingChange]);
 
   const flushPending = useCallback(async () => {
     const pendingKeys = Object.keys(pendingPatchRef.current);
@@ -210,6 +233,8 @@ export function useAutoSave({ onSave, onSuccess, onError }: UseAutoSaveOptions) 
     saveMultiple,
     retry,
     registerPendingChange,
+    setPendingField,
+    resetInitialValues,
     flushPending,
   };
 }
