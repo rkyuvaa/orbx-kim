@@ -32,6 +32,7 @@ import {
 } from '@/api/applicationsApi';
 import {
   useActivityTypesQuery,
+  useDropdownOptionsQuery,
   useFinanceCompaniesQuery,
   useStagesByModuleQuery,
   useTabsQuery,
@@ -48,18 +49,19 @@ import { formatDate, formatDateTime } from '@/utils/format';
 const editSchema = z.object({
   customer_name: z.string().min(2, 'Customer name is required'),
   customer_phone: z.string().min(8, 'Valid phone number required').max(20),
+  vehicle_number: z.string().optional(),
   vehicle_model_id: z.string().optional(),
-  vehicle_price: z.coerce
-    .number({ invalid_type_error: 'Vehicle price is required' })
-    .positive('Vehicle price must be positive'),
-  down_payment: z.coerce
-    .number({ invalid_type_error: 'Down payment is required' })
-    .nonnegative('Down payment cannot be negative'),
-  amount: z.coerce
-    .number({ invalid_type_error: 'Loan amount is required' })
-    .positive('Loan amount must be positive'),
-  finance_company_id: z.string().optional(),
+  vehicle_year: z.string().optional(),
+  fuel_type: z.string().optional(),
+  customer_status: z.string().optional(),
   lead_source: z.string().optional(),
+  coupon_code: z.string().optional(),
+  assigned_to: z.string().optional(),
+  lost_reason: z.string().optional(),
+  vehicle_price: z.coerce.number().optional().default(0),
+  down_payment: z.coerce.number().optional().default(0),
+  amount: z.coerce.number().optional().default(0),
+  finance_company_id: z.string().optional(),
 });
 
 type EditForm = z.infer<typeof editSchema>;
@@ -92,6 +94,10 @@ export default function LeadDetailPage() {
   const { data: models = [], isFetching: loadingModels } = useVehicleModelsQuery();
   const { data: companies = [] } = useFinanceCompaniesQuery();
   const { data: users = [] } = useUsersQuery();
+  const { data: fuelTypes = [] } = useDropdownOptionsQuery('fuel_type');
+  const { data: customerStatuses = [] } = useDropdownOptionsQuery('customer_status');
+  const { data: sources = [] } = useDropdownOptionsQuery('lead_source');
+  const { data: lostReasons = [] } = useDropdownOptionsQuery('lost_reason');
 
   const location = useLocation();
   const isOpportunity = lead?.status ? lead.status.toUpperCase() !== 'LEAD' : false;
@@ -131,18 +137,30 @@ export default function LeadDetailPage() {
   });
 
   const modelId = watch('vehicle_model_id');
+  const selectedFuelType = watch('fuel_type');
+  const selectedCustomerStatus = watch('customer_status');
+  const selectedSource = watch('lead_source');
+  const selectedAssignedTo = watch('assigned_to');
+  const selectedLostReason = watch('lost_reason');
 
   useEffect(() => {
     if (lead) {
       reset({
         customer_name: lead.customer_name || '',
         customer_phone: lead.customer_phone || '',
+        vehicle_number: lead.vehicle_number || '',
         vehicle_model_id: lead.vehicle_model_id ? String(lead.vehicle_model_id) : '',
+        vehicle_year: lead.vehicle_year || '',
+        fuel_type: lead.fuel_type || '',
+        customer_status: lead.customer_status || '',
+        lead_source: lead.lead_source || '',
+        coupon_code: lead.coupon_code || '',
+        assigned_to: lead.assigned_to ? String(lead.assigned_to) : '',
+        lost_reason: lead.lost_reason || '',
         vehicle_price: lead.vehicle_price ?? 0,
         down_payment: lead.down_payment ?? 0,
         amount: lead.amount ?? 0,
         finance_company_id: lead.finance_company_id ? String(lead.finance_company_id) : '',
-        lead_source: lead.lead_source || '',
       });
     }
   }, [lead, reset]);
@@ -158,13 +176,20 @@ export default function LeadDetailPage() {
           customer_name: values.customer_name,
           customer_phone: values.customer_phone,
           vehicle: selectedModel?.name ?? lead.vehicle,
-          amount: values.amount,
-          status: lead.status,
+          vehicle_number: values.vehicle_number?.trim() || null,
           vehicle_model_id: values.vehicle_model_id ? Number(values.vehicle_model_id) : null,
-          vehicle_price: values.vehicle_price,
-          down_payment: values.down_payment,
-          finance_company_id: values.finance_company_id ? Number(values.finance_company_id) : null,
+          vehicle_year: values.vehicle_year?.trim() || null,
+          fuel_type: values.fuel_type || null,
+          customer_status: values.customer_status || null,
           lead_source: values.lead_source || null,
+          coupon_code: values.coupon_code?.trim() || null,
+          assigned_to: values.assigned_to ? Number(values.assigned_to) : null,
+          lost_reason: values.lost_reason || null,
+          amount: values.amount || 0,
+          status: lead.status,
+          vehicle_price: values.vehicle_price || 0,
+          down_payment: values.down_payment || 0,
+          finance_company_id: values.finance_company_id ? Number(values.finance_company_id) : null,
         } as any,
       }).unwrap();
       showToast(`Lead ${lead.app_no} updated`, 'success');
@@ -350,136 +375,242 @@ export default function LeadDetailPage() {
 
           {activeLeadTabCode === 'general' ? (
             <form onSubmit={handleSubmit(onSubmit)}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
-                <TextField
-                  fullWidth
-                  label="Customer name *"
-                  margin="dense"
-                  error={Boolean(errors.customer_name)}
-                  helperText={errors.customer_name?.message}
-                  {...register('customer_name')}
-                />
-                <TextField
-                  fullWidth
-                  label="Mobile number *"
-                  margin="dense"
-                  error={Boolean(errors.customer_phone)}
-                  helperText={errors.customer_phone?.message}
-                  {...register('customer_phone')}
-                />
-              </div>
-
-              <Select
-                fullWidth
-                displayEmpty
-                size="small"
-                value={modelId || ''}
-                onChange={(e) => setValue('vehicle_model_id', String(e.target.value), { shouldValidate: true })}
-                error={Boolean(errors.vehicle_model_id)}
-                sx={{ mt: 1, mb: 0.5 }}
-                renderValue={(value) =>
-                  value ? models.find((m) => String(m.id) === value)?.name ?? value : 'Select vehicle model *'
-                }
-                inputProps={{ 'aria-label': 'Vehicle model' }}
-              >
-                <MenuItem value="">Select vehicle model</MenuItem>
-                {loadingModels && <MenuItem disabled>Loading models...</MenuItem>}
-                {!loadingModels && models.length === 0 && (
-                  <MenuItem disabled>No models configured — add them in Configuration</MenuItem>
-                )}
-                {models.map((m) => (
-                  <MenuItem key={m.id} value={String(m.id)}>
-                    {m.name}
-                  </MenuItem>
-                ))}
-              </Select>
-              {errors.vehicle_model_id && (
-                <div style={{ fontSize: 11.5, color: '#d32f2f', margin: '2px 14px 0' }}>
-                  {errors.vehicle_model_id.message}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {/* 1. Customer Name & 2. Phone Number */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="1. Customer Name *"
+                    error={Boolean(errors.customer_name)}
+                    helperText={errors.customer_name?.message}
+                    {...register('customer_name')}
+                  />
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="2. Phone Number *"
+                    error={Boolean(errors.customer_phone)}
+                    helperText={errors.customer_phone?.message}
+                    {...register('customer_phone')}
+                  />
                 </div>
-              )}
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <TextField
-                  fullWidth
-                  label="Vehicle price *"
-                  margin="dense"
-                  type="number"
-                  InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}
-                  error={Boolean(errors.vehicle_price)}
-                  helperText={errors.vehicle_price?.message}
-                  {...register('vehicle_price')}
-                />
-                <TextField
-                  fullWidth
-                  label="Down payment *"
-                  margin="dense"
-                  type="number"
-                  InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}
-                  error={Boolean(errors.down_payment)}
-                  helperText={errors.down_payment?.message}
-                  {...register('down_payment')}
-                />
-              </div>
-
-              <TextField
-                fullWidth
-                label="Loan amount *"
-                margin="dense"
-                type="number"
-                InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}
-                error={Boolean(errors.amount)}
-                helperText={errors.amount?.message}
-                {...register('amount')}
-              />
-
-              <Select
-                fullWidth
-                displayEmpty
-                size="small"
-                value={watch('finance_company_id') || ''}
-                onChange={(e) => setValue('finance_company_id', String(e.target.value), { shouldValidate: true })}
-                error={Boolean(errors.finance_company_id)}
-                sx={{ mt: 1, mb: 0.5 }}
-                renderValue={(value) =>
-                  value ? companies.find((c) => String(c.id) === value)?.name ?? value : 'Select finance company *'
-                }
-                inputProps={{ 'aria-label': 'Finance company' }}
-              >
-                <MenuItem value="">Select finance company</MenuItem>
-                {companies.map((c) => (
-                  <MenuItem key={c.id} value={String(c.id)}>
-                    {c.name}
-                  </MenuItem>
-                ))}
-              </Select>
-              {errors.finance_company_id && (
-                <div style={{ fontSize: 11.5, color: '#d32f2f', margin: '2px 14px 0' }}>
-                  {errors.finance_company_id.message}
+                {/* 3. Vehicle Number & 4. Customer Vehicle Model */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="3. Vehicle Number"
+                    placeholder="e.g. MH 02 AB 1234"
+                    {...register('vehicle_number')}
+                  />
+                  <div>
+                    <Select
+                      fullWidth
+                      displayEmpty
+                      size="small"
+                      value={modelId || ''}
+                      onChange={(e) => setValue('vehicle_model_id', String(e.target.value), { shouldValidate: true })}
+                      renderValue={(value) =>
+                        value ? models.find((m) => String(m.id) === value)?.name ?? value : '4. Customer Vehicle Model (Select)'
+                      }
+                      inputProps={{ 'aria-label': 'Vehicle model' }}
+                    >
+                      <MenuItem value="">
+                        <em>4. Customer Vehicle Model (Select)</em>
+                      </MenuItem>
+                      {loadingModels && <MenuItem disabled>Loading models...</MenuItem>}
+                      {!loadingModels && models.length === 0 && (
+                        <MenuItem disabled>No models configured — add in Configuration</MenuItem>
+                      )}
+                      {models.map((m) => (
+                        <MenuItem key={m.id} value={String(m.id)}>
+                          {m.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </div>
                 </div>
-              )}
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginTop: 14 }}>
-                <Select
-                  fullWidth
-                  displayEmpty
-                  size="small"
-                  value={watch('lead_source') || ''}
-                  onChange={(e) => setValue('lead_source', String(e.target.value), { shouldValidate: true })}
-                  sx={{ mb: 0.5 }}
-                  renderValue={(value) =>
-                    value ? value.replace(/_/g, ' ').toUpperCase() : 'Select lead source'
-                  }
-                  inputProps={{ 'aria-label': 'Lead source' }}
-                >
-                  <MenuItem value="">Select lead source</MenuItem>
-                  <MenuItem value="WEBSITE">Website</MenuItem>
-                  <MenuItem value="REFERRAL">Referral</MenuItem>
-                  <MenuItem value="EVENT">Event</MenuItem>
-                  <MenuItem value="SOCIAL_MEDIA">Social Media</MenuItem>
-                  <MenuItem value="COLD_CALL">Cold Call</MenuItem>
-                  <MenuItem value="OTHER">Other</MenuItem>
-                </Select>
+                {/* 5. Vehicle Year & Fuel Type */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="5. Vehicle Year"
+                    placeholder="e.g. 2024"
+                    {...register('vehicle_year')}
+                  />
+                  <div>
+                    <Select
+                      fullWidth
+                      displayEmpty
+                      size="small"
+                      value={selectedFuelType || ''}
+                      onChange={(e) => setValue('fuel_type', String(e.target.value))}
+                      renderValue={(val) =>
+                        val ? fuelTypes.find((f) => f.value === val)?.label ?? val : 'Fuel Type (Select)'
+                      }
+                    >
+                      <MenuItem value="">
+                        <em>Fuel Type (Select)</em>
+                      </MenuItem>
+                      {fuelTypes.length === 0 && (
+                        <MenuItem disabled>No fuel types configured — add in Configuration</MenuItem>
+                      )}
+                      {fuelTypes.map((f) => (
+                        <MenuItem key={f.id} value={f.value}>
+                          {f.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </div>
+                </div>
+
+                {/* 6. Customer Status & Source */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+                  <div>
+                    <Select
+                      fullWidth
+                      displayEmpty
+                      size="small"
+                      value={selectedCustomerStatus || ''}
+                      onChange={(e) => setValue('customer_status', String(e.target.value))}
+                      renderValue={(val) =>
+                        val ? customerStatuses.find((s) => s.value === val)?.label ?? val : '6. Customer Status (Select)'
+                      }
+                    >
+                      <MenuItem value="">
+                        <em>6. Customer Status (Select)</em>
+                      </MenuItem>
+                      {customerStatuses.length === 0 && (
+                        <MenuItem disabled>No customer statuses configured — add in Configuration</MenuItem>
+                      )}
+                      {customerStatuses.map((s) => (
+                        <MenuItem key={s.id} value={s.value}>
+                          {s.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </div>
+                  <div>
+                    <Select
+                      fullWidth
+                      displayEmpty
+                      size="small"
+                      value={selectedSource || ''}
+                      onChange={(e) => setValue('lead_source', String(e.target.value))}
+                      renderValue={(val) =>
+                        val ? sources.find((src) => src.value === val)?.label ?? val : 'Source (Select)'
+                      }
+                    >
+                      <MenuItem value="">
+                        <em>Source (Select)</em>
+                      </MenuItem>
+                      {sources.length === 0 && (
+                        <MenuItem disabled>No sources configured — add in Configuration</MenuItem>
+                      )}
+                      {sources.map((src) => (
+                        <MenuItem key={src.id} value={src.value}>
+                          {src.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Coupon Code & Responsible */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Coupon Code"
+                    placeholder="e.g. PROMO2026"
+                    {...register('coupon_code')}
+                  />
+                  <div>
+                    <Select
+                      fullWidth
+                      displayEmpty
+                      size="small"
+                      value={selectedAssignedTo || ''}
+                      onChange={(e) => setValue('assigned_to', String(e.target.value))}
+                      renderValue={(val) => {
+                        if (!val) return 'Responsible (Select User)';
+                        const matched = users.find((u) => String(u.id) === val);
+                        return matched ? `${matched.full_name} (${matched.role})` : val;
+                      }}
+                    >
+                      <MenuItem value="">
+                        <em>Responsible (Select User)</em>
+                      </MenuItem>
+                      {users.map((u) => (
+                        <MenuItem key={u.id} value={String(u.id)}>
+                          {u.full_name} ({u.role})
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Created on & Last updated on (Auto-captured, non-editable) */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Created on (Auto-captured)"
+                    value={lead.created_at ? formatDateTime(lead.created_at) : '—'}
+                    disabled
+                    slotProps={{
+                      input: {
+                        readOnly: true,
+                        sx: { bgcolor: '#F8FAF7', color: '#55655B' },
+                      },
+                    }}
+                  />
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Last updated on (Auto-captured)"
+                    value={lead.updated_at ? formatDateTime(lead.updated_at) : '—'}
+                    disabled
+                    slotProps={{
+                      input: {
+                        readOnly: true,
+                        sx: { bgcolor: '#F8FAF7', color: '#55655B' },
+                      },
+                    }}
+                  />
+                </div>
+
+                {/* 7. Lost / Lost Reason */}
+                <div>
+                  <Select
+                    fullWidth
+                    displayEmpty
+                    size="small"
+                    value={selectedLostReason || ''}
+                    onChange={(e) => setValue('lost_reason', String(e.target.value))}
+                    renderValue={(val) =>
+                      val ? lostReasons.find((r) => r.value === val)?.label ?? val : '7. Lost / Lost Reason (Select if applicable)'
+                    }
+                  >
+                    <MenuItem value="">
+                      <em>7. Lost / Lost Reason (Select if applicable)</em>
+                    </MenuItem>
+                    {lostReasons.length === 0 && (
+                      <MenuItem disabled>No lost reasons configured — add in Configuration</MenuItem>
+                    )}
+                    {lostReasons.map((r) => (
+                      <MenuItem key={r.id} value={r.value}>
+                        {r.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </div>
+
+                {/* Lead Score */}
                 <div
                   style={{
                     padding: '8px 12px',
