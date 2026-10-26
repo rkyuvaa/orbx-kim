@@ -8,15 +8,22 @@ from app.models.enums import ApplicationStatus, LeadSource
 class ApplicationBase(BaseModel):
     customer_name: str = Field(min_length=2, max_length=120)
     customer_phone: str = Field(min_length=8, max_length=20)
-    vehicle: str = Field(min_length=2, max_length=120)
-    amount: float = Field(gt=0)
+    vehicle: str = Field(default="", max_length=120)
+    vehicle_number: str | None = None
+    vehicle_year: str | None = None
+    fuel_type: str | None = None
+    customer_status: str | None = None
+    coupon_code: str | None = None
+    lost_reason: str | None = None
+    amount: float = Field(default=0.0, ge=0)
     status: ApplicationStatus = ApplicationStatus.LEAD
     stage_key: str | None = None
-    lead_source: LeadSource | None = None
+    lead_source: str | None = None
     finance_company_id: int | None = None
     vehicle_model_id: int | None = None
-    vehicle_price: float | None = Field(default=None, gt=0)
+    vehicle_price: float | None = Field(default=None, ge=0)
     down_payment: float | None = Field(default=None, ge=0)
+    assigned_to: int | None = None
 
 
 class ApplicationCreate(ApplicationBase):
@@ -27,14 +34,21 @@ class ApplicationUpdate(BaseModel):
     customer_name: str | None = None
     customer_phone: str | None = None
     vehicle: str | None = None
-    amount: float | None = Field(default=None, gt=0)
+    vehicle_number: str | None = None
+    vehicle_year: str | None = None
+    fuel_type: str | None = None
+    customer_status: str | None = None
+    coupon_code: str | None = None
+    lost_reason: str | None = None
+    amount: float | None = Field(default=None, ge=0)
     status: ApplicationStatus | None = None
     stage_key: str | None = None
-    lead_source: LeadSource | None = None
+    lead_source: str | None = None
     finance_company_id: int | None = None
     vehicle_model_id: int | None = None
-    vehicle_price: float | None = Field(default=None, gt=0)
+    vehicle_price: float | None = Field(default=None, ge=0)
     down_payment: float | None = Field(default=None, ge=0)
+    assigned_to: int | None = None
 
 
 class ApplicationOut(BaseModel):
@@ -43,10 +57,16 @@ class ApplicationOut(BaseModel):
     customer_name: str | None = ""
     customer_phone: str | None = ""
     vehicle: str | None = ""
+    vehicle_number: str | None = None
+    vehicle_year: str | None = None
+    fuel_type: str | None = None
+    customer_status: str | None = None
+    coupon_code: str | None = None
+    lost_reason: str | None = None
     amount: float = 0.0
     status: ApplicationStatus
     stage_key: str | None = "new"
-    lead_source: LeadSource | None = None
+    lead_source: str | None = None
     lead_score: int = 0
     finance_company_id: int | None = None
     finance_company_name: str | None = None

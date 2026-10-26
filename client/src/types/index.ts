@@ -463,6 +463,12 @@ export interface ApplicationItem {
   customer_name: string;
   customer_phone: string;
   vehicle: string;
+  vehicle_number?: string | null;
+  vehicle_year?: string | null;
+  fuel_type?: string | null;
+  customer_status?: string | null;
+  coupon_code?: string | null;
+  lost_reason?: string | null;
   amount: number;
   status: ApplicationStatus;
   stage_key?: string | null;
@@ -479,6 +485,25 @@ export interface ApplicationItem {
   updated_at: string;
   aging_label: string;
   aging_tone: string;
+}
+
+export interface CrmDropdownOption {
+  id: number;
+  category: string;
+  label: string;
+  value: string;
+  order_index: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CrmDropdownOptionInput {
+  category: string;
+  label: string;
+  value: string;
+  order_index?: number;
+  is_active?: boolean;
 }
 
 export interface ApplicationListResponse {

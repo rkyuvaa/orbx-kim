@@ -423,4 +423,32 @@ class BranchOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class CrmDropdownOptionCreate(BaseModel):
+    category: str = Field(min_length=1, max_length=50)
+    label: str = Field(min_length=1, max_length=100)
+    value: str = Field(min_length=1, max_length=100)
+    order_index: int = 0
+    is_active: bool = True
+
+
+class CrmDropdownOptionUpdate(BaseModel):
+    label: str | None = Field(default=None, min_length=1, max_length=100)
+    value: str | None = Field(default=None, min_length=1, max_length=100)
+    order_index: int | None = None
+    is_active: bool | None = None
+
+
+class CrmDropdownOptionOut(BaseModel):
+    id: int
+    category: str
+    label: str
+    value: str
+    order_index: int
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 

@@ -28,8 +28,14 @@ class Application(Base):
     app_no: Mapped[str] = mapped_column(String(16), unique=True, index=True, nullable=False)
     customer_name: Mapped[str] = mapped_column(String(120), nullable=False)
     customer_phone: Mapped[str] = mapped_column(String(20), nullable=False)
-    vehicle: Mapped[str] = mapped_column(String(120), nullable=False)
-    amount: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False)
+    vehicle: Mapped[str | None] = mapped_column(String(120), nullable=True, default="")
+    vehicle_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    vehicle_year: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    fuel_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    customer_status: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    coupon_code: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    lost_reason: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    amount: Mapped[float | None] = mapped_column(Numeric(14, 2), nullable=True, default=0.0)
     vehicle_model_id: Mapped[int | None] = mapped_column(
         ForeignKey("vehicle_models.id"), nullable=True, index=True
     )
@@ -48,8 +54,8 @@ class Application(Base):
         ForeignKey("finance_companies.id"), nullable=True
     )
     assigned_to: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
-    lead_source: Mapped[LeadSource | None] = mapped_column(
-        Enum(LeadSource, name="lead_source"), nullable=True, index=True
+    lead_source: Mapped[str | None] = mapped_column(
+        String(100), nullable=True, index=True
     )
     lead_score: Mapped[int] = mapped_column(default=0, server_default="0", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.current_timestamp())

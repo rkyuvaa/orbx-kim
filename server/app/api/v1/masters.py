@@ -11,6 +11,7 @@ from app.models import (
     ActivityType,
     Application,
     ApplicationStatus,
+    CrmDropdownOption,
     CrmTab,
     CrmTabField,
     CrmTabFilter,
@@ -28,6 +29,9 @@ from app.schemas.master import (
     ActivityTypeCreate,
     ActivityTypeOut,
     ActivityTypeUpdate,
+    CrmDropdownOptionCreate,
+    CrmDropdownOptionOut,
+    CrmDropdownOptionUpdate,
     CrmTabCreate,
     CrmTabFieldCreate,
     CrmTabFieldOut,
@@ -1080,6 +1084,113 @@ def delete_branch(
     db.delete(branch)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# ---------------------------------------------------------------------------
+# CRM Dropdown Options APIs
+# ---------------------------------------------------------------------------
+
+def _dropdown_option_to_out(opt: CrmDropdownOption) -> CrmDropdownOptionOut:
+    return CrmDropdownOptionOut(
+        id=opt.id,
+        category=opt.category,
+        label=opt.label,
+        value=opt.value,
+        order_index=opt.order_index,
+        is_active=opt.is_active,
+        created_at=opt.created_at,
+        updated_at=opt.updated_at,
+    )
+
+
+@router.get("/dropdown-options", response_model=list[CrmDropdownOptionOut])
+def list_dropdown_options(
+    category: Optional[str] = Query(default=None, description="Category filter (e.g. fuel_type, customer_status, lead_source, lost_reason)"),
+    active_only: bool = False,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    query = db.query(CrmDropdownOption)
+    if category:
+        query = query.filter(CrmDropdownOption.category == category.lower().strip())
+    if active_only:
+        query = query.filter(CrmDropdownOption.is_active.is_(True))
+    opts = query.order_by(CrmDropdownOption.order_index.asc(), CrmDropdownOption.label.asc()).all()
+    return [_dropdown_option_to_out(o) for o in opts]
+
+
+@router.post("/dropdown-options", response_model=CrmDropdownOptionOut, status_code=status.HTTP_201_CREATED)
+def create_dropdown_option(
+    payload: CrmDropdownOptionCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.ADMIN)),
+):
+    cat = payload.category.lower().strip()
+    label = payload.label.strip()
+    value = payload.value.strip() or label.lower().replace(" ", "_")
+
+    existing = db.query(CrmDropdownOption).filter(
+        CrmDropdownOption.category == cat,
+        func.lower(CrmDropdownOption.value) == value.lower()
+    ).first()
+    if existing:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Option '{label}' already exists in {cat}")
+
+    opt = CrmDropdownOption(
+        category=cat,
+        label=label,
+        value=value,
+        order_index=payload.order_index,
+        is_active=payload.is_active,
+    )
+    db.add(opt)
+    db.commit()
+    db.refresh(opt)
+    return _dropdown_option_to_out(opt)
+
+
+@router.patch("/dropdown-options/{option_id}", response_model=CrmDropdownOptionOut)
+def update_dropdown_option(
+    option_id: int,
+    payload: CrmDropdownOptionUpdate,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.ADMIN)),
+):
+    opt = db.get(CrmDropdownOption, option_id)
+    if not opt:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Option not found")
+    data = payload.model_dump(exclude_unset=True)
+    if "label" in data and data["label"]:
+        data["label"] = data["label"].strip()
+    if "value" in data and data["value"]:
+        data["value"] = data["value"].strip()
+        dup = db.query(CrmDropdownOption).filter(
+            CrmDropdownOption.category == opt.category,
+            func.lower(CrmDropdownOption.value) == data["value"].lower(),
+            CrmDropdownOption.id != opt.id
+        ).first()
+        if dup:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Option value already exists in this category")
+    for field, val in data.items():
+        setattr(opt, field, val)
+    db.commit()
+    db.refresh(opt)
+    return _dropdown_option_to_out(opt)
+
+
+@router.delete("/dropdown-options/{option_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_dropdown_option(
+    option_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.ADMIN)),
+):
+    opt = db.get(CrmDropdownOption, option_id)
+    if not opt:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Option not found")
+    db.delete(opt)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
 
 
 

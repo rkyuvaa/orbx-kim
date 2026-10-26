@@ -29,9 +29,18 @@ export interface ApplicationFilters {
 export interface NewApplication {
   customer_name: string;
   customer_phone: string;
-  vehicle: string;
-  amount: number;
+  vehicle?: string;
+  vehicle_number?: string | null;
+  vehicle_year?: string | null;
+  fuel_type?: string | null;
+  customer_status?: string | null;
+  coupon_code?: string | null;
+  lost_reason?: string | null;
+  lead_source?: string | null;
+  assigned_to?: number | null;
+  amount?: number;
   status?: string;
+  stage_key?: string | null;
   vehicle_model_id?: number | null;
   vehicle_price?: number;
   down_payment?: number;

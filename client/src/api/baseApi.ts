@@ -99,6 +99,7 @@ export const baseApi = createApi({
     'VehicleModels',
     'CostCenters',
     'Branches',
+    'DropdownOptions',
   ],
   endpoints: () => ({}),
 });

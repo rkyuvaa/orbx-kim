@@ -107,8 +107,8 @@ def get_user_effective_permissions_data(db: Session, user: User) -> EffectiveAcc
     # Gather user roles
     roles = get_user_active_roles(db, user)
 
-    # If primary user.role is ADMIN or has super_admin role
-    is_super_admin = user.role == UserRole.ADMIN or any(r.code in ["super_admin", "admin"] for r in roles)
+    # ONLY true super_admin role gets universal wildcard bypass
+    is_super_admin = any(r.code == "super_admin" for r in roles)
 
     # Gather user departments
     dept_users = db.query(DepartmentUser).filter(DepartmentUser.user_id == user.id).all()
@@ -218,12 +218,9 @@ def can_user(
     if not user or user.status != UserStatus.ACTIVE:
         return False
 
-    # 1. Super Admin check
-    if user.role == UserRole.ADMIN or str(getattr(user.role, "value", user.role)).upper() == "ADMIN":
-        return True
-
+    # 1. Super Admin check: only true super_admin role gets universal wildcard
     roles = get_user_active_roles(db, user)
-    if any(r.code in ["super_admin", "admin"] for r in roles):
+    if any(r.code == "super_admin" for r in roles):
         return True
 
     # Parse inputs to resolve module, resource, and action
@@ -303,7 +300,8 @@ def can_user(
 
 def get_user_field_permissions(db: Session, user: User, resource_code: str) -> dict[str, FieldPermissionType]:
     """Get field-level access overrides for a specific resource."""
-    if user.role == UserRole.ADMIN:
+    roles = get_user_active_roles(db, user)
+    if any(r.code == "super_admin" for r in roles):
         return {}
 
     rbac_user_roles = db.query(RbacUserRole).filter(RbacUserRole.user_id == user.id).all()

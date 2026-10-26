@@ -63,6 +63,12 @@ def _to_out(app: Application) -> ApplicationOut:
         customer_name=app.customer_name or "",
         customer_phone=app.customer_phone or "",
         vehicle=app.vehicle or "",
+        vehicle_number=getattr(app, "vehicle_number", None),
+        vehicle_year=getattr(app, "vehicle_year", None),
+        fuel_type=getattr(app, "fuel_type", None),
+        customer_status=getattr(app, "customer_status", None),
+        coupon_code=getattr(app, "coupon_code", None),
+        lost_reason=getattr(app, "lost_reason", None),
         amount=float(app.amount) if app.amount is not None else 0.0,
         status=app.status,
         stage_key=stg_key,
@@ -336,19 +342,34 @@ def create_application(
         if not stg_key:
             stg_key = "new" if app_status == ApplicationStatus.LEAD else "applications"
 
+        vehicle_name = payload.vehicle or ""
+        if not vehicle_name and payload.vehicle_model_id:
+            vm = db.get(VehicleModel, payload.vehicle_model_id)
+            if vm:
+                vehicle_name = vm.name
+
+        assigned_to_id = payload.assigned_to if payload.assigned_to else user.id
+
         app = Application(
             app_no=app_number,
             customer_name=payload.customer_name,
             customer_phone=payload.customer_phone,
-            vehicle=payload.vehicle,
-            amount=payload.amount,
+            vehicle=vehicle_name,
+            vehicle_number=payload.vehicle_number,
+            vehicle_year=payload.vehicle_year,
+            fuel_type=payload.fuel_type,
+            customer_status=payload.customer_status,
+            coupon_code=payload.coupon_code,
+            lost_reason=payload.lost_reason,
+            amount=payload.amount or 0.0,
             status=app_status,
             stage_key=stg_key,
+            lead_source=payload.lead_source,
             finance_company_id=payload.finance_company_id,
             vehicle_model_id=payload.vehicle_model_id,
             vehicle_price=payload.vehicle_price,
             down_payment=payload.down_payment,
-            assigned_to=user.id,
+            assigned_to=assigned_to_id,
         )
         db.add(app)
         db.flush()
@@ -387,13 +408,21 @@ def update_application(
         'customer_name': 'Customer Name',
         'customer_phone': 'Customer Phone',
         'vehicle': 'Vehicle',
+        'vehicle_number': 'Vehicle Number',
+        'vehicle_year': 'Vehicle Year',
+        'fuel_type': 'Fuel Type',
+        'customer_status': 'Customer Status',
+        'coupon_code': 'Coupon Code',
+        'lost_reason': 'Lost Reason',
         'amount': 'Loan Amount',
         'status': 'Status',
         'stage_key': 'Stage',
+        'lead_source': 'Lead Source',
         'finance_company_id': 'Finance Company',
         'vehicle_model_id': 'Vehicle Model',
         'vehicle_price': 'Vehicle Price',
         'down_payment': 'Down Payment',
+        'assigned_to': 'Responsible',
     }
 
     if payload.stage_key is not None:

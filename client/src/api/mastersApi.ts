@@ -17,6 +17,8 @@ import type {
   VehicleModelInput,
   CostCenter,
   Branch,
+  CrmDropdownOption,
+  CrmDropdownOptionInput,
 } from '@/types';
 
 export const mastersApi = baseApi.injectEndpoints({
@@ -167,6 +169,24 @@ export const mastersApi = baseApi.injectEndpoints({
       query: () => ({ url: '/masters/branches' }),
       providesTags: ['Branches'],
     }),
+    dropdownOptions: build.query<CrmDropdownOption[], string | void>({
+      query: (category) => ({
+        url: category ? `/masters/dropdown-options?category=${category}` : '/masters/dropdown-options',
+      }),
+      providesTags: ['DropdownOptions'],
+    }),
+    createDropdownOption: build.mutation<CrmDropdownOption, CrmDropdownOptionInput>({
+      query: (body) => ({ url: '/masters/dropdown-options', method: 'POST', body }),
+      invalidatesTags: ['DropdownOptions'],
+    }),
+    updateDropdownOption: build.mutation<CrmDropdownOption, { id: number; body: Partial<CrmDropdownOptionInput> }>({
+      query: ({ id, body }) => ({ url: `/masters/dropdown-options/${id}`, method: 'PATCH', body }),
+      invalidatesTags: ['DropdownOptions'],
+    }),
+    deleteDropdownOption: build.mutation<void, number>({
+      query: (id) => ({ url: `/masters/dropdown-options/${id}`, method: 'DELETE' }),
+      invalidatesTags: ['DropdownOptions'],
+    }),
   }),
 });
 
@@ -206,5 +226,9 @@ export const {
   useUsersQuery,
   useCostCentersQuery,
   useBranchesQuery,
+  useDropdownOptionsQuery,
+  useCreateDropdownOptionMutation,
+  useUpdateDropdownOptionMutation,
+  useDeleteDropdownOptionMutation,
 } = mastersApi;
 

@@ -278,11 +278,12 @@ def seed_rbac_data(db: Session) -> None:
                 if not rp:
                     db.add(RolePermission(role_id=role_obj.id, permission_id=p.id, granted=True))
 
-    # Link Super Admin role to default admin user
-    admin_user = db.query(User).filter(User.email == "admin@kim.com").first()
-    if admin_user and super_admin_role:
-        ur = db.query(RbacUserRole).filter(RbacUserRole.user_id == admin_user.id, RbacUserRole.role_id == super_admin_role.id).first()
-        if not ur:
-            db.add(RbacUserRole(user_id=admin_user.id, role_id=super_admin_role.id, is_primary=True))
+    # Link Super Admin role to default admin user(s)
+    admin_users = db.query(User).filter(User.email.in_(["admin@kim.com", "admin@test.com"])).all()
+    for admin_user in admin_users:
+        if admin_user and super_admin_role:
+            ur = db.query(RbacUserRole).filter(RbacUserRole.user_id == admin_user.id, RbacUserRole.role_id == super_admin_role.id).first()
+            if not ur:
+                db.add(RbacUserRole(user_id=admin_user.id, role_id=super_admin_role.id, is_primary=True))
 
     db.commit()

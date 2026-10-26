@@ -221,7 +221,7 @@ export default function Sidebar({
   const { data: dashboard } = useDashboardQuery();
   const counts = dashboard?.nav_counts;
   const location = useLocation();
-  const { can } = usePermission();
+  const { can, isLoading } = usePermission();
   const { showError } = useToast();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -262,7 +262,7 @@ export default function Sidebar({
             }
             return null;
           } else {
-            const isPermitted = item.key === 'crm_dashboard' ? true : can('view', item.key);
+            const isPermitted = can('view', item.key);
             if (!isPermitted) return null;
 
             if (!query) return item;
@@ -554,7 +554,11 @@ export default function Sidebar({
 
       {/* Navigation */}
       <nav style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '4px 12px 12px' }}>
-        {filteredNavGroups.length === 0 ? (
+        {isLoading ? (
+          <div style={{ padding: '24px 8px', textAlign: 'center', color: 'rgba(255, 255, 255, 0.40)', fontSize: 12 }}>
+            Loading navigation...
+          </div>
+        ) : filteredNavGroups.length === 0 ? (
           <div style={{ padding: '20px 8px', textAlign: 'center', color: 'rgba(255, 255, 255, 0.40)', fontSize: 12 }}>
             No matching menu items
           </div>

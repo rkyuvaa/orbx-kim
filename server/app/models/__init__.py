@@ -8,6 +8,7 @@ from app.models.application import (
     Sanction,
     Verification,
 )
+from app.models.crm_dropdown_option import CrmDropdownOption
 from app.models.crm_tab import CrmTab, CrmTabFilter, CrmTabStageMapping
 from app.models.crm_tab_field import CrmLeadCustomFieldValue, CrmTabField
 from app.models.enums import (
@@ -129,6 +130,7 @@ __all__ = [
     "AttendanceStatus",
     "AuditActionType",
     "AuditLog",
+    "CrmDropdownOption",
     "CrmLeadCustomFieldValue",
     "CrmTab",
     "CrmTabField",

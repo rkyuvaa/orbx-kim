@@ -12,12 +12,12 @@ interface AuthPermissionContextType {
 }
 
 const AuthPermissionContext = createContext<AuthPermissionContextType>({
-  can: () => true,
-  canAccessRoute: () => true,
-  getFirstAccessibleRoute: () => '/',
-  isSuperAdmin: true,
+  can: () => false,
+  canAccessRoute: () => false,
+  getFirstAccessibleRoute: () => '/login',
+  isSuperAdmin: false,
   effectivePermissionsMap: {},
-  isLoading: false,
+  isLoading: true,
 });
 
 export const AuthPermissionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -32,14 +32,15 @@ export const AuthPermissionProvider: React.FC<{ children: React.ReactNode }> = (
 
   const isSuperAdmin = useMemo(() => {
     if (!user) return false;
-    if (user.role === 'ADMIN') return true;
-    if (effectiveData?.roles?.some((r) => r.toLowerCase().includes('admin'))) return true;
+    // Only true super_admin role gets universal wildcard bypass
+    if (effectiveData?.roles?.some((r) => r.toLowerCase() === 'super admin' || r.toLowerCase() === 'super_admin')) return true;
     return false;
   }, [user, effectiveData]);
 
-  const effectivePermissionsMap = useMemo(() => {
-    if (!effectiveData?.permissions) return {};
+  const { effectivePermissionsMap, modulePermissionsMap } = useMemo(() => {
+    if (!effectiveData?.permissions) return { effectivePermissionsMap: {}, modulePermissionsMap: {} };
     const map: Record<string, boolean> = {};
+    const modMap: Record<string, boolean> = {};
     for (const p of effectiveData.permissions) {
       if (p.permission_code) {
         map[p.permission_code] = p.granted;
@@ -50,8 +51,11 @@ export const AuthPermissionProvider: React.FC<{ children: React.ReactNode }> = (
       if (p.module_code && p.resource_code && p.action_code) {
         map[`${p.module_code}:${p.resource_code}:${p.action_code}`] = p.granted;
       }
+      if (p.module_code && p.granted && p.action_code === 'view') {
+        modMap[p.module_code] = true;
+      }
     }
-    return map;
+    return { effectivePermissionsMap: map, modulePermissionsMap: modMap };
   }, [effectiveData]);
 
   const can = (action: string, resource: string): boolean => {
@@ -77,6 +81,10 @@ export const AuthPermissionProvider: React.FC<{ children: React.ReactNode }> = (
     }
     if (resource in effectivePermissionsMap) {
       return effectivePermissionsMap[resource];
+    }
+    // Module-level access check
+    if (action === 'view' && resource in modulePermissionsMap) {
+      return modulePermissionsMap[resource];
     }
     return false;
   };
@@ -143,8 +151,8 @@ export const AuthPermissionProvider: React.FC<{ children: React.ReactNode }> = (
     }
 
     if (path.startsWith('/reports')) return can('view', 'summary_reports') || can('view', 'crm_reports');
-    if (path.startsWith('/notifications')) return true;
-    if (path.startsWith('/settings')) return true;
+    if (path.startsWith('/notifications')) return can('view', 'notifications');
+    if (path.startsWith('/settings')) return can('view', 'settings');
 
     if (['/documents', '/verification', '/finance', '/sanction', '/delivery', '/disbursement'].includes(path)) {
       return can('view', 'leads') || can('view', 'opportunities') || can('view', 'crm_dashboard');
@@ -194,7 +202,9 @@ export const AuthPermissionProvider: React.FC<{ children: React.ReactNode }> = (
       }
     }
 
-    return '/notifications';
+    if (can('view', 'notifications')) return '/notifications';
+    if (can('view', 'settings')) return '/settings';
+    return '/login';
   };
 
   return (

@@ -187,6 +187,10 @@ def create_user_admin(
         base_role = UserRole.ADMIN
     elif payload.primary_role and str(payload.primary_role).upper() in UserRole.__members__:
         base_role = UserRole[str(payload.primary_role).upper()]
+    else:
+        matching_enum_role = next((r for r in roles_objs if r.code.upper() in UserRole.__members__), None)
+        if matching_enum_role:
+            base_role = UserRole[matching_enum_role.code.upper()]
 
     user = User(
         email=email_clean,
@@ -370,8 +374,12 @@ def update_user_admin(
             u.role = UserRole.ADMIN
         elif payload.primary_role and str(payload.primary_role).upper() in UserRole.__members__:
             u.role = UserRole[str(payload.primary_role).upper()]
-        elif u.role not in [UserRole.ADMIN, UserRole.SALES_EXECUTIVE, UserRole.FINANCE_OFFICER, UserRole.DELIVERY_TEAM]:
-            u.role = UserRole.SALES_EXECUTIVE
+        else:
+            matching_enum_role = next((r for r in roles_objs if r.code.upper() in UserRole.__members__), None)
+            if matching_enum_role:
+                u.role = UserRole[matching_enum_role.code.upper()]
+            else:
+                u.role = UserRole.SALES_EXECUTIVE
 
         existing_role_ids = {ur.role_id for ur in u.user_roles}
         new_role_ids = set(payload.role_ids)
