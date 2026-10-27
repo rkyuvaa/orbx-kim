@@ -14,7 +14,7 @@ docker compose up -d web
 
 # 2. Request Let's Encrypt certificate using webroot mode
 echo ">> 2. Requesting SSL certificate from Let's Encrypt for ${DOMAIN}..."
-docker compose run --rm certbot certonly \
+docker compose run --rm --entrypoint certbot certbot certonly \
     --webroot \
     --webroot-path=/var/www/certbot \
     --email "${EMAIL}" \
@@ -23,9 +23,9 @@ docker compose run --rm certbot certonly \
     --non-interactive \
     -d "${DOMAIN}"
 
-# 3. Switch Nginx to SSL configuration and reload
+# 3. Switch Nginx to SSL configuration and restart
 echo ">> 3. Activating SSL in Nginx..."
-docker compose exec web sh -c "cp /etc/nginx/conf.d/nginx-ssl.conf /etc/nginx/conf.d/default.conf && nginx -s reload"
+docker compose restart web
 
 # 4. Start certbot auto-renewal background container
 echo ">> 4. Starting Certbot auto-renewal service..."
