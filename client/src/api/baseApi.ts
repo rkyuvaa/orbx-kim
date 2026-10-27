@@ -104,6 +104,11 @@ export const baseApi = createApi({
     'RecruitmentKPIs',
     'Candidates',
     'JobRequisitions',
+    'VSKits',
+    'VSVehicles',
+    'VSComplaints',
+    'VSMaintenance',
+    'VSDashboard',
   ],
   endpoints: () => ({}),
 });

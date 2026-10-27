@@ -27,7 +27,8 @@ def seed_rbac_data(db: Session) -> None:
     modules_data = [
         {"name": "PLM", "code": "plm", "display_order": 1, "icon": "Cpu"},
         {"name": "CRM Management", "code": "crm", "display_order": 2, "icon": "Users"},
-        {"name": "Project & Task Management", "code": "project_task", "display_order": 3, "icon": "FolderPlus"},
+        {"name": "Vehicle Service", "code": "vehicle_service_module", "display_order": 3, "icon": "Car"},
+        {"name": "Project & Task Management", "code": "project_task", "display_order": 4, "icon": "FolderPlus"},
         {"name": "HR & Employee Management", "code": "hr_employee", "display_order": 4, "icon": "Users"},
         {"name": "Renewal Tracker", "code": "renewal_tracker_module", "display_order": 5, "icon": "RefreshCw"},
         {"name": "Requirements Management", "code": "requirements_module", "display_order": 6, "icon": "ClipboardList"},
@@ -66,6 +67,13 @@ def seed_rbac_data(db: Session) -> None:
         {"module_code": "crm", "name": "Activities", "code": "activities", "display_order": 5},
         {"module_code": "crm", "name": "CRM Reports", "code": "crm_reports", "display_order": 6},
         {"module_code": "crm", "name": "CRM Configuration", "code": "crm_configuration", "display_order": 7},
+
+        # Vehicle Service
+        {"module_code": "vehicle_service_module", "name": "Vehicle Service Dashboard", "code": "vs_dashboard", "display_order": 1},
+        {"module_code": "vehicle_service_module", "name": "Work Orders & Complaints", "code": "vs_work_orders", "display_order": 2},
+        {"module_code": "vehicle_service_module", "name": "Vehicle Service History", "code": "vs_service_history", "display_order": 3},
+        {"module_code": "vehicle_service_module", "name": "Service Reports & Misuse", "code": "vs_reports", "display_order": 4},
+        {"module_code": "vehicle_service_module", "name": "Kit & Vehicle Configuration", "code": "vs_configuration", "display_order": 5},
 
         # Project & Task
         {"module_code": "project_task", "name": "Projects", "code": "projects", "display_order": 1},

@@ -74,6 +74,18 @@ from app.models.recruitment import (
     CandidateStageHistory,
     CandidateDocument,
 )
+from app.models.vehicle_service import (
+    VSKit,
+    VSKitComponentType,
+    VSVehicle,
+    VSVehicleComponent,
+    VSComponentHistory,
+    VSComplaint,
+    VSComplaintNote,
+    VSMaintenanceSchedule,
+    VSCustomerFeedback,
+    VSServiceCost,
+)
 from app.models.projects import (
     ProjectWorkspace,
     ProjectSpace,
@@ -224,4 +236,14 @@ __all__ = [
     "Candidate",
     "CandidateStageHistory",
     "CandidateDocument",
+    "VSKit",
+    "VSKitComponentType",
+    "VSVehicle",
+    "VSVehicleComponent",
+    "VSComponentHistory",
+    "VSComplaint",
+    "VSComplaintNote",
+    "VSMaintenanceSchedule",
+    "VSCustomerFeedback",
+    "VSServiceCost",
 ]

@@ -1,0 +1,1194 @@
+import React, { useState } from 'react';
+import {
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Chip,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Divider,
+  FormControl,
+  Grid,
+  IconButton,
+  InputAdornment,
+  InputLabel,
+  MenuItem,
+  Paper,
+  Rating,
+  Select,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+  Tooltip,
+  Typography,
+} from '@mui/material';
+import {
+  AlertOctagon,
+  AlertTriangle,
+  ArrowRight,
+  BatteryCharging,
+  Car,
+  CheckCircle2,
+  Clock,
+  Cpu,
+  Download,
+  ExternalLink,
+  Filter,
+  MapPin,
+  MessageSquare,
+  Plus,
+  RefreshCw,
+  Search,
+  Send,
+  ShieldAlert,
+  Sliders,
+  User,
+  Wrench,
+  Zap,
+} from 'lucide-react';
+
+import { useUsersQuery } from '@/api/mastersApi';
+import {
+  useAddVSComplaintNoteMutation,
+  useAddVSServiceCostMutation,
+  useCloseVSComplaintMutation,
+  useCreateVSComplaintMutation,
+  useGetVSComplaintsQuery,
+  useGetVSVehiclesQuery,
+  useReplaceVSComponentMutation,
+  useUpdateVSComplaintMutation,
+} from '@/api/vehicleServiceApi';
+import type {
+  VSComplaint,
+  VSComplaintCloseRequest,
+  VSComplaintCreate,
+  VSVehicle,
+} from '@/types/vehicleService';
+
+const SEVERITY_COLORS: Record<string, string> = {
+  CRITICAL: '#ef4444',
+  HIGH: '#f97316',
+  MEDIUM: '#f59e0b',
+  LOW: '#10b981',
+};
+
+const STATUS_COLORS: Record<string, 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'> = {
+  OPEN: 'error',
+  ACKNOWLEDGED: 'warning',
+  ASSIGNED: 'info',
+  IN_PROGRESS: 'primary',
+  RESOLVED: 'success',
+  CLOSED: 'default',
+};
+
+export default function VSWorkOrdersTab() {
+  const [search, setSearch] = useState('');
+  const [severityFilter, setSeverityFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+
+  // Queries
+  const { data: complaints = [], isLoading, refetch } = useGetVSComplaintsQuery({
+    search: search || undefined,
+    severity: severityFilter || undefined,
+    status: statusFilter || undefined,
+    category: categoryFilter || undefined,
+  });
+
+  const { data: vehicles = [] } = useGetVSVehiclesQuery();
+  const { data: users = [] } = useUsersQuery();
+
+  // Mutations
+  const [createComplaint, { isLoading: isCreating }] = useCreateVSComplaintMutation();
+  const [updateComplaint, { isLoading: isUpdating }] = useUpdateVSComplaintMutation();
+  const [addNote, { isLoading: isAddingNote }] = useAddVSComplaintNoteMutation();
+  const [closeComplaint, { isLoading: isClosing }] = useCloseVSComplaintMutation();
+  const [replaceComponent, { isLoading: isReplacing }] = useReplaceVSComponentMutation();
+  const [addCost, { isLoading: isAddingCost }] = useAddVSServiceCostMutation();
+
+  // Dialog states
+  const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
+  const [selectedComplaint, setSelectedComplaint] = useState<VSComplaint | null>(null);
+
+  // New Complaint Form
+  const [newVehicleId, setNewVehicleId] = useState<number | ''>('');
+  const [newComponentId, setNewComponentId] = useState<number | ''>('');
+  const [newReportedBy, setNewReportedBy] = useState('');
+  const [newReportedPhone, setNewReportedPhone] = useState('');
+  const [newCategory, setNewCategory] = useState('BREAKDOWN');
+  const [newSeverity, setNewSeverity] = useState('MEDIUM');
+  const [newDescription, setNewDescription] = useState('');
+  const [newAssignedTo, setNewAssignedTo] = useState<number | ''>('');
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  // Timeline note state
+  const [newNoteText, setNewNoteText] = useState('');
+
+  // Close Complaint Dialog state
+  const [isCloseDialogOpen, setIsCloseDialogOpen] = useState(false);
+  const [closeResolutionSummary, setCloseResolutionSummary] = useState('');
+  const [closeRating, setCloseRating] = useState<number | null>(5);
+  const [closeFeedbackComment, setCloseFeedbackComment] = useState('');
+
+  // Component Replacement inside Complaint Dialog
+  const [isReplaceDialogOpen, setIsReplaceDialogOpen] = useState(false);
+  const [replaceComponentId, setReplaceComponentId] = useState<number | ''>('');
+  const [replaceNewSerial, setReplaceNewSerial] = useState('');
+  const [replaceReason, setReplaceReason] = useState('');
+
+  // Service Cost state
+  const [costItemName, setCostItemName] = useState('');
+  const [costQty, setCostQty] = useState(1);
+  const [costUnitPrice, setCostUnitPrice] = useState<number | ''>('');
+
+  const selectedVehicleObj: VSVehicle | undefined = vehicles.find((v) => v.id === newVehicleId);
+
+  const handleOpenNewDialog = () => {
+    setNewVehicleId('');
+    setNewComponentId('');
+    setNewReportedBy('');
+    setNewReportedPhone('');
+    setNewCategory('BREAKDOWN');
+    setNewSeverity('MEDIUM');
+    setNewDescription('');
+    setNewAssignedTo('');
+    setCreateError(null);
+    setIsNewDialogOpen(true);
+  };
+
+  const handleSelectVehicleInForm = (vid: number) => {
+    setNewVehicleId(vid);
+    setNewComponentId('');
+    const v = vehicles.find((veh) => veh.id === vid);
+    if (v) {
+      setNewReportedBy(v.owner_name);
+      setNewReportedPhone(v.owner_phone);
+    }
+  };
+
+  const handleCreateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newVehicleId || !newReportedBy || !newReportedPhone || !newDescription) {
+      setCreateError('Please fill all mandatory fields.');
+      return;
+    }
+    setCreateError(null);
+
+    const payload: VSComplaintCreate = {
+      vehicle_id: Number(newVehicleId),
+      affected_component_id: newComponentId ? Number(newComponentId) : undefined,
+      reported_by: newReportedBy.trim(),
+      reported_phone: newReportedPhone.trim(),
+      category: newCategory,
+      severity: newSeverity,
+      description: newDescription.trim(),
+      assigned_to_id: newAssignedTo ? Number(newAssignedTo) : undefined,
+    };
+
+    try {
+      await createComplaint(payload).unwrap();
+      setIsNewDialogOpen(false);
+      refetch();
+    } catch (err: any) {
+      setCreateError(err?.data?.detail || 'Failed to create work order.');
+    }
+  };
+
+  const handleUpdateStatus = async (complaintId: number, nextStatus: string) => {
+    try {
+      const updated = await updateComplaint({ id: complaintId, body: { status: nextStatus } }).unwrap();
+      setSelectedComplaint(updated);
+      refetch();
+    } catch (err: any) {
+      alert(err?.data?.detail || 'Failed to update status.');
+    }
+  };
+
+  const handleAssignUser = async (complaintId: number, userId: number) => {
+    try {
+      const updated = await updateComplaint({ id: complaintId, body: { assigned_to_id: userId } }).unwrap();
+      setSelectedComplaint(updated);
+      refetch();
+    } catch (err: any) {
+      alert(err?.data?.detail || 'Failed to assign technician.');
+    }
+  };
+
+  const handleAddNote = async () => {
+    if (!selectedComplaint || !newNoteText.trim()) return;
+    try {
+      await addNote({ complaintId: selectedComplaint.id, note: newNoteText.trim() }).unwrap();
+      setNewNoteText('');
+      const updated = await updateComplaint({ id: selectedComplaint.id, body: {} }).unwrap();
+      setSelectedComplaint(updated);
+      refetch();
+    } catch (err: any) {
+      alert('Failed to add note.');
+    }
+  };
+
+  const handleCloseSubmit = async () => {
+    if (!selectedComplaint || !closeResolutionSummary.trim()) {
+      alert('Please enter a resolution summary.');
+      return;
+    }
+
+    const payload: VSComplaintCloseRequest = {
+      resolution_summary: closeResolutionSummary.trim(),
+      rating: closeRating || undefined,
+      feedback_comment: closeFeedbackComment.trim() || undefined,
+    };
+
+    try {
+      const res = await closeComplaint({ id: selectedComplaint.id, body: payload }).unwrap();
+      setSelectedComplaint(res);
+      setIsCloseDialogOpen(false);
+      refetch();
+    } catch (err: any) {
+      alert(err?.data?.detail || 'Failed to close work order.');
+    }
+  };
+
+  const handleReplaceComponentSubmit = async () => {
+    if (!selectedComplaint || !replaceComponentId || !replaceNewSerial.trim()) {
+      alert('Please select component and specify new serial number.');
+      return;
+    }
+
+    try {
+      await replaceComponent({
+        vehicleId: selectedComplaint.vehicle_id,
+        componentId: Number(replaceComponentId),
+        body: {
+          new_serial_number: replaceNewSerial.trim(),
+          replaced_date: new Date().toISOString().slice(0, 10),
+          reason: replaceReason.trim() || `Replaced during Work Order #${selectedComplaint.complaint_no}`,
+          complaint_id: selectedComplaint.id,
+        },
+      }).unwrap();
+
+      setIsReplaceDialogOpen(false);
+      setReplaceComponentId('');
+      setReplaceNewSerial('');
+      setReplaceReason('');
+
+      // Refresh complaint
+      const updated = await updateComplaint({ id: selectedComplaint.id, body: {} }).unwrap();
+      setSelectedComplaint(updated);
+      refetch();
+    } catch (err: any) {
+      alert(err?.data?.detail || 'Failed to record component replacement.');
+    }
+  };
+
+  const handleAddCostSubmit = async () => {
+    if (!selectedComplaint || !costItemName.trim() || !costUnitPrice) {
+      alert('Please enter part/labor name and unit price.');
+      return;
+    }
+
+    try {
+      await addCost({
+        complaintId: selectedComplaint.id,
+        body: {
+          item_name: costItemName.trim(),
+          quantity: costQty,
+          unit_price: Number(costUnitPrice),
+        },
+      }).unwrap();
+
+      setCostItemName('');
+      setCostQty(1);
+      setCostUnitPrice('');
+
+      // Refresh complaint
+      const updated = await updateComplaint({ id: selectedComplaint.id, body: {} }).unwrap();
+      setSelectedComplaint(updated);
+    } catch (err: any) {
+      alert('Failed to add cost item.');
+    }
+  };
+
+  return (
+    <Box>
+      {/* Action and Filter Header */}
+      <Paper sx={{ p: 2.5, mb: 3, borderRadius: 3, border: '1px solid #e2e8f0' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2, mb: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Typography variant="h6" fontWeight={800}>
+              Work Orders & Service Complaints
+            </Typography>
+            <Chip label={`${complaints.length} Total`} size="small" sx={{ fontWeight: 700 }} />
+          </Box>
+
+          <Button
+            variant="contained"
+            startIcon={<Plus size={18} />}
+            onClick={handleOpenNewDialog}
+            sx={{
+              borderRadius: 2,
+              textTransform: 'none',
+              fontWeight: 700,
+              bgcolor: '#2563eb',
+              '&:hover': { bgcolor: '#1d4ed8' },
+            }}
+          >
+            Create Work Order
+          </Button>
+        </Box>
+
+        {/* Filters */}
+        <Grid container spacing={1.5} alignItems="center">
+          <Grid item xs={12} sm={6} md={3.5}>
+            <TextField
+              size="small"
+              placeholder="Search by ID, Vehicle, Owner..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              fullWidth
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search size={16} color="#94a3b8" />
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </Grid>
+
+          <Grid item xs={6} sm={3} md={2}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Severity</InputLabel>
+              <Select value={severityFilter} label="Severity" onChange={(e) => setSeverityFilter(e.target.value)}>
+                <MenuItem value="">All Severities</MenuItem>
+                <MenuItem value="CRITICAL">🔴 Critical</MenuItem>
+                <MenuItem value="HIGH">🟠 High</MenuItem>
+                <MenuItem value="MEDIUM">🟡 Medium</MenuItem>
+                <MenuItem value="LOW">🟢 Low</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+
+          <Grid item xs={6} sm={3} md={2.5}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Status</InputLabel>
+              <Select value={statusFilter} label="Status" onChange={(e) => setStatusFilter(e.target.value)}>
+                <MenuItem value="">All Statuses</MenuItem>
+                <MenuItem value="OPEN">Open</MenuItem>
+                <MenuItem value="ACKNOWLEDGED">Acknowledged</MenuItem>
+                <MenuItem value="ASSIGNED">Assigned</MenuItem>
+                <MenuItem value="IN_PROGRESS">In Progress</MenuItem>
+                <MenuItem value="RESOLVED">Resolved</MenuItem>
+                <MenuItem value="CLOSED">Closed</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+
+          <Grid item xs={6} sm={3} md={2.5}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Category</InputLabel>
+              <Select value={categoryFilter} label="Category" onChange={(e) => setCategoryFilter(e.target.value)}>
+                <MenuItem value="">All Categories</MenuItem>
+                <MenuItem value="BREAKDOWN">Breakdown</MenuItem>
+                <MenuItem value="BATTERY">Battery / Range</MenuItem>
+                <MenuItem value="MOTOR">Motor</MenuItem>
+                <MenuItem value="CONTROLLER">Controller</MenuItem>
+                <MenuItem value="CHARGING">Charging</MenuItem>
+                <MenuItem value="PERFORMANCE">Performance</MenuItem>
+                <MenuItem value="OTHER">Other</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+
+          <Grid item xs={6} sm={3} md={1.5}>
+            <Button
+              variant="outlined"
+              size="small"
+              fullWidth
+              onClick={() => {
+                setSearch('');
+                setSeverityFilter('');
+                setStatusFilter('');
+                setCategoryFilter('');
+              }}
+              sx={{ textTransform: 'none', height: 40 }}
+            >
+              Reset
+            </Button>
+          </Grid>
+        </Grid>
+      </Paper>
+
+      {/* Complaints Table */}
+      <Paper sx={{ borderRadius: 3, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+        {isLoading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}>
+            <CircularProgress />
+          </Box>
+        ) : complaints.length === 0 ? (
+          <Box sx={{ py: 10, textAlign: 'center', color: 'text.secondary' }}>
+            <Wrench size={48} strokeWidth={1.2} style={{ margin: '0 auto 16px', color: '#94a3b8' }} />
+            <Typography variant="h6" fontWeight={700}>
+              No Work Orders Found
+            </Typography>
+            <Typography variant="body2" sx={{ maxWidth: 420, mx: 'auto', mt: 1 }}>
+              No service complaints match your current filters. Click "Create Work Order" or scan vehicle QR code to register a complaint.
+            </Typography>
+          </Box>
+        ) : (
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow sx={{ bgcolor: '#f8fafc' }}>
+                  <TableCell sx={{ fontWeight: 700 }}>Complaint ID</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Vehicle & Owner</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Affected Component</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Category</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Severity</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Assigned To</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Location</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Created At</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700 }}>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {complaints.map((c) => (
+                  <TableRow
+                    key={c.id}
+                    hover
+                    sx={{ cursor: 'pointer' }}
+                    onClick={() => setSelectedComplaint(c)}
+                  >
+                    <TableCell sx={{ fontWeight: 800, color: '#2563eb' }}>
+                      {c.complaint_no}
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" fontWeight={700}>
+                        {c.vehicle_number || `Vehicle #${c.vehicle_id}`}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {c.owner_name} ({c.owner_phone})
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      {c.affected_component_label ? (
+                        <Box>
+                          <Typography variant="caption" fontWeight={600} display="block">
+                            {c.affected_component_label}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            SN: {c.affected_component_serial}
+                          </Typography>
+                        </Box>
+                      ) : (
+                        <Typography variant="caption" color="text.secondary">
+                          General / Unspecified
+                        </Typography>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Chip label={c.category} size="small" variant="outlined" />
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={c.severity}
+                        size="small"
+                        sx={{
+                          bgcolor: `${SEVERITY_COLORS[c.severity]}15`,
+                          color: SEVERITY_COLORS[c.severity],
+                          fontWeight: 700,
+                          fontSize: 11,
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={c.status}
+                        size="small"
+                        color={STATUS_COLORS[c.status] || 'default'}
+                        sx={{ fontWeight: 600, fontSize: 11 }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      {c.assigned_to_name ? (
+                        <Typography variant="caption" fontWeight={600}>
+                          {c.assigned_to_name}
+                        </Typography>
+                      ) : (
+                        <Typography variant="caption" color="text.secondary" fontStyle="italic">
+                          Unassigned
+                        </Typography>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {c.gps_latitude && c.gps_longitude ? (
+                        <Tooltip title={`Coordinates: ${c.gps_latitude.toFixed(4)}, ${c.gps_longitude.toFixed(4)}`}>
+                          <Chip
+                            icon={<MapPin size={12} />}
+                            label="GPS"
+                            size="small"
+                            color="info"
+                            variant="outlined"
+                            sx={{ height: 22, fontSize: 10 }}
+                          />
+                        </Tooltip>
+                      ) : (
+                        <Typography variant="caption" color="text.secondary">
+                          —
+                        </Typography>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="caption" color="text.secondary">
+                        {new Date(c.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedComplaint(c);
+                        }}
+                        sx={{ textTransform: 'none', fontSize: 11, py: 0.3 }}
+                      >
+                        Manage
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+      </Paper>
+
+      {/* =====================================================================
+          NEW WORK ORDER DIALOG
+      ====================================================================== */}
+      <Dialog open={isNewDialogOpen} onClose={() => setIsNewDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800 }}>Create New Work Order</DialogTitle>
+        <DialogContent dividers>
+          {createError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {createError}
+            </Alert>
+          )}
+
+          {/* Vehicle Selector */}
+          <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+            <InputLabel>Retrofitted Vehicle *</InputLabel>
+            <Select
+              value={newVehicleId}
+              label="Retrofitted Vehicle *"
+              onChange={(e) => handleSelectVehicleInForm(Number(e.target.value))}
+            >
+              {vehicles.map((v) => (
+                <MenuItem key={v.id} value={v.id}>
+                  {v.vehicle_number} — {v.owner_name} (Kit: {v.kit_number || 'Default'})
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          {/* Component in Kit Selector */}
+          {selectedVehicleObj && selectedVehicleObj.components && selectedVehicleObj.components.length > 0 && (
+            <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+              <InputLabel>Affected Component from Kit</InputLabel>
+              <Select
+                value={newComponentId}
+                label="Affected Component from Kit"
+                onChange={(e) => setNewComponentId(e.target.value as number | '')}
+              >
+                <MenuItem value="">
+                  <em>General Vehicle / Non-Component Issue</em>
+                </MenuItem>
+                {selectedVehicleObj.components.map((comp) => (
+                  <MenuItem key={comp.id} value={comp.id}>
+                    {comp.component_label} (Serial: {comp.serial_number})
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
+
+          {/* Complainant Details */}
+          <Grid container spacing={2} sx={{ mb: 2 }}>
+            <Grid item xs={6}>
+              <TextField
+                label="Reporter Name *"
+                size="small"
+                fullWidth
+                value={newReportedBy}
+                onChange={(e) => setNewReportedBy(e.target.value)}
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField
+                label="Reporter Phone *"
+                size="small"
+                fullWidth
+                value={newReportedPhone}
+                onChange={(e) => setNewReportedPhone(e.target.value)}
+              />
+            </Grid>
+          </Grid>
+
+          {/* Category & Severity */}
+          <Grid container spacing={2} sx={{ mb: 2 }}>
+            <Grid item xs={6}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Category *</InputLabel>
+                <Select value={newCategory} label="Category *" onChange={(e) => setNewCategory(e.target.value)}>
+                  <MenuItem value="BREAKDOWN">Breakdown</MenuItem>
+                  <MenuItem value="BATTERY">Battery / Range</MenuItem>
+                  <MenuItem value="MOTOR">Motor</MenuItem>
+                  <MenuItem value="CONTROLLER">Controller</MenuItem>
+                  <MenuItem value="CHARGING">Charging</MenuItem>
+                  <MenuItem value="PERFORMANCE">Performance</MenuItem>
+                  <MenuItem value="OTHER">Other</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={6}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Severity *</InputLabel>
+                <Select value={newSeverity} label="Severity *" onChange={(e) => setNewSeverity(e.target.value)}>
+                  <MenuItem value="CRITICAL">🔴 Critical</MenuItem>
+                  <MenuItem value="HIGH">🟠 High</MenuItem>
+                  <MenuItem value="MEDIUM">🟡 Medium</MenuItem>
+                  <MenuItem value="LOW">🟢 Low</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+          </Grid>
+
+          {/* Assignee */}
+          <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+            <InputLabel>Assign Technician / Service Officer</InputLabel>
+            <Select
+              value={newAssignedTo}
+              label="Assign Technician / Service Officer"
+              onChange={(e) => setNewAssignedTo(e.target.value as number | '')}
+            >
+              <MenuItem value="">
+                <em>Leave Unassigned</em>
+              </MenuItem>
+              {users.map((u) => (
+                <MenuItem key={u.id} value={u.id}>
+                  {u.full_name} ({u.role})
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          {/* Description */}
+          <TextField
+            label="Problem Description *"
+            multiline
+            rows={3}
+            fullWidth
+            value={newDescription}
+            onChange={(e) => setNewDescription(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setIsNewDialogOpen(false)} sx={{ textTransform: 'none' }}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleCreateSubmit}
+            disabled={isCreating}
+            sx={{ textTransform: 'none', fontWeight: 700 }}
+          >
+            {isCreating ? 'Creating...' : 'Create Work Order'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* =====================================================================
+          COMPLAINT DETAIL & MANAGEMENT DIALOG
+      ====================================================================== */}
+      {selectedComplaint && (
+        <Dialog
+          open={Boolean(selectedComplaint)}
+          onClose={() => setSelectedComplaint(null)}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
+            <Box>
+              <Typography variant="h6" fontWeight={800}>
+                Work Order: {selectedComplaint.complaint_no}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Registered via {selectedComplaint.registered_via} on{' '}
+                {new Date(selectedComplaint.created_at).toLocaleString()}
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Chip
+                label={selectedComplaint.severity}
+                sx={{
+                  bgcolor: `${SEVERITY_COLORS[selectedComplaint.severity]}20`,
+                  color: SEVERITY_COLORS[selectedComplaint.severity],
+                  fontWeight: 800,
+                }}
+              />
+              <Chip
+                label={selectedComplaint.status}
+                color={STATUS_COLORS[selectedComplaint.status] || 'default'}
+                sx={{ fontWeight: 800 }}
+              />
+            </Box>
+          </DialogTitle>
+
+          <DialogContent dividers sx={{ p: 3 }}>
+            {/* Action Bar (Workflow status transitions) */}
+            <Box sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 2.5, mb: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5 }}>
+              <Typography variant="subtitle2" fontWeight={700}>
+                Workflow Actions:
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                {selectedComplaint.status === 'OPEN' && (
+                  <Button
+                    size="small"
+                    variant="contained"
+                    color="warning"
+                    onClick={() => handleUpdateStatus(selectedComplaint.id, 'ACKNOWLEDGED')}
+                    sx={{ textTransform: 'none', fontWeight: 700 }}
+                  >
+                    Acknowledge
+                  </Button>
+                )}
+
+                {(selectedComplaint.status === 'OPEN' || selectedComplaint.status === 'ACKNOWLEDGED') && (
+                  <Button
+                    size="small"
+                    variant="contained"
+                    color="primary"
+                    onClick={() => handleUpdateStatus(selectedComplaint.id, 'IN_PROGRESS')}
+                    sx={{ textTransform: 'none', fontWeight: 700 }}
+                  >
+                    Start Service (In Progress)
+                  </Button>
+                )}
+
+                {selectedComplaint.status === 'IN_PROGRESS' && (
+                  <Button
+                    size="small"
+                    variant="contained"
+                    color="success"
+                    onClick={() => handleUpdateStatus(selectedComplaint.id, 'RESOLVED')}
+                    sx={{ textTransform: 'none', fontWeight: 700 }}
+                  >
+                    Mark Resolved
+                  </Button>
+                )}
+
+                {selectedComplaint.status === 'RESOLVED' && (
+                  <Button
+                    size="small"
+                    variant="contained"
+                    color="inherit"
+                    onClick={() => {
+                      setCloseResolutionSummary(selectedComplaint.resolution_summary || '');
+                      setIsCloseDialogOpen(true);
+                    }}
+                    sx={{ textTransform: 'none', fontWeight: 700, bgcolor: '#0f172a', color: '#fff', '&:hover': { bgcolor: '#1e293b' } }}
+                  >
+                    Close Work Order & Feedback
+                  </Button>
+                )}
+              </Box>
+            </Box>
+
+            <Grid container spacing={3} sx={{ mb: 3 }}>
+              {/* Vehicle & Customer Info */}
+              <Grid item xs={12} md={6}>
+                <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, height: '100%' }}>
+                  <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" gutterBottom>
+                    VEHICLE & CUSTOMER DETAILS
+                  </Typography>
+                  <Typography variant="subtitle1" fontWeight={800} color="#0f172a">
+                    {selectedComplaint.vehicle_number}
+                  </Typography>
+                  <Typography variant="body2" sx={{ mt: 0.5 }}>
+                    <strong>Owner:</strong> {selectedComplaint.owner_name}
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>Contact:</strong> {selectedComplaint.owner_phone}
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>Reported By:</strong> {selectedComplaint.reported_by} ({selectedComplaint.reported_phone})
+                  </Typography>
+
+                  {selectedComplaint.gps_latitude && selectedComplaint.gps_longitude && (
+                    <Box sx={{ mt: 1.5, p: 1, bgcolor: '#eff6ff', borderRadius: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                        <MapPin size={16} color="#2563eb" />
+                        <Typography variant="caption" fontWeight={600} color="#1d4ed8">
+                          GPS: {selectedComplaint.gps_latitude.toFixed(4)}, {selectedComplaint.gps_longitude.toFixed(4)}
+                        </Typography>
+                      </Box>
+                      <Button
+                        size="small"
+                        href={`https://www.google.com/maps?q=${selectedComplaint.gps_latitude},${selectedComplaint.gps_longitude}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        endIcon={<ExternalLink size={12} />}
+                        sx={{ fontSize: 11, textTransform: 'none', p: 0.5 }}
+                      >
+                        Map
+                      </Button>
+                    </Box>
+                  )}
+                </Paper>
+              </Grid>
+
+              {/* Component & Assignment Info */}
+              <Grid item xs={12} md={6}>
+                <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, height: '100%' }}>
+                  <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" gutterBottom>
+                    COMPONENT LINKAGE & TECHNICIAN
+                  </Typography>
+
+                  {selectedComplaint.affected_component_label ? (
+                    <Box sx={{ mb: 2, p: 1.5, bgcolor: '#f8fafc', borderRadius: 1.5 }}>
+                      <Typography variant="subtitle2" fontWeight={700}>
+                        {selectedComplaint.affected_component_label}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        Active Serial Number: <strong>{selectedComplaint.affected_component_serial}</strong>
+                      </Typography>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        onClick={() => {
+                          setReplaceComponentId(selectedComplaint.affected_component_id || '');
+                          setReplaceNewSerial('');
+                          setReplaceReason('');
+                          setIsReplaceDialogOpen(true);
+                        }}
+                        sx={{ mt: 1, textTransform: 'none', fontSize: 11, py: 0.3 }}
+                      >
+                        Replace This Component Serial
+                      </Button>
+                    </Box>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      No specific component tied to this issue.
+                    </Typography>
+                  )}
+
+                  {/* Technician Assignment */}
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Assigned Technician</InputLabel>
+                    <Select
+                      value={selectedComplaint.assigned_to_id || ''}
+                      label="Assigned Technician"
+                      onChange={(e) => handleAssignUser(selectedComplaint.id, Number(e.target.value))}
+                    >
+                      <MenuItem value="">
+                        <em>Unassigned</em>
+                      </MenuItem>
+                      {users.map((u) => (
+                        <MenuItem key={u.id} value={u.id}>
+                          {u.full_name} ({u.role})
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Paper>
+              </Grid>
+            </Grid>
+
+            {/* Description */}
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 3 }}>
+              <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" gutterBottom>
+                ISSUE DESCRIPTION
+              </Typography>
+              <Typography variant="body1">
+                {selectedComplaint.description}
+              </Typography>
+              {selectedComplaint.resolution_summary && (
+                <Box sx={{ mt: 2, p: 1.5, bgcolor: '#ecfdf5', borderRadius: 1.5, border: '1px solid #a7f3d0' }}>
+                  <Typography variant="caption" fontWeight={700} color="#065f46" display="block">
+                    RESOLUTION SUMMARY
+                  </Typography>
+                  <Typography variant="body2" color="#047857">
+                    {selectedComplaint.resolution_summary}
+                  </Typography>
+                </Box>
+              )}
+            </Paper>
+
+            {/* Customer Feedback if closed */}
+            {selectedComplaint.feedback && (
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 3, bgcolor: '#fefce8', borderColor: '#fef08a' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography variant="subtitle2" fontWeight={700} color="#854d0e">
+                    Customer Satisfaction Feedback
+                  </Typography>
+                  <Rating value={selectedComplaint.feedback.rating} readOnly size="small" />
+                </Box>
+                {selectedComplaint.feedback.comment && (
+                  <Typography variant="body2" color="#713f12">
+                    "{selectedComplaint.feedback.comment}"
+                  </Typography>
+                )}
+              </Paper>
+            )}
+
+            {/* Service Costs Section */}
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 3 }}>
+              <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" gutterBottom>
+                SERVICE & REPLACEMENT COSTS
+              </Typography>
+              {selectedComplaint.costs && selectedComplaint.costs.length > 0 ? (
+                <Table size="small" sx={{ mb: 2 }}>
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: '#f8fafc' }}>
+                      <TableCell sx={{ fontWeight: 700 }}>Item / Part Description</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Qty</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Unit Price</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700 }}>Total Price</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {selectedComplaint.costs.map((cost) => (
+                      <TableRow key={cost.id}>
+                        <TableCell>{cost.item_name}</TableCell>
+                        <TableCell>{cost.quantity}</TableCell>
+                        <TableCell>₹{cost.unit_price.toFixed(2)}</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700 }}>₹{cost.total_price.toFixed(2)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  No itemized parts or labor costs added to this work order.
+                </Typography>
+              )}
+
+              {/* Add Cost Item */}
+              <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+                <TextField
+                  label="Part / Labor Item"
+                  size="small"
+                  value={costItemName}
+                  onChange={(e) => setCostItemName(e.target.value)}
+                  sx={{ flex: 2, minWidth: 160 }}
+                />
+                <TextField
+                  label="Qty"
+                  type="number"
+                  size="small"
+                  value={costQty}
+                  onChange={(e) => setCostQty(Math.max(1, Number(e.target.value)))}
+                  sx={{ width: 80 }}
+                />
+                <TextField
+                  label="Unit Price (₹)"
+                  type="number"
+                  size="small"
+                  value={costUnitPrice}
+                  onChange={(e) => setCostUnitPrice(e.target.value ? Number(e.target.value) : '')}
+                  sx={{ width: 120 }}
+                />
+                <Button
+                  variant="outlined"
+                  onClick={handleAddCostSubmit}
+                  disabled={isAddingCost}
+                  sx={{ textTransform: 'none', fontWeight: 600 }}
+                >
+                  Add Cost
+                </Button>
+              </Box>
+            </Paper>
+
+            {/* Timeline Notes */}
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+              <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" gutterBottom>
+                ACTIVITY TIMELINE & TECHNICIAN NOTES
+              </Typography>
+
+              {/* Add Note */}
+              <Box sx={{ display: 'flex', gap: 1.5, mb: 2 }}>
+                <TextField
+                  placeholder="Add a progress update, diagnostic note, or parts requisition remark..."
+                  size="small"
+                  fullWidth
+                  value={newNoteText}
+                  onChange={(e) => setNewNoteText(e.target.value)}
+                />
+                <Button
+                  variant="contained"
+                  onClick={handleAddNote}
+                  disabled={isAddingNote || !newNoteText.trim()}
+                  startIcon={<Send size={16} />}
+                  sx={{ textTransform: 'none', px: 2.5 }}
+                >
+                  Post
+                </Button>
+              </Box>
+
+              {/* Notes List */}
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                {selectedComplaint.notes && selectedComplaint.notes.length > 0 ? (
+                  selectedComplaint.notes.map((n) => (
+                    <Box
+                      key={n.id}
+                      sx={{
+                        p: 1.5,
+                        borderRadius: 1.5,
+                        bgcolor: n.is_status_change ? '#f1f5f9' : '#ffffff',
+                        border: '1px solid #e2e8f0',
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+                        <Typography variant="caption" fontWeight={700} color="#0f172a">
+                          {n.author_name}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {new Date(n.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                        </Typography>
+                      </Box>
+                      <Typography variant="body2" color="text.primary">
+                        {n.note}
+                      </Typography>
+                    </Box>
+                  ))
+                ) : (
+                  <Typography variant="caption" color="text.secondary">
+                    No notes recorded yet.
+                  </Typography>
+                )}
+              </Box>
+            </Paper>
+          </DialogContent>
+
+          <DialogActions sx={{ p: 2 }}>
+            <Button onClick={() => setSelectedComplaint(null)} sx={{ textTransform: 'none' }}>
+              Close
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
+
+      {/* =====================================================================
+          CLOSE WORK ORDER & FEEDBACK MODAL
+      ====================================================================== */}
+      <Dialog open={isCloseDialogOpen} onClose={() => setIsCloseDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800 }}>Complete & Close Work Order</DialogTitle>
+        <DialogContent dividers>
+          <TextField
+            label="Resolution Summary *"
+            placeholder="Describe repairs conducted, components replaced, tests verified..."
+            multiline
+            rows={3}
+            fullWidth
+            required
+            value={closeResolutionSummary}
+            onChange={(e) => setCloseResolutionSummary(e.target.value)}
+            sx={{ mb: 3 }}
+          />
+
+          <Typography variant="subtitle2" fontWeight={700} gutterBottom>
+            Customer Satisfaction Rating
+          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+            <Rating
+              value={closeRating}
+              onChange={(_, val) => setCloseRating(val)}
+              size="large"
+            />
+            <Typography variant="caption" color="text.secondary">
+              ({closeRating} of 5 Stars)
+            </Typography>
+          </Box>
+
+          <TextField
+            label="Customer Feedback / Voice of Customer Remarks"
+            multiline
+            rows={2}
+            fullWidth
+            value={closeFeedbackComment}
+            onChange={(e) => setCloseFeedbackComment(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setIsCloseDialogOpen(false)} sx={{ textTransform: 'none' }}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="success"
+            onClick={handleCloseSubmit}
+            disabled={isClosing}
+            sx={{ textTransform: 'none', fontWeight: 700 }}
+          >
+            {isClosing ? 'Closing...' : 'Confirm Closure'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* =====================================================================
+          REPLACE COMPONENT SERIAL MODAL
+      ====================================================================== */}
+      <Dialog open={isReplaceDialogOpen} onClose={() => setIsReplaceDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800 }}>Replace Component Serial</DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Record the installation of a new component replacing the faulty part. The old serial will be archived in the component audit trail.
+          </Typography>
+
+          <TextField
+            label="New Serial Number *"
+            size="small"
+            fullWidth
+            required
+            value={replaceNewSerial}
+            onChange={(e) => setReplaceNewSerial(e.target.value)}
+            sx={{ mb: 2 }}
+          />
+
+          <TextField
+            label="Reason for Replacement"
+            placeholder="e.g. Cell degradation, burnt mosfet, casing crack..."
+            size="small"
+            fullWidth
+            value={replaceReason}
+            onChange={(e) => setReplaceReason(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setIsReplaceDialogOpen(false)} sx={{ textTransform: 'none' }}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleReplaceComponentSubmit}
+            disabled={isReplacing}
+            sx={{ textTransform: 'none', fontWeight: 700 }}
+          >
+            {isReplacing ? 'Saving...' : 'Confirm Replacement'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
+  );
+}

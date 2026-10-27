@@ -32,6 +32,7 @@ import SettingsPage from '@/pages/SettingsPage';
 import ConfigurationPage from '@/pages/ConfigurationPage';
 import DashboardPage from '@/features/dashboard/DashboardPage';
 import PublicFinancierDocumentView from '@/pages/PublicFinancierDocumentView';
+import VehicleServiceRegisterPage from '@/pages/VehicleServiceRegisterPage';
 
 // Admin RBAC Pages
 const UserManagementPage = lazy(() => import('@/pages/admin/UserManagementPage'));
@@ -90,6 +91,7 @@ export default function App() {
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/financier/documents-view/:token" element={<PublicFinancierDocumentView />} />
+              <Route path="/vs/register/:qrToken" element={<VehicleServiceRegisterPage />} />
               <Route
                 element={
                   <RequireAuth>

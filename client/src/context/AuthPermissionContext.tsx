@@ -101,10 +101,19 @@ export const AuthPermissionProvider: React.FC<{ children: React.ReactNode }> = (
     if (path.startsWith('/activities')) return can('view', 'activities');
     if (path === '/configuration') return can('view', 'crm_configuration');
     
-    if (path === '/projects/configuration') return can('view', 'project_configuration');
+    if (path.startsWith('/projects/configuration')) return can('view', 'project_configuration');
     if (path.startsWith('/projects')) return can('view', 'projects');
     if (path.startsWith('/my-tasks')) return can('view', 'my_tasks') || can('view', 'tasks');
     if (path.startsWith('/tasks')) return can('view', 'tasks');
+
+    if (path.startsWith('/vehicle-service')) {
+      if (path === '/vehicle-service') return can('view', 'vs_dashboard') || can('view', 'vehicle_service');
+      if (path === '/vehicle-service/work-orders') return can('view', 'vs_work_orders') || can('view', 'vehicle_service');
+      if (path === '/vehicle-service/service-history') return can('view', 'vs_service_history') || can('view', 'vehicle_service');
+      if (path === '/vehicle-service/reports') return can('view', 'vs_reports') || can('view', 'vehicle_service');
+      if (path === '/vehicle-service/configuration') return can('view', 'vs_configuration') || can('view', 'vehicle_service');
+      return can('view', 'vs_dashboard') || can('view', 'vehicle_service');
+    }
 
     if (path.startsWith('/hr')) {
       if (path === '/hr/recruitment') return can('view', 'hr_recruitment');
@@ -187,6 +196,7 @@ export const AuthPermissionProvider: React.FC<{ children: React.ReactNode }> = (
     if (can('view', 'customers')) return '/customers';
     if (can('view', 'opportunities')) return '/opportunities';
     if (can('view', 'activities')) return '/activities';
+    if (can('view', 'vs_dashboard') || can('view', 'vehicle_service')) return '/vehicle-service';
     if (can('view', 'hr_master') || can('view', 'hr_recruitment') || can('view', 'hr_leave') || can('view', 'hr_attendance')) return '/hr';
     if (can('view', 'renewal_tracker')) return '/renewal/tracker';
     if (can('view', 'req_material') || can('view', 'req_it')) return '/requirements/material';

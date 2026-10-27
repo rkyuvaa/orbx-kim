@@ -65,3 +65,54 @@ class LeadSource(enum.StrEnum):
     SOCIAL_MEDIA = "SOCIAL_MEDIA"
     COLD_CALL = "COLD_CALL"
     OTHER = "OTHER"
+
+
+class VSComponentType(enum.StrEnum):
+    BATTERY = "BATTERY"
+    MOTOR = "MOTOR"
+    CONTROLLER = "CONTROLLER"
+    CHARGER = "CHARGER"
+    WIRING_HARNESS = "WIRING_HARNESS"
+    DC_CONVERTER = "DC_CONVERTER"
+    THROTTLE = "THROTTLE"
+    OTHER = "OTHER"
+
+
+class ComplaintCategory(enum.StrEnum):
+    BREAKDOWN = "BREAKDOWN"
+    BATTERY = "BATTERY"
+    MOTOR = "MOTOR"
+    CONTROLLER = "CONTROLLER"
+    CHARGING = "CHARGING"
+    PERFORMANCE = "PERFORMANCE"
+    WIRING = "WIRING"
+    OTHER = "OTHER"
+
+
+class ComplaintSeverity(enum.StrEnum):
+    CRITICAL = "CRITICAL"
+    HIGH = "HIGH"
+    MEDIUM = "MEDIUM"
+    LOW = "LOW"
+
+
+class ComplaintStatus(enum.StrEnum):
+    OPEN = "OPEN"
+    ACKNOWLEDGED = "ACKNOWLEDGED"
+    ASSIGNED = "ASSIGNED"
+    IN_PROGRESS = "IN_PROGRESS"
+    RESOLVED = "RESOLVED"
+    CLOSED = "CLOSED"
+
+
+class RegisteredVia(enum.StrEnum):
+    STAFF = "STAFF"
+    QR = "QR"
+
+
+class MaintenanceStatus(enum.StrEnum):
+    SCHEDULED = "SCHEDULED"
+    IN_PROGRESS = "IN_PROGRESS"
+    COMPLETED = "COMPLETED"
+    CANCELLED = "CANCELLED"
+
