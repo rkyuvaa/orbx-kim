@@ -4,24 +4,26 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DEFAULT_TIMEOUT=300 \
-    PIP_RETRIES=10
+    UV_SYSTEM_PYTHON=1
 
 WORKDIR /app
 
-# 1. Install build tools and dependencies first for maximum Docker layer caching
-COPY requirements.txt ./
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir -r requirements.txt
+# 1. Install uv for ultra-fast parallel package installation (~3s vs 4+ mins with standard pip)
+RUN pip install --no-cache-dir uv
 
-# 2. Copy application source code
+# 2. Install dependencies first for maximum Docker layer caching
+COPY requirements.txt ./
+RUN uv pip install --no-cache -r requirements.txt
+
+# 3. Copy application source code
 COPY pyproject.toml ./
 COPY app ./app
 COPY alembic.ini ./
 COPY alembic ./alembic
 COPY scripts ./scripts
 
-# 3. Install project in editable mode without re-downloading dependencies
-RUN pip install --no-cache-dir --no-build-isolation --no-deps -e .
+# 4. Install local package in editable mode (runs in 0.1s, no network access needed)
+RUN uv pip install --no-cache --no-deps -e .
 
 EXPOSE 8000
 
