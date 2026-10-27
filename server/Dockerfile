@@ -2,7 +2,10 @@ FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    UV_SYSTEM_PYTHON=1
+    UV_SYSTEM_PYTHON=1 \
+    UV_HTTP_TIMEOUT=300 \
+    UV_HTTP_RETRIES=10 \
+    UV_CONCURRENT_DOWNLOADS=4
 
 WORKDIR /app
 
@@ -14,7 +17,8 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
 # 1. Install dependencies first for maximum Docker layer caching
 COPY requirements.txt ./
-RUN uv pip install --no-cache -r requirements.txt
+ARG UV_INDEX_URL=https://pypi.org/simple
+RUN uv pip install --no-cache --index-url "${UV_INDEX_URL}" -r requirements.txt
 
 # 2. Copy application source code
 COPY pyproject.toml ./
