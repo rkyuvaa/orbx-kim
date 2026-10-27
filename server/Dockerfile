@@ -3,22 +3,24 @@ FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     UV_SYSTEM_PYTHON=1 \
-    UV_HTTP_TIMEOUT=300 \
-    UV_HTTP_RETRIES=10 \
-    UV_CONCURRENT_DOWNLOADS=4
+    UV_HTTP_TIMEOUT=120 \
+    UV_HTTP_RETRIES=5 \
+    UV_CONCURRENT_DOWNLOADS=8
 
 WORKDIR /app
 
 # Prefer IPv4 over IPv6 to eliminate 10+ minute socket timeouts on hosts with broken IPv6 routing
 RUN echo "precedence ::ffff:0:0/96 100" >> /etc/gai.conf
 
-# Copy standalone uv binary directly from official image (bypasses slow pip PyPI downloads completely)
+# Copy standalone uv binary directly from official image
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
 # 1. Install dependencies first for maximum Docker layer caching
 COPY requirements.txt ./
 ARG UV_INDEX_URL=https://pypi.org/simple
-RUN uv pip install --no-cache --index-url "${UV_INDEX_URL}" -r requirements.txt
+# Use BuildKit cache mount so wheels are cached on host across builds instead of redownloaded
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install --index-url "${UV_INDEX_URL}" -r requirements.txt
 
 # 2. Copy application source code
 COPY pyproject.toml ./
@@ -28,7 +30,8 @@ COPY alembic ./alembic
 COPY scripts ./scripts
 
 # 3. Install local package in editable mode (runs in 0.1s, no network access needed)
-RUN uv pip install --no-cache --no-deps -e .
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install --no-deps -e .
 
 EXPOSE 8000
 
