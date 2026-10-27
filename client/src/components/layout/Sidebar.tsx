@@ -32,6 +32,9 @@ import {
   BookOpen,
   CheckCircle2,
   X,
+  Car,
+  Wrench,
+  ClipboardType,
 } from 'lucide-react';
 
 import type { LucideIcon } from 'lucide-react';
@@ -80,6 +83,24 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
           { key: 'activities', label: 'Activities', path: '/activities', icon: Clock, badge: null },
           { key: 'crm_reports', label: 'Reports', path: '/reports', icon: BarChart3, badge: null },
           { key: 'crm_configuration', label: 'Configuration', path: '/configuration', icon: Settings2, badge: null },
+        ],
+      },
+    ],
+  },
+  {
+    label: 'Vehicle Service',
+    items: [
+      {
+        key: 'vehicle_service',
+        label: 'Vehicle Service',
+        icon: Car,
+        badge: null,
+        children: [
+          { key: 'vs_dashboard', label: 'Dashboard', path: '/vehicle-service', icon: LayoutDashboard, badge: null },
+          { key: 'vs_work_orders', label: 'Work Orders', path: '/vehicle-service/work-orders', icon: Wrench, badge: null },
+          { key: 'vs_service_history', label: 'Service History', path: '/vehicle-service/service-history', icon: ClipboardType, badge: null },
+          { key: 'vs_reports', label: 'Reports', path: '/vehicle-service/reports', icon: BarChart3, badge: null },
+          { key: 'vs_configuration', label: 'Configuration', path: '/vehicle-service/configuration', icon: Settings2, badge: null },
         ],
       },
     ],

@@ -22,6 +22,7 @@ import ProjectConfigurationPage from '@/pages/ProjectConfigurationPage';
 import TasksPage from '@/pages/TasksPage';
 import MyTasksPage from '@/pages/MyTasksPage';
 import RenewalTrackerPage from '@/pages/RenewalTrackerPage';
+import VehicleServicePage from '@/pages/VehicleServicePage';
 import RequirementsPage from '@/pages/RequirementsPage';
 import PolicyCompliancePage from '@/pages/PolicyCompliancePage';
 import GenericStagePage from '@/pages/GenericStagePage';
@@ -118,6 +119,13 @@ export default function App() {
                 
                 {/* Renewal Tracker */}
                 <Route path="/renewal" element={<Navigate to="/renewal/tracker" replace />} />
+                
+                {/* Vehicle Service */}
+                <Route path="/vehicle-service" element={<VehicleServicePage />} />
+                <Route path="/vehicle-service/work-orders" element={<VehicleServicePage />} />
+                <Route path="/vehicle-service/service-history" element={<VehicleServicePage />} />
+                <Route path="/vehicle-service/reports" element={<VehicleServicePage />} />
+                <Route path="/vehicle-service/configuration" element={<VehicleServicePage />} />
                 <Route path="/renewal/dashboard" element={<Navigate to="/renewal/tracker" replace />} />
                 <Route path="/renewal/tracker" element={<RenewalTrackerPage />} />
                 <Route path="/renewal/reports" element={<RenewalTrackerPage />} />
