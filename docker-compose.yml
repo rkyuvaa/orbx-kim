@@ -37,7 +37,12 @@ services:
       retries: 10
 
   api:
-    build: ./server
+    build:
+      context: ./server
+      extra_hosts:
+        - "files.pythonhosted.org:151.101.65.63"
+        - "pypi.org:151.101.65.223"
+        - "pypi.python.org:151.101.65.223"
     restart: unless-stopped
     volumes:
       - uploads_data:/app/uploads
