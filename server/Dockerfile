@@ -3,8 +3,8 @@ FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     UV_SYSTEM_PYTHON=1 \
-    UV_HTTP_TIMEOUT=15 \
-    UV_HTTP_RETRIES=2 \
+    UV_HTTP_TIMEOUT=60 \
+    UV_HTTP_RETRIES=3 \
     UV_CONCURRENT_DOWNLOADS=4
 
 WORKDIR /app
@@ -17,10 +17,10 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
 # 1. Install dependencies first for maximum Docker layer caching
 COPY requirements.txt ./
-ARG UV_INDEX_URL=https://pypi.org/simple
+ARG UV_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple/
 # Use BuildKit cache mount so wheels are cached on host across builds instead of redownloaded
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install --index-url "${UV_INDEX_URL}" -r requirements.txt
+    uv pip install --default-index "${UV_INDEX_URL}" --extra-index-url "https://pypi.org/simple" -r requirements.txt
 
 # 2. Copy application source code
 COPY pyproject.toml ./
