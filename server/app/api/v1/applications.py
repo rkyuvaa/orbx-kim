@@ -329,25 +329,12 @@ def get_application_activity(
         return []
 
 
-def _ensure_lead_source_varchar() -> None:
-    try:
-        if engine.dialect.name == "postgresql":
-            from sqlalchemy import text
-            with engine.begin() as conn:
-                conn.execute(text('DROP INDEX IF EXISTS ix_applications_lead_source'))
-                conn.execute(text('ALTER TABLE applications ALTER COLUMN lead_source TYPE VARCHAR(100) USING lead_source::text'))
-                conn.execute(text('CREATE INDEX IF NOT EXISTS ix_applications_lead_source ON applications (lead_source)'))
-    except Exception as e:
-        logger.error(f"Failed to ensure lead_source varchar: {e}")
-
-
 @router.post("", response_model=ApplicationOut, status_code=status.HTTP_201_CREATED)
 def create_application(
     payload: ApplicationCreate,
     db: Session = Depends(get_db),
     user: User = Depends(require_permission("create", "leads")),
 ):
-    _ensure_lead_source_varchar()
     try:
         app_number = next_app_no(db)
         app_status = payload.status or ApplicationStatus.LEAD
@@ -414,7 +401,6 @@ def update_application(
     db: Session = Depends(get_db),
     user: User = Depends(require_permission("edit", "leads")),
 ):
-    _ensure_lead_source_varchar()
     data = payload.model_dump(exclude_unset=True)
 
     # Track field changes for activity log

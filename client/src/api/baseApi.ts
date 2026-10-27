@@ -15,6 +15,7 @@ const mutex = new Mutex();
 const rawBaseQuery = fetchBaseQuery({
   baseUrl: '/api/v1',
   credentials: 'include',
+  timeout: 15000,
   prepareHeaders: (headers, { getState }) => {
     const token = (getState() as any)?.auth?.token || localStorage.getItem('access_token');
     if (token) {

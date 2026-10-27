@@ -98,11 +98,13 @@ def _ensure_schema_migrations():
                 except Exception:
                     pass
 
-        # Ensure lead_source on applications is VARCHAR instead of ENUM on PostgreSQL
-        if "applications" in existing_tables:
+        # Ensure lead_source on applications is VARCHAR instead of ENUM on PostgreSQL if needed
+        if "applications" in existing_tables and engine.dialect.name == "postgresql":
             try:
-                with engine.begin() as conn:
-                    if engine.dialect.name == "postgresql":
+                app_cols = inspector.get_columns("applications")
+                ls_col = next((c for c in app_cols if c["name"] == "lead_source"), None)
+                if ls_col and "VARCHAR" not in str(ls_col.get("type", "")).upper():
+                    with engine.begin() as conn:
                         conn.execute(text('DROP INDEX IF EXISTS ix_applications_lead_source'))
                         conn.execute(text('ALTER TABLE applications ALTER COLUMN lead_source TYPE VARCHAR(100) USING lead_source::text'))
                         conn.execute(text('CREATE INDEX IF NOT EXISTS ix_applications_lead_source ON applications (lead_source)'))
