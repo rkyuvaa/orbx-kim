@@ -170,12 +170,13 @@ export default function LeadDetailPage() {
   const onSubmit = async (values: EditForm) => {
     if (!lead) return;
     try {
+      const selectedModelForSubmit = models.find((m) => String(m.id) === values.vehicle_model_id);
       await updateApplication({
         id: lead.id,
         body: {
           customer_name: values.customer_name,
           customer_phone: values.customer_phone,
-          vehicle: selectedModel?.name ?? lead.vehicle,
+          vehicle: selectedModelForSubmit ? selectedModelForSubmit.name : (values.vehicle_model_id ? lead.vehicle : ''),
           vehicle_number: values.vehicle_number?.trim() || null,
           vehicle_model_id: values.vehicle_model_id ? Number(values.vehicle_model_id) : null,
           vehicle_year: values.vehicle_year?.trim() || null,
@@ -185,11 +186,11 @@ export default function LeadDetailPage() {
           coupon_code: values.coupon_code?.trim() || null,
           assigned_to: values.assigned_to ? Number(values.assigned_to) : null,
           lost_reason: values.lost_reason || null,
-          amount: values.amount || 0,
+          amount: lead.amount ?? 0,
           status: lead.status,
-          vehicle_price: values.vehicle_price || 0,
-          down_payment: values.down_payment || 0,
-          finance_company_id: values.finance_company_id ? Number(values.finance_company_id) : null,
+          vehicle_price: lead.vehicle_price ?? 0,
+          down_payment: lead.down_payment ?? 0,
+          finance_company_id: lead.finance_company_id ?? null,
         } as any,
       }).unwrap();
       showToast(`Lead ${lead.app_no} updated`, 'success');

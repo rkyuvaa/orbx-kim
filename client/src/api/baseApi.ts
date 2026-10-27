@@ -100,6 +100,9 @@ export const baseApi = createApi({
     'CostCenters',
     'Branches',
     'DropdownOptions',
+    'RecruitmentKPIs',
+    'Candidates',
+    'JobRequisitions',
   ],
   endpoints: () => ({}),
 });

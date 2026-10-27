@@ -1,7 +1,6 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  Avatar,
   Button,
   Checkbox,
   Chip,
@@ -58,13 +57,22 @@ import EmptyState from '@/components/ui/EmptyState';
 import NewApplicationDialog from '@/components/ui/NewApplicationDialog';
 import Pipeline from '@/components/ui/Pipeline';
 import { LoadingRows } from '@/components/ui/PageState';
-import { formatAmount, formatDate, initialsOf, statusMeta } from '@/utils/format';
+import { formatAmount, formatDate, statusMeta } from '@/utils/format';
 import { useToast } from '@/components/ui/ToastHost';
 import type { ApplicationItem, ApplicationStatus, PipelineStage } from '@/types';
 
-
-
 const LEAD_TABLE_COLUMNS: { field?: string; label: string; sortable?: boolean; align?: 'left' | 'center' | 'right' }[] = [
+  { field: 'customer_name', label: 'Customer', sortable: true },
+  { field: 'vehicle', label: 'Vehicle', sortable: true },
+  { field: 'amount', label: 'Amount', sortable: true },
+  { field: 'status', label: 'Status', sortable: true },
+  { field: 'aging', label: 'Aging', sortable: true },
+  { field: 'created_at', label: 'Created', sortable: true },
+  { field: 'updated_at', label: 'Updated On', sortable: true },
+  { label: 'Actions', sortable: false, align: 'left' },
+];
+
+const OPPORTUNITY_TABLE_COLUMNS: { field?: string; label: string; sortable?: boolean; align?: 'left' | 'center' | 'right' }[] = [
   { field: 'app_no', label: 'App ID', sortable: true },
   { field: 'customer_name', label: 'Customer', sortable: true },
   { field: 'vehicle', label: 'Vehicle', sortable: true },
@@ -83,6 +91,7 @@ export default function LeadsPage() {
   const detailPrefix = isOpportunityModule ? '/opportunities' : '/leads';
   const isOpportunityRoute = location.pathname === '/opportunities';
   const currentModule = isOpportunityRoute ? 'OPPORTUNITY' : 'LEAD';
+  const tableColumns = isOpportunityRoute ? OPPORTUNITY_TABLE_COLUMNS : LEAD_TABLE_COLUMNS;
   const [searchParams] = useSearchParams();
   const searchQ = searchParams.get('q') ?? '';
   const [searchInput, setSearchInput] = useState(searchQ);
@@ -651,7 +660,7 @@ export default function LeadsPage() {
                           />
                         </th>
                       )}
-                      {LEAD_TABLE_COLUMNS.map((col) => (
+                      {tableColumns.map((col) => (
                         <ErpSortHeaderCell
                           key={col.label}
                           field={col.field}
@@ -685,20 +694,15 @@ export default function LeadsPage() {
                             />
                           </td>
                         )}
+                        {isOpportunityRoute && (
+                          <td style={{ padding: '11px 16px', borderBottom: '1px solid var(--border)' }}>
+                            <span className="app-id">{app.app_no}</span>
+                          </td>
+                        )}
                         <td style={{ padding: '11px 16px', borderBottom: '1px solid var(--border)' }}>
-                          <span className="app-id">{app.app_no}</span>
-                        </td>
-                        <td style={{ padding: '11px 16px', borderBottom: '1px solid var(--border)' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <Avatar
-                              sx={{ width: 30, height: 30, bgcolor: 'var(--primary-light)', color: '#04552B', fontSize: 11.5, fontWeight: 700 }}
-                            >
-                              {initialsOf(app.customer_name)}
-                            </Avatar>
-                            <div>
-                              <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: 13 }}>{app.customer_name}</div>
-                              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{app.customer_phone}</div>
-                            </div>
+                          <div>
+                            <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: 13 }}>{app.customer_name}</div>
+                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{app.customer_phone}</div>
                           </div>
                         </td>
                         <td style={{ padding: '11px 16px', borderBottom: '1px solid var(--border)', color: 'var(--text-soft)' }}>{app.vehicle}</td>
@@ -881,7 +885,9 @@ export default function LeadsPage() {
                           >
                             {/* Card Top: App ID & Aging */}
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                              <span style={{ fontWeight: 700, fontSize: 12.5, color: '#16C47F' }}>{app.app_no}</span>
+                              <span style={{ fontWeight: 700, fontSize: 12.5, color: '#16C47F' }}>
+                                {isOpportunityRoute ? app.app_no : (app.vehicle || 'Lead')}
+                              </span>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                                 <Tooltip title="Aging duration">
                                   <span
@@ -916,25 +922,11 @@ export default function LeadsPage() {
                             </div>
 
                             {/* Customer info */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                              <Avatar
-                                sx={{
-                                  width: 28,
-                                  height: 28,
-                                  bgcolor: '#EAF6E8',
-                                  color: '#04552B',
-                                  fontSize: 11,
-                                  fontWeight: 700,
-                                }}
-                              >
-                                {initialsOf(app.customer_name)}
-                              </Avatar>
-                              <div style={{ minWidth: 0, flex: 1 }}>
-                                <div style={{ fontWeight: 600, fontSize: 13, color: '#16231B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                  {app.customer_name}
-                                </div>
-                                <div style={{ fontSize: 11, color: '#7A8B80' }}>{app.customer_phone}</div>
+                            <div style={{ marginBottom: 8 }}>
+                              <div style={{ fontWeight: 600, fontSize: 13, color: '#16231B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {app.customer_name}
                               </div>
+                              <div style={{ fontSize: 11, color: '#7A8B80' }}>{app.customer_phone}</div>
                             </div>
 
                             {/* Vehicle & Amount */}

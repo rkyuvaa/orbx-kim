@@ -467,6 +467,15 @@ def update_application(
                 vm_old = db.get(VehicleModel, old_value) if old_value else None
                 new_display = vm_new.name if vm_new else (str(value) if value else 'None')
                 old_display = vm_old.name if vm_old else (str(old_value) if old_value else 'None')
+                if vm_new and 'vehicle' not in data:
+                    setattr(app, 'vehicle', vm_new.name)
+                elif not value and 'vehicle' not in data:
+                    setattr(app, 'vehicle', '')
+            elif field == 'assigned_to':
+                u_new = db.get(User, value) if value else None
+                u_old = db.get(User, old_value) if old_value else None
+                new_display = u_new.full_name if u_new else (str(value) if value else 'Unassigned')
+                old_display = u_old.full_name if u_old else (str(old_value) if old_value else 'Unassigned')
             elif field in ('vehicle_price', 'down_payment', 'amount'):
                 old_num = float(old_value) if old_value is not None else None
                 new_num = float(value) if value is not None else None

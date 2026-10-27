@@ -100,12 +100,13 @@ export default function EditLeadDialog({ open, onClose, lead }: EditLeadDialogPr
   const onSubmit = async (values: EditForm) => {
     if (!lead) return;
     try {
+      const selectedModelForSubmit = models.find((m) => String(m.id) === values.vehicle_model_id);
       await updateApplication({
         id: lead.id,
         body: {
           customer_name: values.customer_name,
           customer_phone: values.customer_phone,
-          vehicle: selectedModel?.name ?? lead.vehicle,
+          vehicle: selectedModelForSubmit ? selectedModelForSubmit.name : (values.vehicle_model_id ? lead.vehicle : ''),
           vehicle_number: values.vehicle_number?.trim() || null,
           vehicle_model_id: values.vehicle_model_id ? Number(values.vehicle_model_id) : null,
           vehicle_year: values.vehicle_year?.trim() || null,
@@ -353,7 +354,5 @@ export default function EditLeadDialog({ open, onClose, lead }: EditLeadDialogPr
         </DialogActions>
       </form>
     </Dialog>
-  );
-}
   );
 }

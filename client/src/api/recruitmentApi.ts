@@ -2,7 +2,7 @@ import { baseApi } from './baseApi';
 
 export interface JobRequisition {
   id: number;
-  req_code: str;
+  req_code: string;
   job_title: string;
   department: string;
   vacancies: number;
