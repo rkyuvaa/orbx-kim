@@ -91,6 +91,7 @@ export default function App() {
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/financier/documents-view/:token" element={<PublicFinancierDocumentView />} />
+              <Route path="/vs/register" element={<VehicleServiceRegisterPage />} />
               <Route path="/vs/register/:qrToken" element={<VehicleServiceRegisterPage />} />
               <Route
                 element={

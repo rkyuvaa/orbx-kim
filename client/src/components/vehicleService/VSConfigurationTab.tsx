@@ -467,32 +467,14 @@ export default function VSConfigurationTab() {
             <Box>
               <Box sx={{ mb: 3 }}>
                 <Typography variant="subtitle1" fontWeight={800}>
-                  Vehicle QR Code Generation & Download Center
+                  Universal Customer Service QR Code
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Each vehicle has a permanent QR sticker attached to the dashboard or charging port for instantaneous driver complaint reporting
+                  One universal QR code sticker for all customers and retrofitted 3-wheelers. Customers scan this QR to open the instant complaint registration window, enter their vehicle number, name and mobile number.
                 </Typography>
               </Box>
 
-              {vehicles.length === 0 ? (
-                <Box sx={{ py: 8, textAlign: 'center', color: 'text.secondary' }}>
-                  <QrCode size={48} strokeWidth={1.2} style={{ margin: '0 auto 12px', color: '#94a3b8' }} />
-                  <Typography variant="subtitle1" fontWeight={700}>
-                    No Vehicles Available for QR Generation
-                  </Typography>
-                  <Typography variant="body2">
-                    Register a retrofitted vehicle first in the "Retrofitted Vehicles" tab.
-                  </Typography>
-                </Box>
-              ) : (
-                <Grid container spacing={3}>
-                  {vehicles.map((v) => (
-                    <Grid item xs={12} sm={6} md={4} lg={3} key={v.id}>
-                      <VehicleQRCard vehicle={v} />
-                    </Grid>
-                  ))}
-                </Grid>
-              )}
+              <UniversalQRCard />
             </Box>
           )}
 
@@ -944,15 +926,15 @@ export default function VSConfigurationTab() {
   );
 }
 
-// Sub-component for rendering vehicle QR Code
-function VehicleQRCard({ vehicle }: { vehicle: VSVehicle }) {
+// Sub-component for rendering Universal Customer Service QR Code
+function UniversalQRCard() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const registerUrl = `${window.location.origin}/vs/register/${vehicle.qr_token}`;
+  const registerUrl = `${window.location.origin}/vs/register`;
 
   useEffect(() => {
     if (canvasRef.current) {
       QRCode.toCanvas(canvasRef.current, registerUrl, {
-        width: 170,
+        width: 220,
         margin: 2,
         color: {
           dark: '#0f172a',
@@ -967,43 +949,92 @@ function VehicleQRCard({ vehicle }: { vehicle: VSVehicle }) {
       const url = canvasRef.current.toDataURL('image/png');
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${vehicle.vehicle_number}_QR_Code.png`;
+      a.download = `Universal_Customer_Service_QR_Sticker.png`;
       a.click();
     }
   };
 
+  const handlePrint = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow || !canvasRef.current) return;
+    const dataUrl = canvasRef.current.toDataURL('image/png');
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Universal EV Service QR Sticker</title>
+          <style>
+            body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+            .sticker { border: 2px dashed #0f172a; padding: 24px; border-radius: 16px; text-align: center; max-width: 340px; }
+            h2 { margin: 0 0 8px 0; font-size: 18px; color: #0f172a; }
+            p { margin: 4px 0; font-size: 13px; color: #475569; }
+            img { margin: 12px auto; display: block; }
+            .url { font-family: monospace; font-size: 12px; color: #2563eb; font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <div class="sticker">
+            <h2>⚡ EV 3-WHEELER SERVICE</h2>
+            <p>Scan to Register Instant Complaint</p>
+            <img src="${dataUrl}" width="220" height="220" />
+            <p class="url">${registerUrl}</p>
+            <p style="font-size: 11px; margin-top: 8px;">Auto-Rickshaw Retrofit Support & Emergency Dispatch</p>
+          </div>
+          <script>window.onload = function() { window.print(); window.close(); }</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   return (
-    <Card sx={{ borderRadius: 3, border: '1px solid #e2e8f0', textAlign: 'center', p: 1.5 }}>
-      <Typography variant="subtitle1" fontWeight={800} color="#0f172a" sx={{ mt: 1 }}>
-        {vehicle.vehicle_number}
+    <Card sx={{ maxWidth: 540, mx: 'auto', borderRadius: 4, border: '1.5px solid #cbd5e1', boxShadow: '0 8px 30px rgba(0,0,0,0.06)', p: 3, textAlign: 'center' }}>
+      <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1, bgcolor: '#eff6ff', px: 2, py: 0.8, borderRadius: 9999, mb: 2 }}>
+        <Zap size={16} color="#2563eb" />
+        <Typography variant="caption" fontWeight={700} color="#2563eb">
+          UNIVERSAL FLEET SERVICE STICKER
+        </Typography>
+      </Box>
+
+      <Typography variant="h6" fontWeight={800} color="#0f172a" gutterBottom>
+        Scan to Report EV Service / Breakdown
       </Typography>
-      <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
-        Owner: {vehicle.owner_name}
+      <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 420, mx: 'auto', mb: 2.5 }}>
+        Affix this sticker on the dashboard of all retrofitted 3-wheelers. Drivers scan this QR with any smartphone to enter their vehicle number, mobile number, and register a service request with automatic GPS capture.
       </Typography>
 
-      <Box sx={{ p: 1, bgcolor: '#f8fafc', borderRadius: 2, display: 'inline-block', border: '1px solid #e2e8f0', my: 1 }}>
+      <Box sx={{ p: 2, bgcolor: '#ffffff', borderRadius: 3, display: 'inline-block', border: '1.5px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.04)', mb: 2 }}>
         <canvas ref={canvasRef} />
       </Box>
 
-      <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', mt: 1 }}>
+      <Typography variant="caption" sx={{ fontFamily: 'monospace', bgcolor: '#f1f5f9', px: 1.5, py: 0.8, borderRadius: 1.5, display: 'block', maxWidth: 360, mx: 'auto', mb: 3, fontWeight: 700, color: '#2563eb' }}>
+        {registerUrl}
+      </Typography>
+
+      <Box sx={{ display: 'flex', gap: 1.5, justifyContent: 'center', flexWrap: 'wrap' }}>
         <Button
-          size="small"
           variant="contained"
-          startIcon={<Download size={14} />}
+          startIcon={<Download size={16} />}
           onClick={handleDownload}
-          sx={{ textTransform: 'none', fontSize: 11, fontWeight: 700 }}
+          sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, bgcolor: '#2563eb', '&:hover': { bgcolor: '#1d4ed8' } }}
         >
-          Download QR
+          Download Sticker (PNG)
         </Button>
         <Button
-          size="small"
           variant="outlined"
-          href={registerUrl}
+          onClick={handlePrint}
+          sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
+        >
+          Print Sticker
+        </Button>
+        <Button
+          variant="text"
+          href="/vs/register"
           target="_blank"
           rel="noreferrer"
-          sx={{ textTransform: 'none', fontSize: 11 }}
+          endIcon={<ExternalLink size={14} />}
+          sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
         >
-          Test URL
+          Test Public URL
         </Button>
       </Box>
     </Card>

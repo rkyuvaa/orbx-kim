@@ -226,12 +226,26 @@ class VSComplaintCreate(BaseModel):
 
 
 class VSPublicComplaintCreate(BaseModel):
+    vehicle_number: Optional[str] = None
     affected_component_id: Optional[int] = None
     reported_by: str = Field(..., max_length=120)
     reported_phone: str = Field(..., max_length=20)
     category: str = Field(default="BREAKDOWN", max_length=40)
     severity: str = Field(default="MEDIUM", max_length=20)
     description: str
+    gps_latitude: Optional[float] = None
+    gps_longitude: Optional[float] = None
+    gps_address: Optional[str] = Field(None, max_length=255)
+
+
+class VSUniversalComplaintCreate(BaseModel):
+    vehicle_number: str = Field(..., min_length=2, max_length=40)
+    reported_by: str = Field(..., max_length=120)
+    reported_phone: str = Field(..., max_length=20)
+    category: str = Field(default="BREAKDOWN", max_length=40)
+    severity: str = Field(default="MEDIUM", max_length=20)
+    description: str
+    affected_component_id: Optional[int] = None
     gps_latitude: Optional[float] = None
     gps_longitude: Optional[float] = None
     gps_address: Optional[str] = Field(None, max_length=255)

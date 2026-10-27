@@ -198,12 +198,26 @@ export interface VSComplaintCreate {
 }
 
 export interface VSPublicComplaintCreate {
+  vehicle_number?: string;
   affected_component_id?: number;
   reported_by: string;
   reported_phone: string;
   category: string;
   severity: string;
   description: string;
+  gps_latitude?: number;
+  gps_longitude?: number;
+  gps_address?: string;
+}
+
+export interface VSUniversalComplaintCreate {
+  vehicle_number: string;
+  reported_by: string;
+  reported_phone: string;
+  category: string;
+  severity: string;
+  description: string;
+  affected_component_id?: number;
   gps_latitude?: number;
   gps_longitude?: number;
   gps_address?: string;

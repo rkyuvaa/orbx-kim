@@ -50,6 +50,7 @@ from app.schemas.vehicle_service import (
     VSServiceCostOut,
     VSSeverityCount,
     VSStatusCount,
+    VSUniversalComplaintCreate,
     VSVehicleCreate,
     VSVehicleOut,
     VSVehicleUpdate,
@@ -88,6 +89,16 @@ def _trigger_critical_notifications(
             notification = Notification(user_id=u.id, message=msg)
             db.add(notification)
         db.flush()
+
+
+def _trigger_customer_sms(phone: str, complaint_no: str, vehicle_number: str) -> None:
+    """SMS trigger placeholder hook. Can be configured with external SMS gateway API."""
+    msg = (
+        f"KIM EV Service: Your service request {complaint_no} for vehicle {vehicle_number} "
+        f"has been registered. Our technician will contact you shortly."
+    )
+    # Log SMS dispatch for audit & tracking
+    print(f"[SMS TRIGGER] Dispatching SMS to {phone}: '{msg}'")
 
 
 def _format_complaint_out(c: VSComplaint) -> VSComplaintOut:
@@ -239,6 +250,84 @@ def submit_public_complaint(
     db.add(init_note)
 
     _trigger_critical_notifications(db, complaint, vehicle)
+    _trigger_customer_sms(payload.reported_phone, complaint.complaint_no, vehicle.vehicle_number)
+
+    db.commit()
+    db.refresh(complaint)
+    return _format_complaint_out(complaint)
+
+
+@router.get("/public/lookup", response_model=Optional[VSPublicVehicleInfo])
+def lookup_public_vehicle(vehicle_number: str = Query(..., min_length=2), db: Session = Depends(get_db)):
+    clean_no = vehicle_number.strip().upper()
+    vehicle = (
+        db.query(VSVehicle)
+        .filter(VSVehicle.vehicle_number == clean_no, VSVehicle.is_active == True)  # noqa: E712
+        .first()
+    )
+    if not vehicle:
+        return None
+
+    return VSPublicVehicleInfo(
+        vehicle_id=vehicle.id,
+        vehicle_number=vehicle.vehicle_number,
+        owner_name=vehicle.owner_name,
+        owner_phone=vehicle.owner_phone,
+        kit_number=vehicle.kit.kit_number if vehicle.kit else None,
+        kit_name=vehicle.kit.kit_name if vehicle.kit else None,
+        warranty_expiry=vehicle.warranty_expiry,
+        components=vehicle.components or [],
+    )
+
+
+@router.post("/public/universal-register", response_model=VSComplaintOut, status_code=status.HTTP_201_CREATED)
+def submit_universal_complaint(
+    payload: VSUniversalComplaintCreate,
+    db: Session = Depends(get_db),
+):
+    clean_no = payload.vehicle_number.strip().upper()
+    vehicle = (
+        db.query(VSVehicle)
+        .filter(VSVehicle.vehicle_number == clean_no, VSVehicle.is_active == True)  # noqa: E712
+        .first()
+    )
+    if not vehicle:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Vehicle '{clean_no}' is not found in our EV retrofitted registry. Only converted fleet vehicles are eligible for service.",
+        )
+
+    complaint_no = _generate_complaint_no(db)
+    complaint = VSComplaint(
+        complaint_no=complaint_no,
+        vehicle_id=vehicle.id,
+        affected_component_id=payload.affected_component_id,
+        reported_by=payload.reported_by.strip(),
+        reported_phone=payload.reported_phone.strip(),
+        category=payload.category,
+        severity=payload.severity,
+        description=payload.description.strip(),
+        gps_latitude=payload.gps_latitude,
+        gps_longitude=payload.gps_longitude,
+        gps_address=payload.gps_address,
+        registered_via=RegisteredVia.QR,
+        status=ComplaintStatus.OPEN,
+    )
+    db.add(complaint)
+    db.flush()
+
+    # Initial Note
+    gps_info = f"({payload.gps_latitude}, {payload.gps_longitude})" if payload.gps_latitude else "No GPS"
+    init_note = VSComplaintNote(
+        complaint_id=complaint.id,
+        author_name=f"Customer ({payload.reported_by})",
+        note=f"Complaint registered via Universal QR link. GPS: {gps_info}. Category: {payload.category}",
+        is_status_change=False,
+    )
+    db.add(init_note)
+
+    _trigger_critical_notifications(db, complaint, vehicle)
+    _trigger_customer_sms(payload.reported_phone, complaint.complaint_no, vehicle.vehicle_number)
 
     db.commit()
     db.refresh(complaint)

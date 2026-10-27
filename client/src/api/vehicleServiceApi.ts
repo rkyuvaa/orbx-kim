@@ -18,6 +18,7 @@ import type {
   VSPublicComplaintCreate,
   VSPublicVehicleInfo,
   VSServiceCost,
+  VSUniversalComplaintCreate,
   VSVehicle,
   VSVehicleCreate,
   VSVehicleUpdate,
@@ -168,9 +169,20 @@ export const vehicleServiceApi = baseApi.injectEndpoints({
     getVSPublicVehicle: build.query<VSPublicVehicleInfo, string>({
       query: (qrToken) => ({ url: `/vehicle-service/public/register/${qrToken}` }),
     }),
+    lookupVSPublicVehicle: build.query<VSPublicVehicleInfo | null, string>({
+      query: (vehicleNumber) => ({ url: `/vehicle-service/public/lookup?vehicle_number=${encodeURIComponent(vehicleNumber)}` }),
+    }),
     submitVSPublicComplaint: build.mutation<VSComplaint, { qrToken: string; body: VSPublicComplaintCreate }>({
       query: ({ qrToken, body }) => ({
         url: `/vehicle-service/public/register/${qrToken}`,
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['VSComplaints', 'VSDashboard'],
+    }),
+    submitVSUniversalComplaint: build.mutation<VSComplaint, VSUniversalComplaintCreate>({
+      query: (body) => ({
+        url: '/vehicle-service/public/universal-register',
         method: 'POST',
         body,
       }),
@@ -200,5 +212,8 @@ export const {
   useUpdateVSMaintenanceMutation,
   useGetVSDashboardQuery,
   useGetVSPublicVehicleQuery,
+  useLookupVSPublicVehicleQuery,
+  useLazyLookupVSPublicVehicleQuery,
   useSubmitVSPublicComplaintMutation,
+  useSubmitVSUniversalComplaintMutation,
 } = vehicleServiceApi;
