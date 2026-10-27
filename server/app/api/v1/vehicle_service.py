@@ -288,16 +288,28 @@ def submit_universal_complaint(
     clean_no = payload.vehicle_number.strip().upper()
     vehicle = (
         db.query(VSVehicle)
-        .filter(VSVehicle.vehicle_number == clean_no, VSVehicle.is_active == True)  # noqa: E712
+        .filter(VSVehicle.vehicle_number == clean_no)
         .first()
     )
     if not vehicle:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Vehicle '{clean_no}' is not found in our EV retrofitted registry. Only converted fleet vehicles are eligible for service.",
+        # Auto-register vehicle in master so customer complaints are never rejected
+        vehicle = VSVehicle(
+            vehicle_number=clean_no,
+            owner_name=payload.reported_by.strip(),
+            owner_phone=payload.reported_phone.strip(),
+            qr_token=uuid.uuid4().hex,
+            is_active=True,
         )
+        db.add(vehicle)
+        db.flush()
+    else:
+        # Keep contact phone updated if not present
+        if not vehicle.owner_phone and payload.reported_phone:
+            vehicle.owner_phone = payload.reported_phone.strip()
 
     complaint_no = _generate_complaint_no(db)
+    desc = (payload.description or "").strip() or f"{payload.category} service issue reported for {clean_no}"
+
     complaint = VSComplaint(
         complaint_no=complaint_no,
         vehicle_id=vehicle.id,
@@ -305,14 +317,15 @@ def submit_universal_complaint(
         reported_by=payload.reported_by.strip(),
         reported_phone=payload.reported_phone.strip(),
         category=payload.category,
-        severity=payload.severity,
-        description=payload.description.strip(),
+        severity=payload.severity or ComplaintSeverity.MEDIUM,
+        description=desc,
         gps_latitude=payload.gps_latitude,
         gps_longitude=payload.gps_longitude,
         gps_address=payload.gps_address,
         registered_via=RegisteredVia.QR,
         status=ComplaintStatus.OPEN,
     )
+    complaint.vehicle = vehicle
     db.add(complaint)
     db.flush()
 
@@ -326,8 +339,15 @@ def submit_universal_complaint(
     )
     db.add(init_note)
 
-    _trigger_critical_notifications(db, complaint, vehicle)
-    _trigger_customer_sms(payload.reported_phone, complaint.complaint_no, vehicle.vehicle_number)
+    try:
+        _trigger_critical_notifications(db, complaint, vehicle)
+    except Exception as e:
+        print("[WARNING] Critical notification error:", e)
+
+    try:
+        _trigger_customer_sms(payload.reported_phone, complaint.complaint_no, vehicle.vehicle_number)
+    except Exception as e:
+        print("[WARNING] SMS dispatch error:", e)
 
     db.commit()
     db.refresh(complaint)

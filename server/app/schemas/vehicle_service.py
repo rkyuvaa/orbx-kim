@@ -232,7 +232,7 @@ class VSPublicComplaintCreate(BaseModel):
     reported_phone: str = Field(..., max_length=20)
     category: str = Field(default="BREAKDOWN", max_length=40)
     severity: str = Field(default="MEDIUM", max_length=20)
-    description: str
+    description: Optional[str] = Field(default="", max_length=1000)
     gps_latitude: Optional[float] = None
     gps_longitude: Optional[float] = None
     gps_address: Optional[str] = Field(None, max_length=255)
@@ -244,7 +244,7 @@ class VSUniversalComplaintCreate(BaseModel):
     reported_phone: str = Field(..., max_length=20)
     category: str = Field(default="BREAKDOWN", max_length=40)
     severity: str = Field(default="MEDIUM", max_length=20)
-    description: str
+    description: Optional[str] = Field(default="", max_length=1000)
     affected_component_id: Optional[int] = None
     gps_latitude: Optional[float] = None
     gps_longitude: Optional[float] = None

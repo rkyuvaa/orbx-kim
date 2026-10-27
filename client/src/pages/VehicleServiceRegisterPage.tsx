@@ -147,12 +147,14 @@ export default function VehicleServiceRegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!vehicleNumber.trim() || !reportedBy.trim() || !reportedPhone.trim() || !description.trim()) {
-      setSubmitError('Please complete all required fields.');
+    if (!vehicleNumber.trim() || !reportedBy.trim() || !reportedPhone.trim()) {
+      setSubmitError('Please enter Vehicle Number, Your Name, and Mobile Number.');
       return;
     }
 
     setSubmitError(null);
+
+    const desc = description.trim() || `${category} issue reported for vehicle ${vehicleNumber.trim().toUpperCase()}`;
 
     const payload: VSUniversalComplaintCreate = {
       vehicle_number: vehicleNumber.trim().toUpperCase(),
@@ -160,7 +162,7 @@ export default function VehicleServiceRegisterPage() {
       reported_phone: reportedPhone.trim(),
       category,
       severity,
-      description: description.trim(),
+      description: desc,
       affected_component_id: affectedComponentId ? Number(affectedComponentId) : undefined,
       gps_latitude: gps?.lat,
       gps_longitude: gps?.lng,
@@ -176,7 +178,7 @@ export default function VehicleServiceRegisterPage() {
       setSubmittedComplaintNo(res.complaint_no);
     } catch (err: any) {
       setSubmitError(
-        err?.data?.detail || 'Failed to submit complaint. Please verify your vehicle registration number.',
+        err?.data?.detail || 'Failed to submit complaint. Please check your network connection.',
       );
     }
   };
@@ -441,14 +443,13 @@ export default function VehicleServiceRegisterPage() {
             </Select>
           </FormControl>
 
-          {/* Problem Description */}
+          {/* Problem Description (Optional) */}
           <TextField
-            label="Describe the problem / issue symptoms *"
+            label="Describe the problem / issue symptoms (Optional)"
             placeholder="e.g. Battery percentage dropped quickly, motor making ticking noise, vehicle stopped near junction..."
             multiline
             rows={3}
             fullWidth
-            required
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             sx={{ mb: 3 }}
@@ -471,7 +472,7 @@ export default function VehicleServiceRegisterPage() {
               '&:hover': { bgcolor: '#1d4ed8' },
             }}
           >
-            {isSubmitting ? 'Registering Service Request...' : 'Submit Service Complaint'}
+            {isSubmitting ? 'Registering & Sending...' : 'Register Complaint & Send'}
           </Button>
 
           <Typography variant="caption" color="text.secondary" display="block" textAlign="center" sx={{ mt: 2 }}>
