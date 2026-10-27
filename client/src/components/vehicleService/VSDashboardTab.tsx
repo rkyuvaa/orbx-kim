@@ -118,7 +118,17 @@ export default function VSDashboardTab() {
   const recentComplaints = dashboard?.recent_complaints || [];
 
   return (
-    <Box>
+    <div>
+      {/* Top Header matching CRM */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 19, fontWeight: 800, letterSpacing: -0.3, color: '#023020' }}>
+          Dashboard
+        </div>
+        <div style={{ fontSize: 13, color: '#7A8B80', marginTop: 3 }}>
+          Real-time overview of your retrofitted fleet service and active breakdown alerts.
+        </div>
+      </div>
+
       {/* Critical Alarm Banner */}
       {criticalCount > 0 && (
         <Paper
@@ -541,6 +551,6 @@ export default function VSDashboardTab() {
           </TableContainer>
         )}
       </Paper>
-    </Box>
+    </div>
   );
 }

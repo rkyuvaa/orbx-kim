@@ -20,9 +20,5 @@ export default function VehicleServicePage() {
     return <VSDashboardTab />;
   };
 
-  return (
-    <Box sx={{ width: '100%', maxWidth: 'none', minWidth: 0, px: { xs: 2, sm: 3 }, py: 2, boxSizing: 'border-box' }}>
-      {renderContent()}
-    </Box>
-  );
+  return <div>{renderContent()}</div>;
 }

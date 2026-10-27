@@ -263,38 +263,38 @@ export default function VSConfigurationTab() {
   };
 
   return (
-    <Box>
-      {/* Top Header */}
-      <Paper sx={{ p: 2.5, mb: 3, borderRadius: 3, border: '1px solid #e2e8f0' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Box sx={{ width: 40, height: 40, borderRadius: 2, bgcolor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Settings size={20} color="#2563eb" />
-          </Box>
-          <Box>
-            <Typography variant="h6" fontWeight={800}>
-              Vehicle Service Master Configuration
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Manage EV retrofitment kits, vehicle registrations, component serial tracking, and QR code assets
-            </Typography>
-          </Box>
-        </Box>
-      </Paper>
+    <div>
+      {/* Top Header matching CRM */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 19, fontWeight: 800, letterSpacing: -0.3, color: '#023020' }}>
+          Configuration
+        </div>
+        <div style={{ fontSize: 13, color: '#7A8B80', marginTop: 3 }}>
+          Manage EV retrofitment kits, vehicle registrations, component serial tracking, and QR code assets.
+        </div>
+      </div>
 
       {/* Tabs */}
-      <Paper sx={{ borderRadius: 3, border: '1px solid #e2e8f0', mb: 3 }}>
+      <Box sx={{ borderBottom: 1, borderColor: '#E4EBE1', mb: 2.5 }}>
         <Tabs
           value={activeTab}
           onChange={(_, val) => setActiveTab(val)}
-          sx={{ px: 2, borderBottom: '1px solid #e2e8f0' }}
+          textColor="primary"
+          indicatorColor="primary"
+          variant="scrollable"
+          scrollButtons="auto"
+          sx={{
+            '& .MuiTab-root': { textTransform: 'none', fontSize: 13, fontWeight: 600 },
+          }}
         >
-          <Tab label={`1. Kit Master (${kits.length})`} sx={{ textTransform: 'none', fontWeight: 700 }} />
-          <Tab label={`2. Retrofitted Vehicles (${vehicles.length})`} sx={{ textTransform: 'none', fontWeight: 700 }} />
-          <Tab label="3. QR Code Center" sx={{ textTransform: 'none', fontWeight: 700 }} />
-          <Tab label={`4. Preventive Maintenance (${maintenanceList.length})`} sx={{ textTransform: 'none', fontWeight: 700 }} />
+          <Tab label={`1. Kit Master (${kits.length})`} />
+          <Tab label={`2. Retrofitted Vehicles (${vehicles.length})`} />
+          <Tab label="3. QR Code Center" />
+          <Tab label={`4. Preventive Maintenance (${maintenanceList.length})`} />
         </Tabs>
+      </Box>
 
-        <Box sx={{ p: 3 }}>
+      <div>
           {/* =================================================================
               SUB-TAB 0: KIT MASTER
           ================================================================== */}
@@ -565,8 +565,7 @@ export default function VSConfigurationTab() {
               )}
             </Box>
           )}
-        </Box>
-      </Paper>
+        </div>
 
       {/* =====================================================================
           MODAL: CREATE KIT MASTER
@@ -922,7 +921,7 @@ export default function VSConfigurationTab() {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </div>
   );
 }
 

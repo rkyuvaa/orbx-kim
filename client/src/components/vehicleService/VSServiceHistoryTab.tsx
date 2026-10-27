@@ -122,42 +122,35 @@ export default function VSServiceHistoryTab() {
   ).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   return (
-    <Box>
-      {/* Top Vehicle Selection Bar */}
-      <Paper sx={{ p: 2.5, mb: 3, borderRadius: 3, border: '1px solid #e2e8f0' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Box sx={{ width: 40, height: 40, borderRadius: 2, bgcolor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <History size={20} color="#2563eb" />
-            </Box>
-            <Box>
-              <Typography variant="h6" fontWeight={800}>
-                Vehicle Service & Component History
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Track full life-cycle history, kit component serials, and parts replacements
-              </Typography>
-            </Box>
-          </Box>
+    <div>
+      {/* Header matching CRM */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 16, flexWrap: 'wrap', gap: 14 }}>
+        <div>
+          <div style={{ fontSize: 19, fontWeight: 800, letterSpacing: -0.3, color: '#023020' }}>
+            Vehicle Service & Component History
+          </div>
+          <div style={{ fontSize: 13, color: '#7A8B80', marginTop: 3 }}>
+            Track full life-cycle history, kit component serials, and parts replacements.
+          </div>
+        </div>
 
-          <Box sx={{ minWidth: 320 }}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Select Retrofitted Vehicle</InputLabel>
-              <Select
-                value={selectedVehicleId}
-                label="Select Retrofitted Vehicle"
-                onChange={(e) => setSelectedVehicleId(Number(e.target.value))}
-              >
-                {vehicles.map((v) => (
-                  <MenuItem key={v.id} value={v.id}>
-                    {v.vehicle_number} — {v.owner_name} ({v.kit_number || 'Default Kit'})
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Box>
-        </Box>
-      </Paper>
+        <div style={{ minWidth: 280 }}>
+          <FormControl fullWidth size="small">
+            <InputLabel>Select Retrofitted Vehicle</InputLabel>
+            <Select
+              value={selectedVehicleId}
+              label="Select Retrofitted Vehicle"
+              onChange={(e) => setSelectedVehicleId(Number(e.target.value))}
+            >
+              {vehicles.map((v) => (
+                <MenuItem key={v.id} value={v.id}>
+                  {v.vehicle_number} — {v.owner_name} ({v.kit_number || 'Default Kit'})
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </div>
+      </div>
 
       {!selectedVehicle ? (
         <Paper sx={{ py: 12, textAlign: 'center', borderRadius: 3, border: '1px solid #e2e8f0', color: 'text.secondary' }}>
@@ -562,6 +555,6 @@ export default function VSServiceHistoryTab() {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </div>
   );
 }

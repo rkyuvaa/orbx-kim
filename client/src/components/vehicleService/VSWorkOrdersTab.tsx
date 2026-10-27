@@ -318,34 +318,39 @@ export default function VSWorkOrdersTab() {
   };
 
   return (
-    <Box>
-      {/* Action and Filter Header */}
-      <Paper sx={{ p: 2.5, mb: 3, borderRadius: 3, border: '1px solid #e2e8f0' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2, mb: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Typography variant="h6" fontWeight={800}>
+    <div>
+      {/* Header matching CRM */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 16, flexWrap: 'wrap', gap: 14 }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 19, fontWeight: 800, letterSpacing: -0.3, color: '#023020' }}>
               Work Orders & Service Complaints
-            </Typography>
+            </span>
             <Chip label={`${complaints.length} Total`} size="small" sx={{ fontWeight: 700 }} />
-          </Box>
+          </div>
+          <div style={{ fontSize: 13, color: '#7A8B80', marginTop: 3 }}>
+            Manage incoming breakdown alerts, customer complaints, and technician dispatch.
+          </div>
+        </div>
 
-          <Button
-            variant="contained"
-            startIcon={<Plus size={18} />}
-            onClick={handleOpenNewDialog}
-            sx={{
-              borderRadius: 2,
-              textTransform: 'none',
-              fontWeight: 700,
-              bgcolor: '#2563eb',
-              '&:hover': { bgcolor: '#1d4ed8' },
-            }}
-          >
-            Create Work Order
-          </Button>
-        </Box>
+        <Button
+          variant="contained"
+          startIcon={<Plus size={16} />}
+          onClick={handleOpenNewDialog}
+          sx={{
+            borderRadius: 2,
+            textTransform: 'none',
+            fontWeight: 700,
+            bgcolor: '#2563eb',
+            '&:hover': { bgcolor: '#1d4ed8' },
+          }}
+        >
+          Create Work Order
+        </Button>
+      </div>
 
-        {/* Filters */}
+      {/* Filters */}
+      <Paper sx={{ p: 2, mb: 2.5, borderRadius: 2.5, border: '1px solid #E4EBE1' }}>
         <Grid container spacing={1.5} alignItems="center">
           <Grid item xs={12} sm={6} md={3.5}>
             <TextField
@@ -1188,6 +1193,6 @@ export default function VSWorkOrdersTab() {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </div>
   );
 }

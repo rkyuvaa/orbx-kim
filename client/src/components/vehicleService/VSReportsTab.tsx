@@ -114,34 +114,27 @@ export default function VSReportsTab() {
   };
 
   return (
-    <Box>
-      {/* Top Header */}
-      <Paper sx={{ p: 2.5, mb: 3, borderRadius: 3, border: '1px solid #e2e8f0' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Box sx={{ width: 40, height: 40, borderRadius: 2, bgcolor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <TrendingUp size={20} color="#2563eb" />
-            </Box>
-            <Box>
-              <Typography variant="h6" fontWeight={800}>
-                Vehicle Service Analytics & Misuse Intelligence
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Comprehensive reliability indicators, failure diagnostics, and customer education guidelines
-              </Typography>
-            </Box>
-          </Box>
+    <div>
+      {/* Header matching CRM */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 16, flexWrap: 'wrap', gap: 14 }}>
+        <div>
+          <div style={{ fontSize: 19, fontWeight: 800, letterSpacing: -0.3, color: '#023020' }}>
+            Reports & Analytics
+          </div>
+          <div style={{ fontSize: 13, color: '#7A8B80', marginTop: 3 }}>
+            Comprehensive reliability indicators, failure diagnostics, and customer education guidelines.
+          </div>
+        </div>
 
-          <Button
-            variant="outlined"
-            startIcon={<Printer size={16} />}
-            onClick={handlePrint}
-            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
-          >
-            Print Service Report
-          </Button>
-        </Box>
-      </Paper>
+        <Button
+          variant="outlined"
+          startIcon={<Printer size={16} />}
+          onClick={handlePrint}
+          sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
+        >
+          Print Service Report
+        </Button>
+      </div>
 
       {/* Summary KPI Cards */}
       <Grid container spacing={2.5} sx={{ mb: 4 }}>
@@ -346,6 +339,6 @@ export default function VSReportsTab() {
           </Grid>
         </Grid>
       </Paper>
-    </Box>
+    </div>
   );
 }
