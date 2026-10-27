@@ -47,7 +47,7 @@ services:
       ACCESS_TOKEN_MINUTES: ${ACCESS_TOKEN_MINUTES:-15}
       REFRESH_TOKEN_DAYS: ${REFRESH_TOKEN_DAYS:-7}
       CORS_ORIGINS: ${CORS_ORIGINS:-*}
-      ENABLE_SSL: ${ENABLE_SSL:-false}
+      ENABLE_SSL: ${ENABLE_SSL:-true}
       SEED_DEFAULT_PASSWORD: ${SEED_DEFAULT_PASSWORD:-Kim@2025}
       APP_ENV: ${APP_ENV:-development}
       WEB_CONCURRENCY: ${WEB_CONCURRENCY:-4}
@@ -68,24 +68,27 @@ services:
     restart: unless-stopped
     ports:
       - "${WEB_PORT:-80}:80"
+      - "${SSL_PORT:-443}:443"
+    environment:
+      DOMAIN: ${DOMAIN:-one.konwertindiamotors.com}
     volumes:
       - uploads_data:/usr/share/nginx/html/uploads:ro
+      - certs:/etc/letsencrypt
+      - webroot:/var/www/certbot
     depends_on:
       api:
         condition: service_healthy
 
-  # Optional Let's Encrypt provisioner. Enable by setting DOMAIN and ENABLE_SSL=true in .env.
-  # certbot:
-  #   image: certbot/certbot
-  #   profiles: ["ssl"]
-  #   volumes:
-  #     - certs:/etc/letsencrypt
-  #     - webroot:/var/www/certbot
-  #   depends_on:
-  #     - web
+  certbot:
+    image: certbot/certbot
+    restart: unless-stopped
+    volumes:
+      - certs:/etc/letsencrypt
+      - webroot:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12d & wait $${!}; done;'"
 
 volumes:
   db_data:
   uploads_data:
-  # certs:
-  # webroot:
+  certs:
+  webroot:
