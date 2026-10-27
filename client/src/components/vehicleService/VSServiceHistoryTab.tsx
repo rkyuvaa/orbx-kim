@@ -34,7 +34,6 @@ import {
 } from '@mui/material';
 import {
   BatteryCharging,
-  Car,
   CheckCircle2,
   Clock,
   Cpu,
@@ -162,7 +161,7 @@ export default function VSServiceHistoryTab() {
 
       {!selectedVehicle ? (
         <Paper sx={{ py: 12, textAlign: 'center', borderRadius: 3, border: '1px solid #e2e8f0', color: 'text.secondary' }}>
-          <Car size={56} strokeWidth={1} style={{ margin: '0 auto 16px', color: '#94a3b8' }} />
+          <History size={56} strokeWidth={1} style={{ margin: '0 auto 16px', color: '#94a3b8' }} />
           <Typography variant="h6" fontWeight={700}>
             Select a Vehicle to View History
           </Typography>

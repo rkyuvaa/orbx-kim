@@ -20,7 +20,6 @@ import {
 import {
   AlertTriangle,
   BatteryCharging,
-  Car,
   CheckCircle2,
   Cpu,
   Gauge,
@@ -257,8 +256,8 @@ export default function VehicleServiceRegisterPage() {
         <Card sx={{ mb: 3, borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.04)' }}>
           <CardContent sx={{ p: 2.5 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
-              <Box sx={{ width: 44, height: 44, borderRadius: 2, bgcolor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Car size={24} color="#0f172a" />
+              <Box sx={{ width: 44, height: 44, borderRadius: 2, bgcolor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Zap size={24} color="#2563eb" />
               </Box>
               <Box sx={{ flex: 1 }}>
                 <Typography variant="subtitle1" fontWeight={800}>

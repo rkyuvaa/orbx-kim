@@ -36,7 +36,6 @@ import {
   AlertTriangle,
   ArrowRight,
   BatteryCharging,
-  Car,
   CheckCircle2,
   Clock,
   Cpu,

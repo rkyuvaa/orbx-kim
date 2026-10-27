@@ -32,7 +32,6 @@ import {
   BookOpen,
   CheckCircle2,
   X,
-  Car,
   Wrench,
   ClipboardType,
 } from 'lucide-react';
@@ -93,7 +92,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       {
         key: 'vehicle_service',
         label: 'Vehicle Service',
-        icon: Car,
+        icon: Wrench,
         badge: null,
         children: [
           { key: 'vs_dashboard', label: 'Dashboard', path: '/vehicle-service', icon: LayoutDashboard, badge: null },

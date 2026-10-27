@@ -28,7 +28,6 @@ import {
   Bell,
   BellOff,
   Calendar,
-  Car,
   CheckCircle2,
   Clock,
   ExternalLink,
@@ -207,7 +206,7 @@ export default function VSDashboardTab() {
                   RETROFITTED FLEET
                 </Typography>
                 <Box sx={{ p: 1, borderRadius: 2, bgcolor: '#eff6ff', color: '#2563eb' }}>
-                  <Car size={18} />
+                  <Zap size={18} />
                 </Box>
               </Box>
               <Typography variant="h4" fontWeight={800} color="#0f172a">

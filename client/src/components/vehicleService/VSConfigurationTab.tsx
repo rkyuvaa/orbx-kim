@@ -34,7 +34,6 @@ import {
 } from '@mui/material';
 import {
   Calendar,
-  Car,
   CheckCircle2,
   Clock,
   Cpu,
@@ -395,7 +394,7 @@ export default function VSConfigurationTab() {
 
               {vehicles.length === 0 ? (
                 <Box sx={{ py: 8, textAlign: 'center', color: 'text.secondary' }}>
-                  <Car size={48} strokeWidth={1.2} style={{ margin: '0 auto 12px', color: '#94a3b8' }} />
+                  <Wrench size={48} strokeWidth={1.2} style={{ margin: '0 auto 12px', color: '#94a3b8' }} />
                   <Typography variant="subtitle1" fontWeight={700}>
                     No Retrofitted Vehicles Registered
                   </Typography>
