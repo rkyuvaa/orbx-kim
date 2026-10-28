@@ -559,6 +559,7 @@ def _format_task_out(
             id=tm.tag.id,
             name=tm.tag.name,
             color=tm.tag.color,
+            created_at=getattr(tm.tag, 'created_at', None),
         ) for tm in t.tag_mappings if tm.tag
     ]
 

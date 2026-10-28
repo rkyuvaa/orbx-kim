@@ -69,7 +69,7 @@ class TaskTagCreate(TaskTagBase):
 
 class TaskTagOut(TaskTagBase):
     id: int
-    created_at: datetime
+    created_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
