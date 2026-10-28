@@ -34,21 +34,27 @@ import {
 } from '@mui/material';
 import {
   Calendar,
+  Check,
   CheckCircle2,
   Clock,
   Cpu,
   Download,
   ExternalLink,
+  Eye,
+  FileText,
   Layers,
+  Pencil,
   Plus,
   QrCode,
   Settings,
   Trash2,
+  Upload,
   Wrench,
   Zap,
 } from 'lucide-react';
 
 import { useUsersQuery } from '@/api/mastersApi';
+import { useToast } from '@/components/ui/ToastHost';
 import {
   useCreateVSKitMutation,
   useCreateVSMaintenanceMutation,
@@ -56,11 +62,15 @@ import {
   useGetVSKitsQuery,
   useGetVSMaintenanceQuery,
   useGetVSVehiclesQuery,
+  useImportVSKitPdfMutation,
+  useParseVSKitPdfMutation,
+  useUpdateVSKitMutation,
   useUpdateVSMaintenanceMutation,
 } from '@/api/vehicleServiceApi';
 import type {
   VSKit,
   VSKitCreate,
+  VSKitPdfParsePreview,
   VSMaintenanceCreate,
   VSVehicle,
   VSVehicleCreate,
@@ -86,7 +96,11 @@ export default function VSConfigurationTab() {
   const { data: users = [] } = useUsersQuery();
 
   // Mutations
+  const { showToast } = useToast();
   const [createKit, { isLoading: isCreatingKit }] = useCreateVSKitMutation();
+  const [updateKit] = useUpdateVSKitMutation();
+  const [parsePdf, { isLoading: isParsingPdf }] = useParseVSKitPdfMutation();
+  const [importPdf, { isLoading: isImportingPdf }] = useImportVSKitPdfMutation();
   const [createVehicle, { isLoading: isCreatingVehicle }] = useCreateVSVehicleMutation();
   const [createMaintenance, { isLoading: isCreatingMaint }] = useCreateVSMaintenanceMutation();
   const [updateMaintenance] = useUpdateVSMaintenanceMutation();
@@ -95,6 +109,20 @@ export default function VSConfigurationTab() {
   const [isKitDialogOpen, setIsKitDialogOpen] = useState(false);
   const [isVehicleDialogOpen, setIsVehicleDialogOpen] = useState(false);
   const [isMaintDialogOpen, setIsMaintDialogOpen] = useState(false);
+
+  // PDF Import State
+  const [isPdfImportOpen, setIsPdfImportOpen] = useState(false);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [parsedPdfData, setParsedPdfData] = useState<VSKitPdfParsePreview | null>(null);
+  const [importVehicleNumber, setImportVehicleNumber] = useState('');
+  const [importError, setImportError] = useState<string | null>(null);
+
+  // View Components Modal
+  const [viewingKitComponents, setViewingKitComponents] = useState<VSKit | null>(null);
+
+  // Inline editing of vehicle number on Kit Master
+  const [editingKitVehicleId, setEditingKitVehicleId] = useState<number | null>(null);
+  const [editingKitVehicleNo, setEditingKitVehicleNo] = useState('');
 
   // New Kit Form State
   const [kitNumber, setKitNumber] = useState('');
@@ -162,6 +190,56 @@ export default function VSConfigurationTab() {
       refetchKits();
     } catch (err: any) {
       setKitError(err?.data?.detail || 'Failed to create kit.');
+    }
+  };
+
+  const handlePdfFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPdfFile(file);
+    setImportError(null);
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const res = await parsePdf(formData).unwrap();
+      setParsedPdfData(res);
+      setImportVehicleNumber(res.vehicle_number || '');
+    } catch (err: any) {
+      setImportError(err?.data?.detail || 'Failed to parse Kit PDF document.');
+    }
+  };
+
+  const handleConfirmImportPdf = async () => {
+    if (!pdfFile) return;
+    const formData = new FormData();
+    formData.append('file', pdfFile);
+    if (importVehicleNumber.trim()) {
+      formData.append('vehicle_number', importVehicleNumber.trim().toUpperCase());
+    }
+    try {
+      await importPdf(formData).unwrap();
+      showToast('Kit and components successfully imported into Kit Master!', 'success');
+      setIsPdfImportOpen(false);
+      setPdfFile(null);
+      setParsedPdfData(null);
+      setImportVehicleNumber('');
+      refetchKits();
+    } catch (err: any) {
+      setImportError(err?.data?.detail || 'Failed to import Kit PDF.');
+    }
+  };
+
+  const handleSaveKitVehicleNumber = async (kitId: number) => {
+    try {
+      await updateKit({
+        id: kitId,
+        body: { vehicle_number: editingKitVehicleNo.trim().toUpperCase() || undefined },
+      }).unwrap();
+      showToast('Vehicle Number updated successfully', 'success');
+      setEditingKitVehicleId(null);
+      refetchKits();
+    } catch (err: any) {
+      showToast(err?.data?.detail || 'Failed to update vehicle number', 'error');
     }
   };
 
@@ -309,14 +387,37 @@ export default function VSConfigurationTab() {
                     Define kit configurations with required components (battery, motor, controller, charger)
                   </Typography>
                 </Box>
-                <Button
-                  variant="contained"
-                  startIcon={<Plus size={16} />}
-                  onClick={() => setIsKitDialogOpen(true)}
-                  sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
-                >
-                  Create Kit Master
-                </Button>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                  <Button
+                    variant="outlined"
+                    startIcon={<Upload size={16} />}
+                    onClick={() => {
+                      setIsPdfImportOpen(true);
+                      setPdfFile(null);
+                      setParsedPdfData(null);
+                      setImportVehicleNumber('');
+                      setImportError(null);
+                    }}
+                    sx={{
+                      textTransform: 'none',
+                      fontWeight: 700,
+                      borderRadius: 2,
+                      borderColor: '#023020',
+                      color: '#023020',
+                      '&:hover': { borderColor: '#034732', backgroundColor: '#F0FDF4' },
+                    }}
+                  >
+                    Import Kit from PDF
+                  </Button>
+                  <Button
+                    variant="contained"
+                    startIcon={<Plus size={16} />}
+                    onClick={() => setIsKitDialogOpen(true)}
+                    sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2, bgcolor: '#023020', '&:hover': { bgcolor: '#034732' } }}
+                  >
+                    Create Kit Master
+                  </Button>
+                </Box>
               </Box>
 
               {kits.length === 0 ? (
@@ -326,7 +427,7 @@ export default function VSConfigurationTab() {
                     No Kit Masters Configured
                   </Typography>
                   <Typography variant="body2" sx={{ maxWidth: 420, mx: 'auto', mt: 1 }}>
-                    Click "Create Kit Master" to define the components that make up your 3-wheeler EV conversion kit.
+                    Click "Create Kit Master" or "Import Kit from PDF" to define the components that make up your 3-wheeler EV conversion kit.
                   </Typography>
                 </Box>
               ) : (
@@ -334,30 +435,123 @@ export default function VSConfigurationTab() {
                   <Table size="small">
                     <TableHead>
                       <TableRow sx={{ bgcolor: '#f8fafc' }}>
-                        <TableCell sx={{ fontWeight: 700 }}>Kit Number</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>Vehicle Number (Title)</TableCell>
                         <TableCell sx={{ fontWeight: 700 }}>Kit Name</TableCell>
-                        <TableCell sx={{ fontWeight: 700 }}>Description</TableCell>
-                        <TableCell sx={{ fontWeight: 700 }}>Defined Components</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>Kit ID / Lot/Serial</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>Customer Name</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>Serialized Components</TableCell>
                         <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
                       {kits.map((kit) => (
                         <TableRow key={kit.id} hover>
-                          <TableCell sx={{ fontWeight: 800, color: '#2563eb' }}>
-                            {kit.kit_number}
+                          {/* Vehicle Number (Title field - editable) */}
+                          <TableCell sx={{ minWidth: 170 }}>
+                            {editingKitVehicleId === kit.id ? (
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <TextField
+                                  size="small"
+                                  placeholder="e.g. KA01AB1234"
+                                  value={editingKitVehicleNo}
+                                  onChange={(e) => setEditingKitVehicleNo(e.target.value)}
+                                  autoFocus
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleSaveKitVehicleNumber(kit.id);
+                                    if (e.key === 'Escape') setEditingKitVehicleId(null);
+                                  }}
+                                  sx={{ width: 140, '& .MuiOutlinedInput-input': { py: 0.4, fontSize: 12, fontWeight: 700 } }}
+                                />
+                                <IconButton size="small" onClick={() => handleSaveKitVehicleNumber(kit.id)} sx={{ color: '#16a34a' }}>
+                                  <Check size={14} />
+                                </IconButton>
+                              </Box>
+                            ) : (
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                                {kit.vehicle_number ? (
+                                  <Chip
+                                    label={kit.vehicle_number}
+                                    color="primary"
+                                    size="small"
+                                    sx={{ fontWeight: 800, fontSize: 12, backgroundColor: '#023020' }}
+                                  />
+                                ) : (
+                                  <Typography
+                                    variant="caption"
+                                    sx={{ color: '#94a3b8', fontStyle: 'italic', cursor: 'pointer' }}
+                                    onClick={() => {
+                                      setEditingKitVehicleId(kit.id);
+                                      setEditingKitVehicleNo(kit.vehicle_number || '');
+                                    }}
+                                  >
+                                    + Assign Vehicle No
+                                  </Typography>
+                                )}
+                                <Tooltip title="Edit Vehicle Number">
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => {
+                                      setEditingKitVehicleId(kit.id);
+                                      setEditingKitVehicleNo(kit.vehicle_number || '');
+                                    }}
+                                    sx={{ color: '#94a3b8', '&:hover': { color: '#023020' } }}
+                                  >
+                                    <Pencil size={12} />
+                                  </IconButton>
+                                </Tooltip>
+                              </Box>
+                            )}
                           </TableCell>
+
                           <TableCell sx={{ fontWeight: 700 }}>{kit.kit_name}</TableCell>
-                          <TableCell sx={{ color: 'text.secondary' }}>{kit.description || '—'}</TableCell>
+
                           <TableCell>
-                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                              {kit.component_types.map((ct) => (
-                                <Chip key={ct.id} label={ct.label} size="small" variant="outlined" sx={{ fontSize: 11 }} />
-                              ))}
-                            </Box>
+                            <Chip
+                              label={kit.kit_number}
+                              size="small"
+                              sx={{
+                                fontFamily: 'monospace',
+                                fontWeight: 700,
+                                fontSize: 12,
+                                backgroundColor: '#EFF6FF',
+                                color: '#1D4ED8',
+                                border: '1px solid #BFDBFE',
+                              }}
+                            />
                           </TableCell>
+
+                          <TableCell sx={{ fontWeight: 600, color: '#334155' }}>
+                            {kit.customer_name || '—'}
+                          </TableCell>
+
                           <TableCell>
-                            <Chip label={kit.is_active ? 'Active' : 'Archived'} size="small" color={kit.is_active ? 'success' : 'default'} />
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              startIcon={<Eye size={12} />}
+                              onClick={() => setViewingKitComponents(kit)}
+                              sx={{
+                                textTransform: 'none',
+                                fontSize: 11.5,
+                                fontWeight: 600,
+                                py: 0.3,
+                                px: 1.2,
+                                borderRadius: '6px',
+                                borderColor: '#E2E8F0',
+                                color: '#023020',
+                                '&:hover': { borderColor: '#023020', backgroundColor: '#F8FAF8' },
+                              }}
+                            >
+                              {kit.component_types.length} Components
+                            </Button>
+                          </TableCell>
+
+                          <TableCell>
+                            <Chip
+                              label={kit.is_active ? 'Active' : 'Archived'}
+                              size="small"
+                              color={kit.is_active ? 'success' : 'default'}
+                            />
                           </TableCell>
                         </TableRow>
                       ))}
@@ -921,6 +1115,263 @@ export default function VSConfigurationTab() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* =====================================================================
+          IMPORT KIT FROM PDF DIALOG
+      ====================================================================== */}
+      <Dialog
+        open={isPdfImportOpen}
+        onClose={() => {
+          if (!isImportingPdf && !isParsingPdf) setIsPdfImportOpen(false);
+        }}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 3 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, color: '#023020', display: 'flex', alignItems: 'center', gap: 1 }}>
+          <FileText size={20} color="#023020" />
+          Import Kit Master from Stock Traceability PDF
+        </DialogTitle>
+        <DialogContent dividers sx={{ p: 3 }}>
+          {importError && (
+            <Alert severity="error" sx={{ mb: 2.5 }}>
+              {importError}
+            </Alert>
+          )}
+
+          {/* Top Empty Field for Vehicle Number */}
+          <Box sx={{ mb: 2.5, p: 2, bgcolor: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '10px' }}>
+            <Typography variant="caption" sx={{ fontWeight: 700, color: '#166534', display: 'block', mb: 0.6 }}>
+              VEHICLE REGISTRATION NUMBER (TITLE)
+            </Typography>
+            <TextField
+              placeholder="Enter Vehicle Number (e.g. KA01AB1234) — you can enter now or update anytime in Kit Master"
+              fullWidth
+              size="small"
+              value={importVehicleNumber}
+              onChange={(e) => setImportVehicleNumber(e.target.value)}
+              sx={{ backgroundColor: '#FFFFFF', borderRadius: '8px' }}
+              helperText="Vehicle number is the primary title of this kit record."
+            />
+          </Box>
+
+          {/* PDF File Selector */}
+          <Box
+            sx={{
+              p: 3,
+              border: '2px dashed #CBD5E1',
+              borderRadius: '12px',
+              textAlign: 'center',
+              backgroundColor: '#F8FAF8',
+              mb: 2.5,
+            }}
+          >
+            <Upload size={32} color="#023020" style={{ margin: '0 auto 8px' }} />
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#0F172A', mb: 0.5 }}>
+              {pdfFile ? pdfFile.name : 'Select Stock Traceability PDF'}
+            </Typography>
+            <Typography variant="caption" sx={{ color: '#64748B', display: 'block', mb: 1.5 }}>
+              Automatically skips header, filters rows with Lot/Serial, and skips non-serialized components.
+            </Typography>
+
+            <Button
+              variant="outlined"
+              component="label"
+              startIcon={<Upload size={14} />}
+              sx={{
+                textTransform: 'none',
+                fontWeight: 600,
+                fontSize: 12.5,
+                borderColor: '#023020',
+                color: '#023020',
+              }}
+            >
+              Choose PDF File
+              <input type="file" hidden accept=".pdf" onChange={handlePdfFileSelect} />
+            </Button>
+          </Box>
+
+          {isParsingPdf && (
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.5, py: 3 }}>
+              <CircularProgress size={22} sx={{ color: '#023020' }} />
+              <Typography variant="body2" sx={{ color: '#64748B', fontWeight: 600 }}>
+                Parsing PDF table and extracting serialized components...
+              </Typography>
+            </Box>
+          )}
+
+          {parsedPdfData && (
+            <Box>
+              {/* Summary Cards */}
+              <Grid container spacing={2} sx={{ mb: 2 }}>
+                <Grid item xs={12} sm={4}>
+                  <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                    <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 700, display: 'block' }}>
+                      KIT NAME (PRODUCT)
+                    </Typography>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#0F172A' }}>
+                      {parsedPdfData.kit_name}
+                    </Typography>
+                  </Paper>
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                    <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 700, display: 'block' }}>
+                      KIT ID (LOT / SERIAL)
+                    </Typography>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 800, fontFamily: 'monospace', color: '#1D4ED8' }}>
+                      {parsedPdfData.kit_number}
+                    </Typography>
+                  </Paper>
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                    <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 700, display: 'block' }}>
+                      CUSTOMER
+                    </Typography>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#0F172A' }}>
+                      {parsedPdfData.customer_name || '—'}
+                    </Typography>
+                  </Paper>
+                </Grid>
+              </Grid>
+
+              {/* Extraction Metrics */}
+              <Box sx={{ display: 'flex', gap: 1, mb: 1.5, flexWrap: 'wrap' }}>
+                <Chip
+                  label={`${parsedPdfData.total_serialized} Serialized Components (Extracted)`}
+                  size="small"
+                  sx={{ backgroundColor: '#DCFCE7', color: '#15803D', fontWeight: 700 }}
+                />
+                <Chip
+                  label={`${parsedPdfData.total_skipped} Unserialized / Duplicate Items (Skipped)`}
+                  size="small"
+                  sx={{ backgroundColor: '#F1F5F9', color: '#64748B', fontWeight: 600 }}
+                />
+              </Box>
+
+              {/* Extracted Preview Table */}
+              <Typography variant="caption" sx={{ fontWeight: 700, color: '#64748B', display: 'block', mb: 0.8 }}>
+                PARSED EXTRACTED PREVIEW (COMPONENTS TO BE SAVED):
+              </Typography>
+              <TableContainer sx={{ maxHeight: 260, border: '1px solid #E2E8F0', borderRadius: 2 }}>
+                <Table size="small" stickyHeader>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 700, bgcolor: '#F8FAF8' }}>Product</TableCell>
+                      <TableCell sx={{ fontWeight: 700, bgcolor: '#F8FAF8' }}>Lot/Serial</TableCell>
+                      <TableCell sx={{ fontWeight: 700, bgcolor: '#F8FAF8' }}>Customer / Classification</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {/* First line: Kit Header */}
+                    <TableRow sx={{ backgroundColor: '#EFF6FF' }}>
+                      <TableCell sx={{ fontWeight: 800, color: '#1E293B' }}>{parsedPdfData.kit_name}</TableCell>
+                      <TableCell sx={{ fontFamily: 'monospace', fontWeight: 700, color: '#1D4ED8' }}>
+                        {parsedPdfData.kit_number}
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: 700, color: '#1E293B' }}>
+                        {parsedPdfData.customer_name} (Kit Master)
+                      </TableCell>
+                    </TableRow>
+
+                    {/* Component lines */}
+                    {parsedPdfData.components.map((comp, idx) => (
+                      <TableRow key={idx} hover>
+                        <TableCell sx={{ fontWeight: 600 }}>{comp.label}</TableCell>
+                        <TableCell sx={{ fontFamily: 'monospace', color: '#334155' }}>
+                          {comp.serial_number}
+                        </TableCell>
+                        <TableCell sx={{ color: '#64748B', fontSize: 11 }}>Component</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2, px: 3 }}>
+          <Button onClick={() => setIsPdfImportOpen(false)} sx={{ textTransform: 'none', color: '#64748B' }}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleConfirmImportPdf}
+            disabled={!parsedPdfData || isImportingPdf}
+            sx={{
+              textTransform: 'none',
+              fontWeight: 700,
+              backgroundColor: '#023020',
+              '&:hover': { backgroundColor: '#034732' },
+              borderRadius: '8px',
+              px: 2.5,
+            }}
+          >
+            {isImportingPdf ? 'Importing...' : 'Confirm & Save to Kit Master'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* =====================================================================
+          VIEW KIT COMPONENTS BREAKDOWN DIALOG
+      ====================================================================== */}
+      {viewingKitComponents && (
+        <Dialog
+          open={Boolean(viewingKitComponents)}
+          onClose={() => setViewingKitComponents(null)}
+          maxWidth="md"
+          fullWidth
+          PaperProps={{ sx: { borderRadius: 3 } }}
+        >
+          <DialogTitle sx={{ fontWeight: 800, color: '#023020', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Box>
+              <Typography variant="h6" fontWeight={800}>
+                {viewingKitComponents.vehicle_number || viewingKitComponents.kit_name}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Kit ID: {viewingKitComponents.kit_number} • Customer: {viewingKitComponents.customer_name || '—'}
+              </Typography>
+            </Box>
+            <Chip
+              label={`${viewingKitComponents.component_types.length} Serialized Components`}
+              size="small"
+              sx={{ fontWeight: 700, backgroundColor: '#DCFCE7', color: '#15803D' }}
+            />
+          </DialogTitle>
+          <DialogContent dividers sx={{ p: 2.5 }}>
+            <TableContainer sx={{ maxHeight: 420 }}>
+              <Table size="small" stickyHeader>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 700, bgcolor: '#F8FAF8' }}>#</TableCell>
+                    <TableCell sx={{ fontWeight: 700, bgcolor: '#F8FAF8' }}>Product</TableCell>
+                    <TableCell sx={{ fontWeight: 700, bgcolor: '#F8FAF8' }}>Lot/Serial</TableCell>
+                    <TableCell sx={{ fontWeight: 700, bgcolor: '#F8FAF8' }}>Code</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {viewingKitComponents.component_types.map((c, i) => (
+                    <TableRow key={c.id} hover>
+                      <TableCell sx={{ color: '#64748B', fontSize: 11 }}>{i + 1}</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>{c.label}</TableCell>
+                      <TableCell sx={{ fontFamily: 'monospace', fontWeight: 600, color: '#1D4ED8' }}>
+                        {c.serial_number || '—'}
+                      </TableCell>
+                      <TableCell sx={{ color: '#64748B', fontSize: 11 }}>{c.component_type}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </DialogContent>
+          <DialogActions sx={{ p: 2 }}>
+            <Button onClick={() => setViewingKitComponents(null)} sx={{ textTransform: 'none', fontWeight: 600 }}>
+              Close
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
     </div>
   );
 }

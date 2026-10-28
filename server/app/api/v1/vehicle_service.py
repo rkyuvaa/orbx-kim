@@ -4,7 +4,7 @@ import uuid
 from datetime import UTC, date, datetime, timedelta
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
@@ -14,6 +14,7 @@ from app.models import Notification, User
 from app.models.enums import ComplaintCategory, ComplaintSeverity, ComplaintStatus, MaintenanceStatus, RegisteredVia
 from app.models.user import UserStatus
 from app.services.document_numbering import generate_next_document_number
+from app.services.pdf_kit_parser import parse_kit_traceability_pdf
 from app.models.vehicle_service import (
     VSComponentHistory,
     VSComplaint,
@@ -43,6 +44,7 @@ from app.schemas.vehicle_service import (
     VSDashboardOut,
     VSKitCreate,
     VSKitOut,
+    VSKitPdfParsePreview,
     VSKitUpdate,
     VSMaintenanceCreate,
     VSMaintenanceOut,
@@ -433,6 +435,8 @@ def create_kit(
     kit = VSKit(
         kit_number=payload.kit_number,
         kit_name=payload.kit_name,
+        customer_name=payload.customer_name,
+        vehicle_number=payload.vehicle_number,
         description=payload.description,
         is_active=True,
     )
@@ -444,7 +448,74 @@ def create_kit(
             kit_id=kit.id,
             component_type=comp.component_type,
             label=comp.label,
+            serial_number=comp.serial_number,
             is_required=comp.is_required,
+        )
+        db.add(ct)
+
+    db.commit()
+    db.refresh(kit)
+    return kit
+
+
+@router.post("/kits/parse-pdf", response_model=VSKitPdfParsePreview)
+async def parse_kit_pdf_endpoint(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+):
+    """Parse stock traceability PDF and return extracted Kit Name, Kit ID, Customer, and components preview."""
+    if not (file.filename or "").lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Uploaded file must be a PDF document.")
+    contents = await file.read()
+    try:
+        data = parse_kit_traceability_pdf(contents)
+        return data
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to parse Kit PDF: {str(e)}")
+
+
+@router.post("/kits/import-pdf", response_model=VSKitOut, status_code=status.HTTP_201_CREATED)
+async def import_kit_pdf_endpoint(
+    file: UploadFile = File(...),
+    vehicle_number: Optional[str] = Form(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Import Kit and components directly from stock traceability PDF into KIT Master."""
+    if not (file.filename or "").lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Uploaded file must be a PDF document.")
+    contents = await file.read()
+    try:
+        data = parse_kit_traceability_pdf(contents)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to parse Kit PDF: {str(e)}")
+
+    existing = db.query(VSKit).filter(VSKit.kit_number == data["kit_number"]).first()
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Kit with number '{data['kit_number']}' already exists in Kit Master.",
+        )
+
+    v_num = (vehicle_number or "").strip() or None
+    kit = VSKit(
+        kit_number=data["kit_number"],
+        kit_name=data["kit_name"],
+        customer_name=data["customer_name"],
+        vehicle_number=v_num,
+        description=f"Imported from {file.filename}. Customer: {data['customer_name']}",
+        is_active=True,
+    )
+    db.add(kit)
+    db.flush()
+
+    for comp in data["components"]:
+        ct = VSKitComponentType(
+            kit_id=kit.id,
+            component_type=comp["component_type"],
+            label=comp["label"],
+            serial_number=comp["serial_number"],
+            is_required=comp["is_required"],
         )
         db.add(ct)
 
@@ -478,6 +549,10 @@ def update_kit(
 
     if payload.kit_name is not None:
         kit.kit_name = payload.kit_name
+    if payload.customer_name is not None:
+        kit.customer_name = payload.customer_name
+    if payload.vehicle_number is not None:
+        kit.vehicle_number = payload.vehicle_number
     if payload.description is not None:
         kit.description = payload.description
     if payload.is_active is not None:

@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class VSKitComponentTypeCreate(BaseModel):
     component_type: str = Field(..., max_length=50)
     label: str = Field(..., max_length=120)
+    serial_number: Optional[str] = Field(None, max_length=100)
     is_required: bool = True
 
 
@@ -19,6 +20,7 @@ class VSKitComponentTypeOut(BaseModel):
     kit_id: int
     component_type: str
     label: str
+    serial_number: Optional[str] = None
     is_required: bool
     created_at: datetime
 
@@ -28,12 +30,16 @@ class VSKitComponentTypeOut(BaseModel):
 class VSKitCreate(BaseModel):
     kit_number: str = Field(..., max_length=80)
     kit_name: str = Field(..., max_length=120)
+    customer_name: Optional[str] = Field(None, max_length=120)
+    vehicle_number: Optional[str] = Field(None, max_length=40)
     description: Optional[str] = None
     component_types: List[VSKitComponentTypeCreate] = []
 
 
 class VSKitUpdate(BaseModel):
     kit_name: Optional[str] = Field(None, max_length=120)
+    customer_name: Optional[str] = Field(None, max_length=120)
+    vehicle_number: Optional[str] = Field(None, max_length=40)
     description: Optional[str] = None
     is_active: Optional[bool] = None
 
@@ -42,6 +48,8 @@ class VSKitOut(BaseModel):
     id: int
     kit_number: str
     kit_name: str
+    customer_name: Optional[str] = None
+    vehicle_number: Optional[str] = None
     description: Optional[str]
     is_active: bool
     created_at: datetime
@@ -49,6 +57,17 @@ class VSKitOut(BaseModel):
     component_types: List[VSKitComponentTypeOut] = []
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class VSKitPdfParsePreview(BaseModel):
+    kit_name: str
+    kit_number: str
+    customer_name: Optional[str] = None
+    vehicle_number: Optional[str] = None
+    components: List[VSKitComponentTypeCreate] = []
+    total_raw: int
+    total_serialized: int
+    total_skipped: int
 
 
 # ============================================================================

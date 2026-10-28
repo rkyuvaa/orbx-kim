@@ -3,6 +3,7 @@ export interface VSKitComponentType {
   kit_id: number;
   component_type: string;
   label: string;
+  serial_number: string | null;
   is_required: boolean;
   created_at: string;
 }
@@ -11,6 +12,8 @@ export interface VSKit {
   id: number;
   kit_number: string;
   kit_name: string;
+  customer_name: string | null;
+  vehicle_number: string | null;
   description: string | null;
   is_active: boolean;
   created_at: string;
@@ -21,18 +24,39 @@ export interface VSKit {
 export interface VSKitCreate {
   kit_number: string;
   kit_name: string;
+  customer_name?: string;
+  vehicle_number?: string;
   description?: string;
   component_types: {
     component_type: string;
     label: string;
+    serial_number?: string;
     is_required: boolean;
   }[];
 }
 
 export interface VSKitUpdate {
   kit_name?: string;
+  customer_name?: string;
+  vehicle_number?: string;
   description?: string;
   is_active?: boolean;
+}
+
+export interface VSKitPdfParsePreview {
+  kit_name: string;
+  kit_number: string;
+  customer_name?: string | null;
+  vehicle_number?: string | null;
+  components: {
+    component_type: string;
+    label: string;
+    serial_number?: string;
+    is_required: boolean;
+  }[];
+  total_raw: number;
+  total_serialized: number;
+  total_skipped: number;
 }
 
 export interface VSComponentHistory {

@@ -11,6 +11,7 @@ import type {
   VSDashboardData,
   VSKit,
   VSKitCreate,
+  VSKitPdfParsePreview,
   VSKitUpdate,
   VSMaintenanceCreate,
   VSMaintenanceSchedule,
@@ -44,6 +45,21 @@ export const vehicleServiceApi = baseApi.injectEndpoints({
     }),
     updateVSKit: build.mutation<VSKit, { id: number; body: VSKitUpdate }>({
       query: ({ id, body }) => ({ url: `/vehicle-service/kits/${id}`, method: 'PATCH', body }),
+      invalidatesTags: ['VSKits'],
+    }),
+    parseVSKitPdf: build.mutation<VSKitPdfParsePreview, FormData>({
+      query: (body) => ({
+        url: '/vehicle-service/kits/parse-pdf',
+        method: 'POST',
+        body,
+      }),
+    }),
+    importVSKitPdf: build.mutation<VSKit, FormData>({
+      query: (body) => ({
+        url: '/vehicle-service/kits/import-pdf',
+        method: 'POST',
+        body,
+      }),
       invalidatesTags: ['VSKits'],
     }),
 
@@ -199,6 +215,8 @@ export const {
   useGetVSKitsQuery,
   useCreateVSKitMutation,
   useUpdateVSKitMutation,
+  useParseVSKitPdfMutation,
+  useImportVSKitPdfMutation,
   useGetVSVehiclesQuery,
   useGetVSVehicleQuery,
   useCreateVSVehicleMutation,

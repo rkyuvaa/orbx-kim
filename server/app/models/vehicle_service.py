@@ -16,6 +16,8 @@ class VSKit(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     kit_number: Mapped[str] = mapped_column(String(80), unique=True, index=True, nullable=False)
     kit_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    customer_name: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
+    vehicle_number: Mapped[Optional[str]] = mapped_column(String(40), index=True, nullable=True)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -36,6 +38,7 @@ class VSKitComponentType(Base):
     kit_id: Mapped[int] = mapped_column(ForeignKey("vs_kits.id", ondelete="CASCADE"), index=True, nullable=False)
     component_type: Mapped[str] = mapped_column(String(50), nullable=False)
     label: Mapped[str] = mapped_column(String(120), nullable=False)
+    serial_number: Mapped[Optional[str]] = mapped_column(String(100), index=True, nullable=True)
     is_required: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
