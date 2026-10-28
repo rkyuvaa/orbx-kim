@@ -318,6 +318,11 @@ class TaskBase(BaseModel):
     reminder_at: Optional[datetime] = None
     reminder_status: Optional[str] = "PENDING"
     task_list_id: Optional[int] = None
+    planned_date: Optional[date] = None
+    cancelled_at: Optional[datetime] = None
+    cancellation_reason: Optional[str] = None
+    blocked_reason: Optional[str] = None
+    parent_due_follows_subtasks: Optional[bool] = True
 
 
 class TaskCreate(TaskBase):
@@ -386,6 +391,11 @@ class TaskUpdate(BaseModel):
     reminder_at: Optional[datetime] = None
     reminder_status: Optional[str] = None
     edit_series: Optional[bool] = False
+    planned_date: Optional[date] = None
+    cancelled_at: Optional[datetime] = None
+    cancellation_reason: Optional[str] = None
+    blocked_reason: Optional[str] = None
+    parent_due_follows_subtasks: Optional[bool] = None
     override_dependencies: Optional[bool] = False
 
 
@@ -778,3 +788,140 @@ class ProjectPmSettingsUpdate(BaseModel):
     default_dep_type: Optional[str] = None
     auto_shift_successors: Optional[bool] = None
     prompt_on_reschedule: Optional[bool] = None
+
+
+# --- Personal Task Management Schemas ---
+
+class CancelTaskRequest(BaseModel):
+    reason: str
+
+
+class PersonalSettingsOut(BaseModel):
+    id: Optional[int] = None
+    user_id: int
+    timezone: str = "Asia/Kolkata"
+    working_hours_per_day: float = 8.0
+    working_days: str = "MON,TUE,WED,THU,FRI"
+    quiet_hours_start: Optional[str] = "22:00"
+    quiet_hours_end: Optional[str] = "07:00"
+    digest_time: Optional[str] = "07:30"
+    default_reminder_presets: str = "1d,1h,due"
+    max_timer_hours: float = 8.0
+    auto_stop_timer_at_eod: bool = True
+    holidays_json: Optional[Any] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PersonalSettingsUpdate(BaseModel):
+    timezone: Optional[str] = None
+    working_hours_per_day: Optional[float] = None
+    working_days: Optional[str] = None
+    quiet_hours_start: Optional[str] = None
+    quiet_hours_end: Optional[str] = None
+    digest_time: Optional[str] = None
+    default_reminder_presets: Optional[str] = None
+    max_timer_hours: Optional[float] = None
+    auto_stop_timer_at_eod: Optional[bool] = None
+    holidays_json: Optional[Any] = None
+
+
+class PersonalReminderCreate(BaseModel):
+    task_id: int
+    reminder_type: str = "custom"
+    scheduled_at: datetime
+
+
+class PersonalReminderOut(BaseModel):
+    id: int
+    task_id: int
+    reminder_type: str
+    scheduled_at: datetime
+    status: str
+    idempotency_key: str
+    attempts: int = 0
+    last_error: Optional[str] = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PersonalTemplateCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    subtasks: List[str] = []
+
+
+class PersonalTemplateOut(BaseModel):
+    id: int
+    name: str
+    description: Optional[str] = None
+    subtasks_json: Optional[Any] = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class WorkloadDailyItem(BaseModel):
+    date: str
+    day_name: str
+    is_working_day: bool
+    is_holiday: bool
+    available_hours: float
+    planned_hours: float
+    remaining_hours: float
+    tasks_count: int
+    tasks: List[TaskOut] = []
+
+
+class WorkloadRiskTask(BaseModel):
+    id: int
+    task_number: str
+    title: str
+    due_date: Optional[date] = None
+    priority: str
+    estimated_hours: float
+    actual_hours: float
+    remaining_hours: float
+    status_name: Optional[str] = None
+    risk_reason: str
+
+
+class WorkloadSummaryOut(BaseModel):
+    today_estimated_hours: float
+    today_actual_hours: float
+    today_remaining_hours: float
+    week_available_hours: float
+    week_planned_hours: float
+    week_remaining_hours: float
+    utilization_pct: float
+    is_overloaded: bool
+    overloaded_days: List[str]
+    tasks_at_risk: List[WorkloadRiskTask]
+    overdue_count: int
+    overdue_remaining_hours: float
+    daily_breakdown: List[WorkloadDailyItem]
+    estimated_vs_actual: dict
+
+
+class MyDaySummaryOut(BaseModel):
+    today_tasks: List[TaskOut]
+    overdue_tasks: List[TaskOut]
+    today_total_estimated_hours: float
+    today_remaining_hours: float
+    today_actual_hours: float
+    today_completed_count: int
+    active_timer: Optional[TaskTimeEntryOut] = None
+
+
+class WeeklyReviewOut(BaseModel):
+    week_start: str
+    week_end: str
+    completed_count: int
+    completed_tasks: List[TaskOut]
+    slipped_count: int
+    slipped_tasks: List[TaskOut]
+    total_hours_logged: float
+    estimate_accuracy_pct: float
+    hours_by_tag: dict
+    ai_summary_draft: str

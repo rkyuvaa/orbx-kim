@@ -1592,7 +1592,7 @@ export default function ProjectTasksList({ projectId }: ProjectTasksListProps) {
                   task.assignees.map((a) => {
                     const u = users.find((usr) => usr.id === a.user_id) || {
                       id: a.user_id,
-                      full_name: a.user_name || `User ${a.user_id}`,
+                      full_name: a.user?.full_name || (a as any).user_name || `User ${a.user_id}`,
                     };
                     const displayName = u.full_name || (u as any).email || `User ${u.id}`;
                     const colorInfo = getAssigneeColor(u.id);

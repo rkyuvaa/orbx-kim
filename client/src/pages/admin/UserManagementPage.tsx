@@ -89,7 +89,7 @@ export default function UserManagementPage() {
     const actionLabel = nextStatus === 'INACTIVE' ? 'mark as inactive' : 'mark as active';
     if (confirm(`Are you sure you want to ${actionLabel} user ${user.full_name}?`)) {
       try {
-        await updateUser({ id: user.id, body: { status: nextStatus } }).unwrap();
+        await updateUser({ id: user.id, data: { status: nextStatus } as any }).unwrap();
         refetch();
       } catch (err: any) {
         alert(getErrorMessage(err));

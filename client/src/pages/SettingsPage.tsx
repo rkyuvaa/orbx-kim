@@ -9,12 +9,14 @@ import {
   KeyRound,
   ShieldAlert,
   MapPin,
+  Hash,
 } from 'lucide-react';
 
 import { useAppSelector } from '@/app/hooks';
 import { usePermission } from '@/context/AuthPermissionContext';
 import MailServerConfigCard from '@/components/settings/MailServerConfigCard';
 import SystemBackupCard from '@/components/settings/SystemBackupCard';
+import DocumentNumberingTab from '@/components/settings/DocumentNumberingTab';
 import UserManagementPage from '@/pages/admin/UserManagementPage';
 import RoleManagementPage from '@/pages/admin/RoleManagementPage';
 import DepartmentManagementPage from '@/pages/admin/DepartmentManagementPage';
@@ -65,6 +67,7 @@ export default function SettingsPage() {
   if (canBranches) {
     tabs.push({ key: 'branches', label: 'Branches', icon: <MapPin size={16} /> });
   }
+  tabs.push({ key: 'numbering', label: 'Document Numbering', icon: <Hash size={16} /> });
   tabs.push({ key: 'mail', label: 'Mail Server (SMTP)', icon: <Mail size={16} /> });
   if (canBackup) {
     tabs.push({ key: 'backup', label: 'System Data Backup', icon: <Database size={16} /> });
@@ -173,6 +176,8 @@ export default function SettingsPage() {
               <BranchManagementPage />
             </Paper>
           )}
+
+          {t.key === 'numbering' && <DocumentNumberingTab />}
 
           {t.key === 'mail' && <MailServerConfigCard />}
 

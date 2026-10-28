@@ -294,6 +294,11 @@ class Task(Base):
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
     is_personal: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="false", index=True)
+    planned_date: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    cancellation_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    blocked_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    parent_due_follows_subtasks: Mapped[bool] = mapped_column(Boolean, default=True, nullable=True, server_default="true")
 
     company_id: Mapped[int | None] = mapped_column(ForeignKey("finance_companies.id", ondelete="SET NULL"), nullable=True, index=True)
     branch_id: Mapped[int | None] = mapped_column(ForeignKey("branches.id", ondelete="SET NULL"), nullable=True, index=True)
@@ -448,6 +453,8 @@ class TaskTimeEntry(Base):
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     duration_minutes: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source: Mapped[str] = mapped_column(String(20), default="manual", nullable=True, server_default="manual")
+    flagged_for_review: Mapped[bool] = mapped_column(Boolean, default=False, nullable=True, server_default="false")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.current_timestamp())
 
     task: Mapped["Task"] = relationship("Task", back_populates="time_entries")
@@ -571,6 +578,7 @@ class TaskActivity(Base):
     field_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     old_value: Mapped[str | None] = mapped_column(Text, nullable=True)
     new_value: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source: Mapped[str | None] = mapped_column(String(50), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.current_timestamp(), index=True)
 
     task: Mapped["Task"] = relationship("Task", back_populates="activities")

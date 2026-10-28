@@ -638,4 +638,40 @@ export interface Branch {
   updated_at: string;
 }
 
+export interface DocumentSequence {
+  id: number;
+  document_type: string;
+  name: string;
+  description?: string | null;
+  prefix: string;
+  padding: number;
+  next_number: number;
+  suffix: string;
+  is_active: boolean;
+  sample_preview: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DocumentSequenceUpdateInput {
+  name?: string;
+  description?: string | null;
+  prefix?: string;
+  padding?: number;
+  next_number?: number;
+  suffix?: string;
+  is_active?: boolean;
+}
+
+export interface DocumentSequenceCreateInput {
+  document_type: string;
+  name: string;
+  description?: string | null;
+  prefix?: string;
+  padding?: number;
+  next_number?: number;
+  suffix?: string;
+  is_active?: boolean;
+}
+
 

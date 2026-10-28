@@ -189,7 +189,7 @@ export default function PersonalTaskDetailPanel({ open, onClose, task }: Persona
                 fullWidth
                 value={priority}
                 onChange={e => {
-                  const val = e.target.value;
+                  const val = e.target.value as 'URGENT' | 'HIGH' | 'NORMAL' | 'LOW';
                   setPriority(val);
                   autoSave.saveField('priority', val);
                 }}

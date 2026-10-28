@@ -16,9 +16,11 @@ from app.api.v1 import (
     rbac_admin,
     smtp,
     stubs,
+    personal_tasks,
     tasks,
     calendar,
     vehicle_service,
+    document_numbering,
 )
 
 api_router = APIRouter()
@@ -28,12 +30,14 @@ api_router.include_router(applications.router)
 api_router.include_router(final_submission.router)
 api_router.include_router(public_financier.router)
 api_router.include_router(smtp.router)
+api_router.include_router(document_numbering.router)
 api_router.include_router(planned_activities.router)
 api_router.include_router(notifications.router)
 api_router.include_router(masters.router)
 api_router.include_router(hr.router)
 api_router.include_router(recruitment.router)
 api_router.include_router(projects.router)
+api_router.include_router(personal_tasks.router)
 api_router.include_router(tasks.router)
 api_router.include_router(calendar.router)
 api_router.include_router(vehicle_service.router)

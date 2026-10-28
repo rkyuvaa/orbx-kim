@@ -163,6 +163,7 @@ export function formatDateTime12h(dateStr?: string | null, timeStr?: string | nu
 export interface TaskBadgeStyle {
   bgcolor: string;
   color: string;
+  border?: string;
   fontWeight: number;
   fontFamily: string;
   flexShrink: number;

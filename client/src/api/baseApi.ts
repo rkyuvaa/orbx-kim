@@ -109,6 +109,8 @@ export const baseApi = createApi({
     'VSComplaints',
     'VSMaintenance',
     'VSDashboard',
+    'PersonalTasks',
+    'DocumentNumbering',
   ],
   endpoints: () => ({}),
 });

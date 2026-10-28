@@ -11,6 +11,7 @@ from app.db.session import get_db
 from app.models import Notification, User
 from app.models.enums import ComplaintCategory, ComplaintSeverity, ComplaintStatus, MaintenanceStatus, RegisteredVia
 from app.models.user import UserStatus
+from app.services.document_numbering import generate_next_document_number
 from app.models.vehicle_service import (
     VSComponentHistory,
     VSComplaint,
@@ -60,16 +61,14 @@ router = APIRouter(prefix="/vehicle-service", tags=["vehicle-service"])
 
 
 def _generate_complaint_no(db: Session) -> str:
-    today_str = datetime.now(UTC).strftime("%Y%m%d")
-    prefix = f"VC-{today_str}-"
-    # Find max existing complaint_no for today
-    count = (
-        db.query(func.count(VSComplaint.id))
-        .filter(VSComplaint.complaint_no.like(f"{prefix}%"))
-        .scalar()
-        or 0
+    return generate_next_document_number(
+        db,
+        document_type="complaint",
+        default_prefix="VC-",
+        default_padding=4,
+        default_name="Vehicle Service Complaint",
+        default_description="Unique sequence identifier for customer and staff vehicle service complaints",
     )
-    return f"{prefix}{count + 1:04d}"
 
 
 def _trigger_critical_notifications(

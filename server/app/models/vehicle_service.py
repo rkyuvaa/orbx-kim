@@ -123,7 +123,7 @@ class VSComplaint(Base):
     __tablename__ = "vs_complaints"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    complaint_no: Mapped[str] = mapped_column(String(32), unique=True, index=True, nullable=False)
+    complaint_no: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
     vehicle_id: Mapped[int] = mapped_column(ForeignKey("vs_vehicles.id", ondelete="CASCADE"), index=True, nullable=False)
     affected_component_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("vs_vehicle_components.id", ondelete="SET NULL"), nullable=True

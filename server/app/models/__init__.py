@@ -1,3 +1,5 @@
+from app.models.personal_settings import PersonalSettings, PersonalReminder, PersonalTemplate
+from app.models.document_sequence import DocumentSequence
 from app.models.application import (
     Application,
     ApplicationSequence,
@@ -129,6 +131,10 @@ from app.models.projects import (
 )
 
 __all__ = [
+    "PersonalSettings",
+    "PersonalReminder",
+    "PersonalTemplate",
+
     "StageAutomoveRule",
     "Action",
     "Activity",
@@ -157,6 +163,7 @@ __all__ = [
     "DisbursementStatus",
     "DocStatus",
     "Document",
+    "DocumentSequence",
     "FieldPermissionType",
     "FinanceCompany",
     "Branch",
