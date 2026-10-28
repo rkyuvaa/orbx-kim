@@ -42,6 +42,7 @@ import {
   Download,
   ExternalLink,
   Filter,
+  History,
   MapPin,
   MessageSquare,
   Plus,
@@ -729,12 +730,24 @@ export default function VSWorkOrdersTab() {
         <Dialog
           open={Boolean(selectedComplaint)}
           onClose={() => setSelectedComplaint(null)}
-          maxWidth="md"
+          maxWidth="xl"
           fullWidth
+          PaperProps={{
+            sx: {
+              width: { xs: '100%', md: '95vw' },
+              maxWidth: { xs: '100%', md: '1300px', lg: '1380px' },
+              height: { xs: 'auto', md: '90vh' },
+              maxHeight: '94vh',
+              borderRadius: '16px',
+              display: 'flex',
+              flexDirection: 'column',
+              backgroundColor: '#FFFFFF',
+            },
+          }}
         >
-          <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
+          <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1.5, px: 3, pt: 2.5 }}>
             <Box>
-              <Typography variant="h6" fontWeight={800}>
+              <Typography variant="h6" fontWeight={800} color="#023020">
                 Work Order: {selectedComplaint.complaint_no}
               </Typography>
               <Typography variant="caption" color="text.secondary">
@@ -759,334 +772,471 @@ export default function VSWorkOrdersTab() {
             </Box>
           </DialogTitle>
 
-          <DialogContent dividers sx={{ p: 3 }}>
-            {/* Action Bar (Workflow status transitions) */}
-            <Box sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 2.5, mb: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5 }}>
-              <Typography variant="subtitle2" fontWeight={700}>
-                Workflow Actions:
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                {selectedComplaint.status === 'OPEN' && (
-                  <Button
-                    size="small"
-                    variant="contained"
-                    color="warning"
-                    onClick={() => handleUpdateStatus(selectedComplaint.id, 'ACKNOWLEDGED')}
-                    sx={{ textTransform: 'none', fontWeight: 700 }}
-                  >
-                    Acknowledge
-                  </Button>
-                )}
-
-                {(selectedComplaint.status === 'OPEN' || selectedComplaint.status === 'ACKNOWLEDGED') && (
-                  <Button
-                    size="small"
-                    variant="contained"
-                    color="primary"
-                    onClick={() => handleUpdateStatus(selectedComplaint.id, 'IN_PROGRESS')}
-                    sx={{ textTransform: 'none', fontWeight: 700 }}
-                  >
-                    Start Service (In Progress)
-                  </Button>
-                )}
-
-                {selectedComplaint.status === 'IN_PROGRESS' && (
-                  <Button
-                    size="small"
-                    variant="contained"
-                    color="success"
-                    onClick={() => handleUpdateStatus(selectedComplaint.id, 'RESOLVED')}
-                    sx={{ textTransform: 'none', fontWeight: 700 }}
-                  >
-                    Mark Resolved
-                  </Button>
-                )}
-
-                {selectedComplaint.status === 'RESOLVED' && (
-                  <Button
-                    size="small"
-                    variant="contained"
-                    color="inherit"
-                    onClick={() => {
-                      setCloseResolutionSummary(selectedComplaint.resolution_summary || '');
-                      setIsCloseDialogOpen(true);
-                    }}
-                    sx={{ textTransform: 'none', fontWeight: 700, bgcolor: '#0f172a', color: '#fff', '&:hover': { bgcolor: '#1e293b' } }}
-                  >
-                    Close Work Order & Feedback
-                  </Button>
-                )}
-              </Box>
-            </Box>
-
-            <Grid container spacing={3} sx={{ mb: 3 }}>
-              {/* Vehicle & Customer Info */}
-              <Grid item xs={12} md={6}>
-                <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, height: '100%' }}>
-                  <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" gutterBottom>
-                    VEHICLE & CUSTOMER DETAILS
-                  </Typography>
-                  <Typography variant="subtitle1" fontWeight={800} color="#0f172a">
-                    {selectedComplaint.vehicle_number}
-                  </Typography>
-                  <Typography variant="body2" sx={{ mt: 0.5 }}>
-                    <strong>Owner:</strong> {selectedComplaint.owner_name}
-                  </Typography>
-                  <Typography variant="body2">
-                    <strong>Contact:</strong> {selectedComplaint.owner_phone}
-                  </Typography>
-                  <Typography variant="body2">
-                    <strong>Reported By:</strong> {selectedComplaint.reported_by} ({selectedComplaint.reported_phone})
-                  </Typography>
-
-                  {selectedComplaint.gps_latitude && selectedComplaint.gps_longitude && (
-                    <Box sx={{ mt: 1.5, p: 1, bgcolor: '#eff6ff', borderRadius: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
-                        <MapPin size={16} color="#2563eb" />
-                        <Typography variant="caption" fontWeight={600} color="#1d4ed8">
-                          GPS: {selectedComplaint.gps_latitude.toFixed(4)}, {selectedComplaint.gps_longitude.toFixed(4)}
-                        </Typography>
-                      </Box>
-                      <Button
-                        size="small"
-                        href={`https://www.google.com/maps?q=${selectedComplaint.gps_latitude},${selectedComplaint.gps_longitude}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        endIcon={<ExternalLink size={12} />}
-                        sx={{ fontSize: 11, textTransform: 'none', p: 0.5 }}
-                      >
-                        Map
-                      </Button>
-                    </Box>
-                  )}
-                </Paper>
-              </Grid>
-
-              {/* Component & Assignment Info */}
-              <Grid item xs={12} md={6}>
-                <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, height: '100%' }}>
-                  <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" gutterBottom>
-                    COMPONENT LINKAGE & TECHNICIAN
-                  </Typography>
-
-                  {selectedComplaint.affected_component_label ? (
-                    <Box sx={{ mb: 2, p: 1.5, bgcolor: '#f8fafc', borderRadius: 1.5 }}>
-                      <Typography variant="subtitle2" fontWeight={700}>
-                        {selectedComplaint.affected_component_label}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary" display="block">
-                        Active Serial Number: <strong>{selectedComplaint.affected_component_serial}</strong>
-                      </Typography>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        onClick={() => {
-                          setReplaceComponentId(selectedComplaint.affected_component_id || '');
-                          setReplaceNewSerial('');
-                          setReplaceReason('');
-                          setIsReplaceDialogOpen(true);
-                        }}
-                        sx={{ mt: 1, textTransform: 'none', fontSize: 11, py: 0.3 }}
-                      >
-                        Replace This Component Serial
-                      </Button>
-                    </Box>
-                  ) : (
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                      No specific component tied to this issue.
-                    </Typography>
-                  )}
-
-                  {/* Technician Assignment */}
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Assigned Technician</InputLabel>
-                    <Select
-                      value={selectedComplaint.assigned_to_id || ''}
-                      label="Assigned Technician"
-                      onChange={(e) => handleAssignUser(selectedComplaint.id, Number(e.target.value))}
+          <DialogContent
+            dividers
+            sx={{
+              p: { xs: 2, md: 3 },
+              display: 'flex',
+              flexDirection: { xs: 'column', md: 'row' },
+              gap: 3,
+              overflow: { xs: 'auto', md: 'hidden' },
+              flex: 1,
+            }}
+          >
+            {/* LEFT SIDE: Work Order Form & Details (~58%) */}
+            <Box
+              sx={{
+                flex: { xs: '1 1 100%', md: '1 1 58%' },
+                minWidth: 0,
+                overflowY: { xs: 'visible', md: 'auto' },
+                pr: { xs: 0, md: 1 },
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2.5,
+              }}
+            >
+              {/* Action Bar (Workflow status transitions) */}
+              <Box sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 2.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5 }}>
+                <Typography variant="subtitle2" fontWeight={700}>
+                  Workflow Actions:
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                  {selectedComplaint.status === 'OPEN' && (
+                    <Button
+                      size="small"
+                      variant="contained"
+                      color="warning"
+                      onClick={() => handleUpdateStatus(selectedComplaint.id, 'ACKNOWLEDGED')}
+                      sx={{ textTransform: 'none', fontWeight: 700 }}
                     >
-                      <MenuItem value="">
-                        <em>Unassigned</em>
-                      </MenuItem>
-                      {users.map((u) => (
-                        <MenuItem key={u.id} value={u.id}>
-                          {u.full_name} ({u.role})
+                      Acknowledge
+                    </Button>
+                  )}
+
+                  {(selectedComplaint.status === 'OPEN' || selectedComplaint.status === 'ACKNOWLEDGED') && (
+                    <Button
+                      size="small"
+                      variant="contained"
+                      color="primary"
+                      onClick={() => handleUpdateStatus(selectedComplaint.id, 'IN_PROGRESS')}
+                      sx={{ textTransform: 'none', fontWeight: 700 }}
+                    >
+                      Start Service (In Progress)
+                    </Button>
+                  )}
+
+                  {selectedComplaint.status === 'IN_PROGRESS' && (
+                    <Button
+                      size="small"
+                      variant="contained"
+                      color="success"
+                      onClick={() => handleUpdateStatus(selectedComplaint.id, 'RESOLVED')}
+                      sx={{ textTransform: 'none', fontWeight: 700 }}
+                    >
+                      Mark Resolved
+                    </Button>
+                  )}
+
+                  {selectedComplaint.status === 'RESOLVED' && (
+                    <Button
+                      size="small"
+                      variant="contained"
+                      color="inherit"
+                      onClick={() => {
+                        setCloseResolutionSummary(selectedComplaint.resolution_summary || '');
+                        setIsCloseDialogOpen(true);
+                      }}
+                      sx={{ textTransform: 'none', fontWeight: 700, bgcolor: '#0f172a', color: '#fff', '&:hover': { bgcolor: '#1e293b' } }}
+                    >
+                      Close Work Order & Feedback
+                    </Button>
+                  )}
+                </Box>
+              </Box>
+
+              <Grid container spacing={2.5}>
+                {/* Vehicle & Customer Info */}
+                <Grid item xs={12} sm={6}>
+                  <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, height: '100%' }}>
+                    <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" gutterBottom>
+                      VEHICLE & CUSTOMER DETAILS
+                    </Typography>
+                    <Typography variant="subtitle1" fontWeight={800} color="#0f172a">
+                      {selectedComplaint.vehicle_number}
+                    </Typography>
+                    <Typography variant="body2" sx={{ mt: 0.5 }}>
+                      <strong>Owner:</strong> {selectedComplaint.owner_name}
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Contact:</strong> {selectedComplaint.owner_phone}
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Reported By:</strong> {selectedComplaint.reported_by} ({selectedComplaint.reported_phone})
+                    </Typography>
+
+                    {selectedComplaint.gps_latitude && selectedComplaint.gps_longitude && (
+                      <Box sx={{ mt: 1.5, p: 1, bgcolor: '#eff6ff', borderRadius: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                          <MapPin size={16} color="#2563eb" />
+                          <Typography variant="caption" fontWeight={600} color="#1d4ed8">
+                            GPS: {selectedComplaint.gps_latitude.toFixed(4)}, {selectedComplaint.gps_longitude.toFixed(4)}
+                          </Typography>
+                        </Box>
+                        <Button
+                          size="small"
+                          href={`https://www.google.com/maps?q=${selectedComplaint.gps_latitude},${selectedComplaint.gps_longitude}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          endIcon={<ExternalLink size={12} />}
+                          sx={{ fontSize: 11, textTransform: 'none', p: 0.5 }}
+                        >
+                          Map
+                        </Button>
+                      </Box>
+                    )}
+                  </Paper>
+                </Grid>
+
+                {/* Component & Assignment Info */}
+                <Grid item xs={12} sm={6}>
+                  <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, height: '100%' }}>
+                    <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" gutterBottom>
+                      COMPONENT LINKAGE & TECHNICIAN
+                    </Typography>
+
+                    {selectedComplaint.affected_component_label ? (
+                      <Box sx={{ mb: 2, p: 1.5, bgcolor: '#f8fafc', borderRadius: 1.5 }}>
+                        <Typography variant="subtitle2" fontWeight={700}>
+                          {selectedComplaint.affected_component_label}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          Active Serial Number: <strong>{selectedComplaint.affected_component_serial}</strong>
+                        </Typography>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => {
+                            setReplaceComponentId(selectedComplaint.affected_component_id || '');
+                            setReplaceNewSerial('');
+                            setReplaceReason('');
+                            setIsReplaceDialogOpen(true);
+                          }}
+                          sx={{ mt: 1, textTransform: 'none', fontSize: 11, py: 0.3 }}
+                        >
+                          Replace This Component Serial
+                        </Button>
+                      </Box>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        No specific component tied to this issue.
+                      </Typography>
+                    )}
+
+                    {/* Technician Assignment */}
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Assigned Technician</InputLabel>
+                      <Select
+                        value={selectedComplaint.assigned_to_id || ''}
+                        label="Assigned Technician"
+                        onChange={(e) => handleAssignUser(selectedComplaint.id, Number(e.target.value))}
+                      >
+                        <MenuItem value="">
+                          <em>Unassigned</em>
                         </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Paper>
+                        {users.map((u) => (
+                          <MenuItem key={u.id} value={u.id}>
+                            {u.full_name} ({u.role})
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Paper>
+                </Grid>
               </Grid>
-            </Grid>
 
-            {/* Description */}
-            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 3 }}>
-              <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" gutterBottom>
-                ISSUE DESCRIPTION
-              </Typography>
-              <Typography variant="body1">
-                {selectedComplaint.description}
-              </Typography>
-              {selectedComplaint.resolution_summary && (
-                <Box sx={{ mt: 2, p: 1.5, bgcolor: '#ecfdf5', borderRadius: 1.5, border: '1px solid #a7f3d0' }}>
-                  <Typography variant="caption" fontWeight={700} color="#065f46" display="block">
-                    RESOLUTION SUMMARY
-                  </Typography>
-                  <Typography variant="body2" color="#047857">
-                    {selectedComplaint.resolution_summary}
-                  </Typography>
-                </Box>
-              )}
-            </Paper>
-
-            {/* Customer Feedback if closed */}
-            {selectedComplaint.feedback && (
-              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 3, bgcolor: '#fefce8', borderColor: '#fef08a' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography variant="subtitle2" fontWeight={700} color="#854d0e">
-                    Customer Satisfaction Feedback
-                  </Typography>
-                  <Rating value={selectedComplaint.feedback.rating} readOnly size="small" />
-                </Box>
-                {selectedComplaint.feedback.comment && (
-                  <Typography variant="body2" color="#713f12">
-                    "{selectedComplaint.feedback.comment}"
-                  </Typography>
+              {/* Description */}
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" gutterBottom>
+                  ISSUE DESCRIPTION
+                </Typography>
+                <Typography variant="body1">
+                  {selectedComplaint.description}
+                </Typography>
+                {selectedComplaint.resolution_summary && (
+                  <Box sx={{ mt: 2, p: 1.5, bgcolor: '#ecfdf5', borderRadius: 1.5, border: '1px solid #a7f3d0' }}>
+                    <Typography variant="caption" fontWeight={700} color="#065f46" display="block">
+                      RESOLUTION SUMMARY
+                    </Typography>
+                    <Typography variant="body2" color="#047857">
+                      {selectedComplaint.resolution_summary}
+                    </Typography>
+                  </Box>
                 )}
               </Paper>
-            )}
 
-            {/* Service Costs Section */}
-            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 3 }}>
-              <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" gutterBottom>
-                SERVICE & REPLACEMENT COSTS
-              </Typography>
-              {selectedComplaint.costs && selectedComplaint.costs.length > 0 ? (
-                <Table size="small" sx={{ mb: 2 }}>
-                  <TableHead>
-                    <TableRow sx={{ bgcolor: '#f8fafc' }}>
-                      <TableCell sx={{ fontWeight: 700 }}>Item / Part Description</TableCell>
-                      <TableCell sx={{ fontWeight: 700 }}>Qty</TableCell>
-                      <TableCell sx={{ fontWeight: 700 }}>Unit Price</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 700 }}>Total Price</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {selectedComplaint.costs.map((cost) => (
-                      <TableRow key={cost.id}>
-                        <TableCell>{cost.item_name}</TableCell>
-                        <TableCell>{cost.quantity}</TableCell>
-                        <TableCell>₹{cost.unit_price.toFixed(2)}</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 700 }}>₹{cost.total_price.toFixed(2)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              ) : (
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  No itemized parts or labor costs added to this work order.
-                </Typography>
+              {/* Customer Feedback if closed */}
+              {selectedComplaint.feedback && (
+                <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: '#fefce8', borderColor: '#fef08a' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                    <Typography variant="subtitle2" fontWeight={700} color="#854d0e">
+                      Customer Satisfaction Feedback
+                    </Typography>
+                    <Rating value={selectedComplaint.feedback.rating} readOnly size="small" />
+                  </Box>
+                  {selectedComplaint.feedback.comment && (
+                    <Typography variant="body2" color="#713f12">
+                      "{selectedComplaint.feedback.comment}"
+                    </Typography>
+                  )}
+                </Paper>
               )}
 
-              {/* Add Cost Item */}
-              <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
-                <TextField
-                  label="Part / Labor Item"
+              {/* Service Costs Section */}
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" gutterBottom>
+                  SERVICE & REPLACEMENT COSTS
+                </Typography>
+                {selectedComplaint.costs && selectedComplaint.costs.length > 0 ? (
+                  <Table size="small" sx={{ mb: 2 }}>
+                    <TableHead>
+                      <TableRow sx={{ bgcolor: '#f8fafc' }}>
+                        <TableCell sx={{ fontWeight: 700 }}>Item / Part Description</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>Qty</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>Unit Price</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700 }}>Total Price</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {selectedComplaint.costs.map((cost) => (
+                        <TableRow key={cost.id}>
+                          <TableCell>{cost.item_name}</TableCell>
+                          <TableCell>{cost.quantity}</TableCell>
+                          <TableCell>₹{cost.unit_price.toFixed(2)}</TableCell>
+                          <TableCell align="right" sx={{ fontWeight: 700 }}>₹{cost.total_price.toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    No itemized parts or labor costs added to this work order.
+                  </Typography>
+                )}
+
+                {/* Add Cost Item */}
+                <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+                  <TextField
+                    label="Part / Labor Item"
+                    size="small"
+                    value={costItemName}
+                    onChange={(e) => setCostItemName(e.target.value)}
+                    sx={{ flex: 2, minWidth: 160 }}
+                  />
+                  <TextField
+                    label="Qty"
+                    type="number"
+                    size="small"
+                    value={costQty}
+                    onChange={(e) => setCostQty(Math.max(1, Number(e.target.value)))}
+                    sx={{ width: 80 }}
+                  />
+                  <TextField
+                    label="Unit Price (₹)"
+                    type="number"
+                    size="small"
+                    value={costUnitPrice}
+                    onChange={(e) => setCostUnitPrice(e.target.value ? Number(e.target.value) : '')}
+                    sx={{ width: 120 }}
+                  />
+                  <Button
+                    variant="outlined"
+                    onClick={handleAddCostSubmit}
+                    disabled={isAddingCost}
+                    sx={{ textTransform: 'none', fontWeight: 600 }}
+                  >
+                    Add Cost
+                  </Button>
+                </Box>
+              </Paper>
+            </Box>
+
+            {/* RIGHT SIDE: Changelog & Activity Logs (~42%) */}
+            <Paper
+              variant="outlined"
+              sx={{
+                flex: { xs: '1 1 100%', md: '0 0 42%' },
+                width: { xs: '100%', md: '42%' },
+                minWidth: { xs: '100%', md: 380 },
+                display: 'flex',
+                flexDirection: 'column',
+                borderRadius: '12px',
+                borderColor: '#E4EBE1',
+                backgroundColor: '#FAFBF9',
+                p: 2.5,
+                overflow: 'hidden',
+              }}
+            >
+              {/* Header */}
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box
+                    sx={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: '8px',
+                      backgroundColor: '#E8F5E9',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#023020',
+                    }}
+                  >
+                    <History size={17} />
+                  </Box>
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#023020', fontSize: 14 }}>
+                      Changelog & Activity Logs
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: '#667A6D', fontSize: 11.5 }}>
+                      Real-time audit trail of workflow events and technician remarks
+                    </Typography>
+                  </Box>
+                </Box>
+                <Chip
+                  label={`${selectedComplaint.notes?.length || 0} events`}
                   size="small"
-                  value={costItemName}
-                  onChange={(e) => setCostItemName(e.target.value)}
-                  sx={{ flex: 2, minWidth: 160 }}
+                  sx={{
+                    fontWeight: 700,
+                    fontSize: 11,
+                    backgroundColor: '#E8F5E9',
+                    color: '#1B5E20',
+                    border: '1px solid #C8E6C9',
+                    height: 22,
+                  }}
                 />
-                <TextField
-                  label="Qty"
-                  type="number"
-                  size="small"
-                  value={costQty}
-                  onChange={(e) => setCostQty(Math.max(1, Number(e.target.value)))}
-                  sx={{ width: 80 }}
-                />
-                <TextField
-                  label="Unit Price (₹)"
-                  type="number"
-                  size="small"
-                  value={costUnitPrice}
-                  onChange={(e) => setCostUnitPrice(e.target.value ? Number(e.target.value) : '')}
-                  sx={{ width: 120 }}
-                />
-                <Button
-                  variant="outlined"
-                  onClick={handleAddCostSubmit}
-                  disabled={isAddingCost}
-                  sx={{ textTransform: 'none', fontWeight: 600 }}
-                >
-                  Add Cost
-                </Button>
               </Box>
-            </Paper>
 
-            {/* Timeline Notes */}
-            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
-              <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" gutterBottom>
-                ACTIVITY TIMELINE & TECHNICIAN NOTES
-              </Typography>
-
-              {/* Add Note */}
-              <Box sx={{ display: 'flex', gap: 1.5, mb: 2 }}>
+              {/* Add Note / Quick Log Box */}
+              <Box sx={{ mb: 2, p: 1.5, backgroundColor: '#FFFFFF', borderRadius: '10px', border: '1px solid #E4EBE1' }}>
                 <TextField
-                  placeholder="Add a progress update, diagnostic note, or parts requisition remark..."
+                  placeholder="Add a progress update, diagnostic note, or remark..."
                   size="small"
+                  multiline
+                  rows={2}
                   fullWidth
                   value={newNoteText}
                   onChange={(e) => setNewNoteText(e.target.value)}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      fontSize: 13,
+                      backgroundColor: '#F8FAF8',
+                    },
+                  }}
                 />
-                <Button
-                  variant="contained"
-                  onClick={handleAddNote}
-                  disabled={isAddingNote || !newNoteText.trim()}
-                  startIcon={<Send size={16} />}
-                  sx={{ textTransform: 'none', px: 2.5 }}
-                >
-                  Post
-                </Button>
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', mt: 1 }}>
+                  <Button
+                    variant="contained"
+                    size="small"
+                    onClick={handleAddNote}
+                    disabled={isAddingNote || !newNoteText.trim()}
+                    startIcon={<Send size={14} />}
+                    sx={{
+                      textTransform: 'none',
+                      fontWeight: 600,
+                      fontSize: 12.5,
+                      backgroundColor: '#023020',
+                      '&:hover': { backgroundColor: '#034732' },
+                      px: 2,
+                      py: 0.6,
+                      borderRadius: '6px',
+                    }}
+                  >
+                    Post Note
+                  </Button>
+                </Box>
               </Box>
 
-              {/* Notes List */}
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              <Divider sx={{ mb: 1.5, borderColor: '#E4EBE1' }} />
+
+              {/* Scrollable Logs Stream */}
+              <Box
+                sx={{
+                  flex: 1,
+                  overflowY: 'auto',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 1.5,
+                  pr: 0.5,
+                  maxHeight: { xs: 350, md: 'none' },
+                }}
+              >
                 {selectedComplaint.notes && selectedComplaint.notes.length > 0 ? (
                   selectedComplaint.notes.map((n) => (
                     <Box
                       key={n.id}
                       sx={{
                         p: 1.5,
-                        borderRadius: 1.5,
-                        bgcolor: n.is_status_change ? '#f1f5f9' : '#ffffff',
-                        border: '1px solid #e2e8f0',
+                        borderRadius: '8px',
+                        backgroundColor: n.is_status_change ? '#F1F5F9' : '#FFFFFF',
+                        border: n.is_status_change ? '1px solid #CBD5E1' : '1px solid #E4EBE1',
+                        borderLeft: n.is_status_change ? '3px solid #2563EB' : '3px solid #023020',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
                       }}
                     >
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
-                        <Typography variant="caption" fontWeight={700} color="#0f172a">
-                          {n.author_name}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.8 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                          {n.is_status_change ? (
+                            <Clock size={13} color="#2563EB" />
+                          ) : (
+                            <User size={13} color="#023020" />
+                          )}
+                          <Typography variant="caption" sx={{ fontWeight: 700, color: '#0F172A', fontSize: 12 }}>
+                            {n.author_name}
+                          </Typography>
+                          {n.is_status_change && (
+                            <Chip
+                              label="Status Change"
+                              size="small"
+                              sx={{
+                                height: 18,
+                                fontSize: 10,
+                                fontWeight: 700,
+                                backgroundColor: '#DBEAFE',
+                                color: '#1D4ED8',
+                              }}
+                            />
+                          )}
+                        </Box>
+                        <Typography variant="caption" sx={{ color: '#64748B', fontSize: 11 }}>
                           {new Date(n.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
                         </Typography>
                       </Box>
-                      <Typography variant="body2" color="text.primary">
+                      <Typography variant="body2" sx={{ color: '#1E293B', fontSize: 13, whiteSpace: 'pre-wrap', lineHeight: 1.45 }}>
                         {n.note}
                       </Typography>
                     </Box>
                   ))
                 ) : (
-                  <Typography variant="caption" color="text.secondary">
-                    No notes recorded yet.
-                  </Typography>
+                  <Box sx={{ textAlign: 'center', py: 5, color: '#667A6D' }}>
+                    <MessageSquare size={28} color="#94A3B8" style={{ margin: '0 auto 8px' }} />
+                    <Typography variant="body2" sx={{ fontSize: 13, fontWeight: 600 }}>
+                      No changelog notes recorded yet
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: '#94A3B8' }}>
+                      Status transitions and technician remarks will appear here
+                    </Typography>
+                  </Box>
                 )}
               </Box>
             </Paper>
           </DialogContent>
 
-          <DialogActions sx={{ p: 2 }}>
-            <Button onClick={() => setSelectedComplaint(null)} sx={{ textTransform: 'none' }}>
+          <DialogActions sx={{ p: 2, px: 3, borderTop: '1px solid #E4EBE1' }}>
+            <Button
+              onClick={() => setSelectedComplaint(null)}
+              variant="outlined"
+              sx={{ textTransform: 'none', fontWeight: 600, borderColor: '#E4EBE1', color: '#64748B' }}
+            >
               Close
             </Button>
           </DialogActions>
