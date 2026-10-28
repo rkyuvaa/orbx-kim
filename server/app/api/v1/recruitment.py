@@ -642,9 +642,8 @@ def create_employee_from_candidate(
     designation = payload.designation or candidate.selected_designation or "Employee"
 
     # Create new User record
-    from passlib.context import CryptContext
-    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-    hashed_pwd = pwd_context.hash(payload.password or "Employee@123")
+    from app.core.security import hash_password
+    hashed_pwd = hash_password(payload.password or "Employee@123")
 
     new_employee = User(
         email=candidate.email,
