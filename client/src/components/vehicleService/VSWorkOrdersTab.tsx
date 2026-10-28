@@ -58,6 +58,7 @@ import {
 
 import { useUsersQuery } from '@/api/mastersApi';
 import { AppDropdown } from '@/components/ui/AppDropdown';
+import { LocationDisplay } from '@/utils/geolocation';
 import {
   useAddVSComplaintNoteMutation,
   useAddVSServiceCostMutation,
@@ -546,22 +547,12 @@ export default function VSWorkOrdersTab() {
                       )}
                     </TableCell>
                     <TableCell>
-                      {c.gps_latitude && c.gps_longitude ? (
-                        <Tooltip title={`Coordinates: ${c.gps_latitude.toFixed(4)}, ${c.gps_longitude.toFixed(4)}`}>
-                          <Chip
-                            icon={<MapPin size={12} />}
-                            label="GPS"
-                            size="small"
-                            color="info"
-                            variant="outlined"
-                            sx={{ height: 22, fontSize: 10 }}
-                          />
-                        </Tooltip>
-                      ) : (
-                        <Typography variant="caption" color="text.secondary">
-                          —
-                        </Typography>
-                      )}
+                      <LocationDisplay
+                        lat={c.gps_latitude}
+                        lng={c.gps_longitude}
+                        address={c.gps_address}
+                        variant="table"
+                      />
                     </TableCell>
                     <TableCell>
                       <Typography variant="caption" color="text.secondary">
@@ -891,26 +882,15 @@ export default function VSWorkOrdersTab() {
                       <strong>Reported By:</strong> {selectedComplaint.reported_by} ({selectedComplaint.reported_phone})
                     </Typography>
 
-                    {selectedComplaint.gps_latitude && selectedComplaint.gps_longitude && (
-                      <Box sx={{ mt: 1.5, p: 1, bgcolor: '#eff6ff', borderRadius: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
-                          <MapPin size={16} color="#2563eb" />
-                          <Typography variant="caption" fontWeight={600} color="#1d4ed8">
-                            GPS: {selectedComplaint.gps_latitude.toFixed(4)}, {selectedComplaint.gps_longitude.toFixed(4)}
-                          </Typography>
-                        </Box>
-                        <Button
-                          size="small"
-                          href={`https://www.google.com/maps?q=${selectedComplaint.gps_latitude},${selectedComplaint.gps_longitude}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          endIcon={<ExternalLink size={12} />}
-                          sx={{ fontSize: 11, textTransform: 'none', p: 0.5 }}
-                        >
-                          Map
-                        </Button>
-                      </Box>
-                    )}
+                    <Box sx={{ mt: 1.5 }}>
+                      <LocationDisplay
+                        lat={selectedComplaint.gps_latitude}
+                        lng={selectedComplaint.gps_longitude}
+                        address={selectedComplaint.gps_address}
+                        variant="card"
+                        showMapLink
+                      />
+                    </Box>
                   </Paper>
                 </Grid>
 

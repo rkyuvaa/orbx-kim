@@ -43,6 +43,7 @@ import {
   useSubmitVSUniversalComplaintMutation,
 } from '@/api/vehicleServiceApi';
 import type { VSPublicVehicleInfo, VSUniversalComplaintCreate } from '@/types/vehicleService';
+import { reverseGeocodeAreaAndCity } from '@/utils/geolocation';
 
 const CATEGORIES = [
   { key: 'BREAKDOWN', label: 'Vehicle Breakdown', icon: ShieldAlert, color: '#ef4444' },
@@ -87,6 +88,7 @@ export default function VehicleServiceRegisterPage() {
 
   // GPS Coordinates
   const [gps, setGps] = useState<{ lat: number; lng: number } | null>(null);
+  const [gpsAddress, setGpsAddress] = useState<string | null>(null);
   const [gpsError, setGpsError] = useState<string | null>(null);
   const [gpsLoading, setGpsLoading] = useState<boolean>(false);
 
@@ -112,8 +114,15 @@ export default function VehicleServiceRegisterPage() {
     setGpsError(null);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setGps({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        setGps({ lat, lng });
         setGpsLoading(false);
+        reverseGeocodeAreaAndCity(lat, lng).then((res) => {
+          if (res?.formatted) {
+            setGpsAddress(res.formatted);
+          }
+        });
       },
       (err) => {
         setGpsError(err.message || 'Unable to retrieve location');
@@ -166,6 +175,7 @@ export default function VehicleServiceRegisterPage() {
       affected_component_id: affectedComponentId ? Number(affectedComponentId) : undefined,
       gps_latitude: gps?.lat,
       gps_longitude: gps?.lng,
+      gps_address: gpsAddress || undefined,
     };
 
     try {
@@ -298,7 +308,7 @@ export default function VehicleServiceRegisterPage() {
                 </Box>
                 <Box>
                   <Typography variant="caption" fontWeight={700} color={gps ? '#16a34a' : '#d97706'} display="block">
-                    {gps ? 'GPS Location Captured' : gpsLoading ? 'Detecting GPS...' : 'Location Pending'}
+                    {gps ? (gpsAddress || 'GPS Location Captured') : gpsLoading ? 'Detecting Location...' : 'Location Pending'}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
                     {gps ? `${gps.lat.toFixed(4)}, ${gps.lng.toFixed(4)}` : 'Helps emergency dispatch locate your vehicle'}

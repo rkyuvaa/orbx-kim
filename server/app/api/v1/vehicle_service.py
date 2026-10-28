@@ -1,3 +1,5 @@
+import json
+import urllib.request
 import uuid
 from datetime import UTC, date, datetime, timedelta
 from typing import List, Optional
@@ -69,6 +71,45 @@ def _generate_complaint_no(db: Session) -> str:
         default_name="Vehicle Service Complaint",
         default_description="Unique sequence identifier for customer and staff vehicle service complaints",
     )
+
+
+def _reverse_geocode_area_and_city(lat: Optional[float], lng: Optional[float]) -> Optional[str]:
+    """Reverse geocode latitude and longitude into 'Area, City' using OpenStreetMap Nominatim."""
+    if lat is None or lng is None:
+        return None
+    try:
+        url = f"https://nominatim.openstreetmap.org/reverse?format=json&lat={lat}&lon={lng}&zoom=14&addressdetails=1"
+        req = urllib.request.Request(url, headers={"User-Agent": "KIM-ERP/2.0 (CRM-VehicleService)"})
+        with urllib.request.urlopen(req, timeout=2.5) as response:
+            if response.status == 200:
+                data = json.loads(response.read().decode("utf-8"))
+                addr = data.get("address", {})
+                area = (
+                    addr.get("suburb")
+                    or addr.get("neighbourhood")
+                    or addr.get("residential")
+                    or addr.get("subdistrict")
+                    or addr.get("locality")
+                    or addr.get("road")
+                    or addr.get("village")
+                    or ""
+                )
+                city = (
+                    addr.get("city")
+                    or addr.get("town")
+                    or addr.get("municipality")
+                    or addr.get("city_district")
+                    or addr.get("state_district")
+                    or addr.get("county")
+                    or addr.get("state")
+                    or ""
+                )
+                if area and city and area.lower() != city.lower():
+                    return f"{area}, {city}"
+                return area or city or None
+    except Exception as e:
+        print("[WARNING] Reverse geocoding error:", e)
+    return None
 
 
 def _trigger_critical_notifications(
@@ -221,6 +262,7 @@ def submit_public_complaint(
         )
 
     complaint_no = _generate_complaint_no(db)
+    gps_addr = payload.gps_address or _reverse_geocode_area_and_city(payload.gps_latitude, payload.gps_longitude)
     complaint = VSComplaint(
         complaint_no=complaint_no,
         vehicle_id=vehicle.id,
@@ -232,7 +274,7 @@ def submit_public_complaint(
         description=payload.description,
         gps_latitude=payload.gps_latitude,
         gps_longitude=payload.gps_longitude,
-        gps_address=payload.gps_address,
+        gps_address=gps_addr,
         registered_via=RegisteredVia.QR,
         status=ComplaintStatus.OPEN,
     )
@@ -240,10 +282,11 @@ def submit_public_complaint(
     db.flush()
 
     # Add initial note
+    loc_str = gps_addr or (f"({payload.gps_latitude}, {payload.gps_longitude})" if payload.gps_latitude else "No GPS")
     init_note = VSComplaintNote(
         complaint_id=complaint.id,
         author_name=f"Customer ({payload.reported_by})",
-        note=f"Complaint registered via QR scan at location ({payload.gps_latitude}, {payload.gps_longitude}). Category: {payload.category}",
+        note=f"Complaint registered via QR scan at {loc_str}. Category: {payload.category}",
         is_status_change=False,
     )
     db.add(init_note)
@@ -308,6 +351,7 @@ def submit_universal_complaint(
 
     complaint_no = _generate_complaint_no(db)
     desc = (payload.description or "").strip() or f"{payload.category} service issue reported for {clean_no}"
+    gps_addr = payload.gps_address or _reverse_geocode_area_and_city(payload.gps_latitude, payload.gps_longitude)
 
     complaint = VSComplaint(
         complaint_no=complaint_no,
@@ -320,7 +364,7 @@ def submit_universal_complaint(
         description=desc,
         gps_latitude=payload.gps_latitude,
         gps_longitude=payload.gps_longitude,
-        gps_address=payload.gps_address,
+        gps_address=gps_addr,
         registered_via=RegisteredVia.QR,
         status=ComplaintStatus.OPEN,
     )
@@ -329,11 +373,11 @@ def submit_universal_complaint(
     db.flush()
 
     # Initial Note
-    gps_info = f"({payload.gps_latitude}, {payload.gps_longitude})" if payload.gps_latitude else "No GPS"
+    gps_info = gps_addr or (f"({payload.gps_latitude}, {payload.gps_longitude})" if payload.gps_latitude else "No GPS")
     init_note = VSComplaintNote(
         complaint_id=complaint.id,
         author_name=f"Customer ({payload.reported_by})",
-        note=f"Complaint registered via Universal QR link. GPS: {gps_info}. Category: {payload.category}",
+        note=f"Complaint registered via Universal QR link. Location: {gps_info}. Category: {payload.category}",
         is_status_change=False,
     )
     db.add(init_note)
@@ -685,6 +729,7 @@ def create_complaint(
         raise HTTPException(status_code=404, detail="Vehicle not found")
 
     complaint_no = _generate_complaint_no(db)
+    gps_addr = payload.gps_address or _reverse_geocode_area_and_city(payload.gps_latitude, payload.gps_longitude)
     complaint = VSComplaint(
         complaint_no=complaint_no,
         vehicle_id=payload.vehicle_id,
@@ -696,7 +741,7 @@ def create_complaint(
         description=payload.description,
         gps_latitude=payload.gps_latitude,
         gps_longitude=payload.gps_longitude,
-        gps_address=payload.gps_address,
+        gps_address=gps_addr,
         registered_via=RegisteredVia.STAFF,
         status=ComplaintStatus.OPEN,
         assigned_to_id=payload.assigned_to_id,
