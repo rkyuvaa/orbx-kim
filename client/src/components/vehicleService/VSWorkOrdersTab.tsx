@@ -735,7 +735,7 @@ export default function VSWorkOrdersTab() {
           PaperProps={{
             sx: {
               width: { xs: '100%', md: '95vw' },
-              maxWidth: { xs: '100%', md: 'calc(100vw - 190px)', lg: '1360px' },
+              maxWidth: { xs: '100%', md: 'calc(100vw - 340px)', lg: '1300px' },
               height: { xs: 'auto', md: '90vh' },
               maxHeight: '94vh',
               borderRadius: '16px',
@@ -743,7 +743,7 @@ export default function VSWorkOrdersTab() {
               flexDirection: 'column',
               backgroundColor: '#FFFFFF',
               position: 'relative',
-              left: { xs: 0, md: '80px' },
+              left: { xs: 0, md: '160px' },
             },
           }}
         >
@@ -785,10 +785,10 @@ export default function VSWorkOrdersTab() {
               flex: 1,
             }}
           >
-            {/* LEFT SIDE: Work Order Form & Details (~79%) */}
+            {/* LEFT SIDE: Work Order Form & Details (~89%) */}
             <Box
               sx={{
-                flex: { xs: '1 1 100%', md: '1 1 79%' },
+                flex: { xs: '1 1 100%', md: '1 1 89%' },
                 minWidth: 0,
                 overflowY: { xs: 'visible', md: 'auto' },
                 pr: { xs: 0, md: 1 },
@@ -1062,42 +1062,29 @@ export default function VSWorkOrdersTab() {
               </Paper>
             </Box>
 
-            {/* RIGHT SIDE: Changelog & Activity Logs (~21% - shrunk by 50%) */}
+            {/* RIGHT SIDE: Changelog & Activity Logs (~11% - shrunk by 50% again) */}
             <Paper
               variant="outlined"
               sx={{
-                flex: { xs: '1 1 100%', md: '0 0 21%' },
-                width: { xs: '100%', md: '21%' },
-                minWidth: { xs: '100%', md: 220 },
-                maxWidth: { md: 290 },
+                flex: { xs: '1 1 100%', md: '0 0 11%' },
+                width: { xs: '100%', md: '11%' },
+                minWidth: { xs: '100%', md: 140 },
+                maxWidth: { md: 175 },
                 display: 'flex',
                 flexDirection: 'column',
                 borderRadius: '12px',
                 borderColor: '#E4EBE1',
                 backgroundColor: '#FAFBF9',
-                p: 1.5,
+                p: 1.2,
                 overflow: 'hidden',
               }}
             >
               {/* Header */}
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
-                  <Box
-                    sx={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: '7px',
-                      backgroundColor: '#E8F5E9',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: '#023020',
-                    }}
-                  >
-                    <History size={15} />
-                  </Box>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#023020', fontSize: 13 }}>
-                    Changelog
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <History size={13} color="#023020" />
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#023020', fontSize: 11.5 }}>
+                    Logs
                   </Typography>
                 </Box>
                 <Chip
@@ -1105,19 +1092,20 @@ export default function VSWorkOrdersTab() {
                   size="small"
                   sx={{
                     fontWeight: 700,
-                    fontSize: 10.5,
+                    fontSize: 9.5,
                     backgroundColor: '#E8F5E9',
                     color: '#1B5E20',
                     border: '1px solid #C8E6C9',
-                    height: 20,
+                    height: 18,
+                    px: 0.2,
                   }}
                 />
               </Box>
 
               {/* Add Note / Quick Log Box */}
-              <Box sx={{ mb: 1.5, p: 1, backgroundColor: '#FFFFFF', borderRadius: '8px', border: '1px solid #E4EBE1' }}>
+              <Box sx={{ mb: 1, p: 0.8, backgroundColor: '#FFFFFF', borderRadius: '6px', border: '1px solid #E4EBE1' }}>
                 <TextField
-                  placeholder="Add note or update..."
+                  placeholder="Note..."
                   size="small"
                   multiline
                   rows={2}
@@ -1126,28 +1114,28 @@ export default function VSWorkOrdersTab() {
                   onChange={(e) => setNewNoteText(e.target.value)}
                   sx={{
                     '& .MuiOutlinedInput-root': {
-                      fontSize: 12,
-                      p: 0.8,
+                      fontSize: 11,
+                      p: 0.5,
                       backgroundColor: '#F8FAF8',
                     },
                   }}
                 />
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', mt: 0.8 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', mt: 0.5 }}>
                   <Button
                     variant="contained"
                     size="small"
                     onClick={handleAddNote}
                     disabled={isAddingNote || !newNoteText.trim()}
-                    startIcon={<Send size={12} />}
                     sx={{
                       textTransform: 'none',
                       fontWeight: 600,
-                      fontSize: 11.5,
+                      fontSize: 10.5,
                       backgroundColor: '#023020',
                       '&:hover': { backgroundColor: '#034732' },
-                      px: 1.5,
-                      py: 0.3,
-                      borderRadius: '5px',
+                      px: 1,
+                      py: 0.2,
+                      minWidth: 0,
+                      borderRadius: '4px',
                     }}
                   >
                     Post
@@ -1155,7 +1143,7 @@ export default function VSWorkOrdersTab() {
                 </Box>
               </Box>
 
-              <Divider sx={{ mb: 1.5, borderColor: '#E4EBE1' }} />
+              <Divider sx={{ mb: 1, borderColor: '#E4EBE1' }} />
 
               {/* Scrollable Logs Stream */}
               <Box
@@ -1164,8 +1152,8 @@ export default function VSWorkOrdersTab() {
                   overflowY: 'auto',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: 1.2,
-                  pr: 0.5,
+                  gap: 0.8,
+                  pr: 0.2,
                   maxHeight: { xs: 350, md: 'none' },
                 }}
               >
@@ -1174,37 +1162,37 @@ export default function VSWorkOrdersTab() {
                     <Box
                       key={n.id}
                       sx={{
-                        p: 1.2,
-                        borderRadius: '6px',
+                        p: 0.8,
+                        borderRadius: '5px',
                         backgroundColor: n.is_status_change ? '#F1F5F9' : '#FFFFFF',
                         border: n.is_status_change ? '1px solid #CBD5E1' : '1px solid #E4EBE1',
-                        borderLeft: n.is_status_change ? '3px solid #2563EB' : '3px solid #023020',
+                        borderLeft: n.is_status_change ? '2.5px solid #2563EB' : '2.5px solid #023020',
                         boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
                       }}
                     >
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5, flexWrap: 'wrap', gap: 0.3 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', mb: 0.3, gap: 0.2 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4 }}>
                           {n.is_status_change ? (
-                            <Clock size={11} color="#2563EB" />
+                            <Clock size={10} color="#2563EB" />
                           ) : (
-                            <User size={11} color="#023020" />
+                            <User size={10} color="#023020" />
                           )}
-                          <Typography variant="caption" sx={{ fontWeight: 700, color: '#0F172A', fontSize: 11 }}>
+                          <Typography variant="caption" sx={{ fontWeight: 700, color: '#0F172A', fontSize: 10.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {n.author_name}
                           </Typography>
                         </Box>
-                        <Typography variant="caption" sx={{ color: '#64748B', fontSize: 10 }}>
-                          {new Date(n.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                        <Typography variant="caption" sx={{ color: '#64748B', fontSize: 9.5 }}>
+                          {new Date(n.created_at).toLocaleDateString([], { month: 'numeric', day: 'numeric' })} {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </Typography>
                       </Box>
                       {n.is_status_change && (
-                        <Box sx={{ mb: 0.5 }}>
+                        <Box sx={{ mb: 0.3 }}>
                           <Chip
-                            label="Status Change"
+                            label="Status"
                             size="small"
                             sx={{
-                              height: 16,
-                              fontSize: 9.5,
+                              height: 14,
+                              fontSize: 8.5,
                               fontWeight: 700,
                               backgroundColor: '#DBEAFE',
                               color: '#1D4ED8',
@@ -1213,19 +1201,16 @@ export default function VSWorkOrdersTab() {
                           />
                         </Box>
                       )}
-                      <Typography variant="body2" sx={{ color: '#1E293B', fontSize: 11.5, whiteSpace: 'pre-wrap', lineHeight: 1.4 }}>
+                      <Typography variant="body2" sx={{ color: '#1E293B', fontSize: 10.5, wordBreak: 'break-word', lineHeight: 1.35 }}>
                         {n.note}
                       </Typography>
                     </Box>
                   ))
                 ) : (
-                  <Box sx={{ textAlign: 'center', py: 4, color: '#667A6D' }}>
-                    <MessageSquare size={24} color="#94A3B8" style={{ margin: '0 auto 6px' }} />
-                    <Typography variant="body2" sx={{ fontSize: 12, fontWeight: 600 }}>
-                      No logs recorded yet
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: '#94A3B8', fontSize: 10.5 }}>
-                      Status updates and remarks will appear here
+                  <Box sx={{ textAlign: 'center', py: 3, color: '#667A6D' }}>
+                    <MessageSquare size={18} color="#94A3B8" style={{ margin: '0 auto 4px' }} />
+                    <Typography variant="caption" sx={{ fontSize: 10.5, fontWeight: 600, display: 'block' }}>
+                      No logs yet
                     </Typography>
                   </Box>
                 )}
