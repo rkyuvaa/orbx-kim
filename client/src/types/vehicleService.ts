@@ -36,6 +36,7 @@ export interface VSKitCreate {
 }
 
 export interface VSKitUpdate {
+  kit_number?: string;
   kit_name?: string;
   customer_name?: string;
   vehicle_number?: string;

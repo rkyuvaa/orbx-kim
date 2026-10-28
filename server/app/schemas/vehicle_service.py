@@ -37,6 +37,7 @@ class VSKitCreate(BaseModel):
 
 
 class VSKitUpdate(BaseModel):
+    kit_number: Optional[str] = Field(None, max_length=80)
     kit_name: Optional[str] = Field(None, max_length=120)
     customer_name: Optional[str] = Field(None, max_length=120)
     vehicle_number: Optional[str] = Field(None, max_length=40)

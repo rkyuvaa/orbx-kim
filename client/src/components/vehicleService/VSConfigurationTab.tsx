@@ -14,12 +14,14 @@ import {
   DialogTitle,
   Divider,
   FormControl,
+  FormControlLabel,
   Grid,
   IconButton,
   InputLabel,
   MenuItem,
   Paper,
   Select,
+  Switch,
   Tab,
   Table,
   TableBody,
@@ -33,6 +35,7 @@ import {
   Typography,
 } from '@mui/material';
 import {
+  AlertTriangle,
   Calendar,
   Check,
   CheckCircle2,
@@ -59,6 +62,7 @@ import {
   useCreateVSKitMutation,
   useCreateVSMaintenanceMutation,
   useCreateVSVehicleMutation,
+  useDeleteVSKitMutation,
   useGetVSKitsQuery,
   useGetVSMaintenanceQuery,
   useGetVSVehiclesQuery,
@@ -71,6 +75,7 @@ import type {
   VSKit,
   VSKitCreate,
   VSKitPdfParsePreview,
+  VSKitUpdate,
   VSMaintenanceCreate,
   VSVehicle,
   VSVehicleCreate,
@@ -123,6 +128,24 @@ export default function VSConfigurationTab() {
   // Inline editing of vehicle number on Kit Master
   const [editingKitVehicleId, setEditingKitVehicleId] = useState<number | null>(null);
   const [editingKitVehicleNo, setEditingKitVehicleNo] = useState('');
+
+  // Delete Kit Mutation
+  const [deleteKit, { isLoading: isDeletingKit }] = useDeleteVSKitMutation();
+
+  // Edit Kit Modal State
+  const [editingKit, setEditingKit] = useState<VSKit | null>(null);
+  const [editKitForm, setEditKitForm] = useState<VSKitUpdate>({
+    kit_name: '',
+    kit_number: '',
+    customer_name: '',
+    vehicle_number: '',
+    description: '',
+    is_active: true,
+  });
+  const [editKitError, setEditKitError] = useState<string | null>(null);
+
+  // Delete Kit State
+  const [deleteKitTarget, setDeleteKitTarget] = useState<VSKit | null>(null);
 
   // New Kit Form State
   const [kitNumber, setKitNumber] = useState('');
@@ -240,6 +263,58 @@ export default function VSConfigurationTab() {
       refetchKits();
     } catch (err: any) {
       showToast(err?.data?.detail || 'Failed to update vehicle number', 'error');
+    }
+  };
+
+  const handleOpenEditKit = (kit: VSKit) => {
+    setEditingKit(kit);
+    setEditKitForm({
+      kit_name: kit.kit_name,
+      kit_number: kit.kit_number,
+      customer_name: kit.customer_name || '',
+      vehicle_number: kit.vehicle_number || '',
+      description: kit.description || '',
+      is_active: kit.is_active,
+    });
+    setEditKitError(null);
+  };
+
+  const handleSaveEditKit = async () => {
+    if (!editingKit) return;
+    if (!editKitForm.kit_name?.trim() || !editKitForm.kit_number?.trim()) {
+      setEditKitError('Kit Name and Kit Number are required.');
+      return;
+    }
+
+    try {
+      await updateKit({
+        id: editingKit.id,
+        body: {
+          kit_name: editKitForm.kit_name.trim(),
+          kit_number: editKitForm.kit_number.trim().toUpperCase(),
+          customer_name: editKitForm.customer_name?.trim() || undefined,
+          vehicle_number: editKitForm.vehicle_number?.trim().toUpperCase() || undefined,
+          description: editKitForm.description?.trim() || undefined,
+          is_active: editKitForm.is_active,
+        },
+      }).unwrap();
+      showToast('Kit Master updated successfully', 'success');
+      setEditingKit(null);
+      refetchKits();
+    } catch (err: any) {
+      setEditKitError(err?.data?.detail || 'Failed to update kit master.');
+    }
+  };
+
+  const handleConfirmDeleteKit = async () => {
+    if (!deleteKitTarget) return;
+    try {
+      await deleteKit(deleteKitTarget.id).unwrap();
+      showToast(`Kit '${deleteKitTarget.kit_name}' deleted successfully`, 'success');
+      setDeleteKitTarget(null);
+      refetchKits();
+    } catch (err: any) {
+      showToast(err?.data?.detail || 'Failed to delete kit.', 'error');
     }
   };
 
@@ -440,7 +515,9 @@ export default function VSConfigurationTab() {
                         <TableCell sx={{ fontWeight: 700 }}>Kit ID / Lot/Serial</TableCell>
                         <TableCell sx={{ fontWeight: 700 }}>Customer Name</TableCell>
                         <TableCell sx={{ fontWeight: 700 }}>Serialized Components</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>Created Date</TableCell>
                         <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700 }}>Actions</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -546,12 +623,47 @@ export default function VSConfigurationTab() {
                             </Button>
                           </TableCell>
 
+                          {/* Created Date */}
+                          <TableCell sx={{ color: '#475569', fontSize: 12, whiteSpace: 'nowrap' }}>
+                            {kit.created_at ? new Date(kit.created_at).toLocaleDateString([], {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric',
+                            }) : '—'}
+                          </TableCell>
+
+                          {/* Status */}
                           <TableCell>
                             <Chip
                               label={kit.is_active ? 'Active' : 'Archived'}
                               size="small"
                               color={kit.is_active ? 'success' : 'default'}
                             />
+                          </TableCell>
+
+                          {/* Actions (after status) */}
+                          <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
+                              <Tooltip title="Edit Kit Details">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleOpenEditKit(kit)}
+                                  sx={{ color: '#64748B', '&:hover': { color: '#023020', backgroundColor: '#F0FDF4' } }}
+                                >
+                                  <Pencil size={15} />
+                                </IconButton>
+                              </Tooltip>
+
+                              <Tooltip title="Delete Kit">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => setDeleteKitTarget(kit)}
+                                  sx={{ color: '#94A3B8', '&:hover': { color: '#DC2626', backgroundColor: '#FEF2F2' } }}
+                                >
+                                  <Trash2 size={15} />
+                                </IconButton>
+                              </Tooltip>
+                            </Box>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -1368,6 +1480,156 @@ export default function VSConfigurationTab() {
           <DialogActions sx={{ p: 2 }}>
             <Button onClick={() => setViewingKitComponents(null)} sx={{ textTransform: 'none', fontWeight: 600 }}>
               Close
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
+
+      {/* =====================================================================
+          EDIT KIT MASTER DIALOG
+      ====================================================================== */}
+      {editingKit && (
+        <Dialog
+          open={Boolean(editingKit)}
+          onClose={() => setEditingKit(null)}
+          maxWidth="sm"
+          fullWidth
+          PaperProps={{ sx: { borderRadius: 3, p: 1 } }}
+        >
+          <DialogTitle sx={{ fontWeight: 800, color: '#023020', fontSize: 17, pb: 1 }}>
+            Edit Kit Master
+          </DialogTitle>
+          <DialogContent sx={{ pt: 1.5 }}>
+            {editKitError && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {editKitError}
+              </Alert>
+            )}
+
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+              {/* Vehicle Number (Title) */}
+              <TextField
+                label="Vehicle Number (Title)"
+                size="small"
+                fullWidth
+                placeholder="e.g. TN66P7023"
+                value={editKitForm.vehicle_number || ''}
+                onChange={(e) => setEditKitForm((prev) => ({ ...prev, vehicle_number: e.target.value }))}
+                helperText="Primary vehicle registration number for this kit"
+              />
+
+              {/* Kit Name & Kit Number in 2 columns */}
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                <TextField
+                  label="Kit Name *"
+                  size="small"
+                  required
+                  fullWidth
+                  value={editKitForm.kit_name || ''}
+                  onChange={(e) => setEditKitForm((prev) => ({ ...prev, kit_name: e.target.value }))}
+                />
+                <TextField
+                  label="Kit ID / Lot/Serial *"
+                  size="small"
+                  required
+                  fullWidth
+                  value={editKitForm.kit_number || ''}
+                  onChange={(e) => setEditKitForm((prev) => ({ ...prev, kit_number: e.target.value }))}
+                />
+              </Box>
+
+              {/* Customer Name */}
+              <TextField
+                label="Customer Name"
+                size="small"
+                fullWidth
+                placeholder="e.g. D PUTTASWAMY"
+                value={editKitForm.customer_name || ''}
+                onChange={(e) => setEditKitForm((prev) => ({ ...prev, customer_name: e.target.value }))}
+              />
+
+              {/* Description */}
+              <TextField
+                label="Description"
+                size="small"
+                fullWidth
+                multiline
+                rows={2}
+                value={editKitForm.description || ''}
+                onChange={(e) => setEditKitForm((prev) => ({ ...prev, description: e.target.value }))}
+              />
+
+              {/* Active Toggle */}
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={editKitForm.is_active ?? true}
+                    onChange={(e) => setEditKitForm((prev) => ({ ...prev, is_active: e.target.checked }))}
+                    color="success"
+                  />
+                }
+                label={
+                  <Typography sx={{ fontSize: 13, fontWeight: 600 }}>
+                    Active Kit Configuration
+                  </Typography>
+                }
+              />
+            </Box>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={() => setEditingKit(null)} sx={{ textTransform: 'none', color: '#64748B' }}>
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleSaveEditKit}
+              sx={{
+                textTransform: 'none',
+                fontWeight: 700,
+                backgroundColor: '#023020',
+                '&:hover': { backgroundColor: '#034732' },
+                borderRadius: '8px',
+                px: 2.5,
+              }}
+            >
+              Save Changes
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
+
+      {/* =====================================================================
+          DELETE KIT CONFIRMATION DIALOG
+      ====================================================================== */}
+      {deleteKitTarget && (
+        <Dialog
+          open={Boolean(deleteKitTarget)}
+          onClose={() => setDeleteKitTarget(null)}
+          maxWidth="xs"
+          fullWidth
+          PaperProps={{ sx: { borderRadius: 3, p: 1 } }}
+        >
+          <DialogTitle sx={{ fontWeight: 800, color: '#DC2626', display: 'flex', alignItems: 'center', gap: 1 }}>
+            <AlertTriangle size={20} /> Delete Kit Master
+          </DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" sx={{ color: '#334155', fontSize: 13.5, lineHeight: 1.5 }}>
+              Are you sure you want to delete kit <strong>{deleteKitTarget.kit_name}</strong> ({deleteKitTarget.kit_number})?
+              This will remove the kit configuration and its {deleteKitTarget.component_types.length} serialized components.
+            </Typography>
+          </DialogContent>
+          <DialogActions sx={{ px: 2.5, pb: 1.5 }}>
+            <Button onClick={() => setDeleteKitTarget(null)} sx={{ textTransform: 'none', color: '#64748B' }}>
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              color="error"
+              onClick={handleConfirmDeleteKit}
+              disabled={isDeletingKit}
+              sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '8px' }}
+            >
+              {isDeletingKit ? 'Deleting...' : 'Delete Kit'}
             </Button>
           </DialogActions>
         </Dialog>

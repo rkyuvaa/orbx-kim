@@ -47,6 +47,10 @@ export const vehicleServiceApi = baseApi.injectEndpoints({
       query: ({ id, body }) => ({ url: `/vehicle-service/kits/${id}`, method: 'PATCH', body }),
       invalidatesTags: ['VSKits'],
     }),
+    deleteVSKit: build.mutation<{ success: boolean; message: string }, number>({
+      query: (id) => ({ url: `/vehicle-service/kits/${id}`, method: 'DELETE' }),
+      invalidatesTags: ['VSKits'],
+    }),
     parseVSKitPdf: build.mutation<VSKitPdfParsePreview, FormData>({
       query: (body) => ({
         url: '/vehicle-service/kits/parse-pdf',
@@ -215,6 +219,7 @@ export const {
   useGetVSKitsQuery,
   useCreateVSKitMutation,
   useUpdateVSKitMutation,
+  useDeleteVSKitMutation,
   useParseVSKitPdfMutation,
   useImportVSKitPdfMutation,
   useGetVSVehiclesQuery,

@@ -547,20 +547,51 @@ def update_kit(
     if not kit:
         raise HTTPException(status_code=404, detail="Kit not found")
 
+    if payload.kit_number is not None and payload.kit_number.strip():
+        new_no = payload.kit_number.strip().upper()
+        if new_no != kit.kit_number:
+            existing = db.query(VSKit).filter(VSKit.kit_number == new_no, VSKit.id != kit_id).first()
+            if existing:
+                raise HTTPException(status_code=400, detail=f"Kit number '{new_no}' is already used by another kit.")
+            kit.kit_number = new_no
     if payload.kit_name is not None:
-        kit.kit_name = payload.kit_name
+        kit.kit_name = payload.kit_name.strip()
     if payload.customer_name is not None:
-        kit.customer_name = payload.customer_name
+        kit.customer_name = payload.customer_name.strip() if payload.customer_name else None
     if payload.vehicle_number is not None:
-        kit.vehicle_number = payload.vehicle_number
+        kit.vehicle_number = payload.vehicle_number.strip().upper() if payload.vehicle_number else None
     if payload.description is not None:
-        kit.description = payload.description
+        kit.description = payload.description.strip() if payload.description else None
     if payload.is_active is not None:
         kit.is_active = payload.is_active
 
     db.commit()
     db.refresh(kit)
     return kit
+
+
+@router.delete("/kits/{kit_id}")
+def delete_kit(
+    kit_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Delete a Kit Master definition and its associated component types."""
+    kit = db.query(VSKit).filter(VSKit.id == kit_id).first()
+    if not kit:
+        raise HTTPException(status_code=404, detail="Kit not found")
+
+    # Check if any registered vehicle is currently linked to this kit
+    linked_vehicles = db.query(VSVehicle).filter(VSVehicle.kit_id == kit_id).count()
+    if linked_vehicles > 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot delete kit '{kit.kit_name}' because {linked_vehicles} vehicle(s) are actively linked to it. Please reassign or remove linked vehicles first.",
+        )
+
+    db.delete(kit)
+    db.commit()
+    return {"success": True, "message": f"Kit '{kit.kit_name}' deleted successfully"}
 
 
 # ============================================================================
