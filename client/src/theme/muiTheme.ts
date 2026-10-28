@@ -213,9 +213,39 @@ export const getMuiTheme = (mode: 'light' | 'dark') => {
         },
       },
       MuiSelect: {
+        defaultProps: {
+          size: 'small',
+        },
         styleOverrides: {
           root: {
             borderRadius: 8,
+            cursor: 'pointer',
+            '& .MuiSelect-select': {
+              cursor: 'pointer',
+              userSelect: 'none',
+            },
+          },
+        },
+      },
+      MuiMenuItem: {
+        styleOverrides: {
+          root: {
+            fontSize: 13,
+            fontWeight: 500,
+            borderRadius: 6,
+            margin: '2px 4px',
+            transition: 'background-color 0.12s ease',
+            '&:hover': {
+              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#F5F7F5',
+            },
+            '&.Mui-selected': {
+              backgroundColor: isDark ? 'rgba(22, 196, 127, 0.15)' : '#E8F5E9',
+              fontWeight: 700,
+              color: isDark ? '#16C47F' : '#023020',
+              '&:hover': {
+                backgroundColor: isDark ? 'rgba(22, 196, 127, 0.22)' : '#DCFCE7',
+              },
+            },
           },
         },
       },

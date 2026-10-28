@@ -57,6 +57,7 @@ import {
 } from 'lucide-react';
 
 import { useUsersQuery } from '@/api/mastersApi';
+import { AppDropdown } from '@/components/ui/AppDropdown';
 import {
   useAddVSComplaintNoteMutation,
   useAddVSServiceCostMutation,
@@ -371,47 +372,56 @@ export default function VSWorkOrdersTab() {
           </Grid>
 
           <Grid item xs={6} sm={3} md={2}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Severity</InputLabel>
-              <Select value={severityFilter} label="Severity" onChange={(e) => setSeverityFilter(e.target.value)}>
-                <MenuItem value="">All Severities</MenuItem>
-                <MenuItem value="CRITICAL">🔴 Critical</MenuItem>
-                <MenuItem value="HIGH">🟠 High</MenuItem>
-                <MenuItem value="MEDIUM">🟡 Medium</MenuItem>
-                <MenuItem value="LOW">🟢 Low</MenuItem>
-              </Select>
-            </FormControl>
+            <AppDropdown
+              label="Severity"
+              value={severityFilter}
+              emptyLabel="All Severities"
+              allowEmpty
+              options={[
+                { value: 'CRITICAL', label: '🔴 Critical' },
+                { value: 'HIGH', label: '🟠 High' },
+                { value: 'MEDIUM', label: '🟡 Medium' },
+                { value: 'LOW', label: '🟢 Low' },
+              ]}
+              onChange={(val) => setSeverityFilter(val)}
+            />
           </Grid>
 
           <Grid item xs={6} sm={3} md={2.5}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Status</InputLabel>
-              <Select value={statusFilter} label="Status" onChange={(e) => setStatusFilter(e.target.value)}>
-                <MenuItem value="">All Statuses</MenuItem>
-                <MenuItem value="OPEN">Open</MenuItem>
-                <MenuItem value="ACKNOWLEDGED">Acknowledged</MenuItem>
-                <MenuItem value="ASSIGNED">Assigned</MenuItem>
-                <MenuItem value="IN_PROGRESS">In Progress</MenuItem>
-                <MenuItem value="RESOLVED">Resolved</MenuItem>
-                <MenuItem value="CLOSED">Closed</MenuItem>
-              </Select>
-            </FormControl>
+            <AppDropdown
+              label="Status"
+              value={statusFilter}
+              emptyLabel="All Statuses"
+              allowEmpty
+              options={[
+                { value: 'OPEN', label: 'Open' },
+                { value: 'ACKNOWLEDGED', label: 'Acknowledged' },
+                { value: 'ASSIGNED', label: 'Assigned' },
+                { value: 'IN_PROGRESS', label: 'In Progress' },
+                { value: 'RESOLVED', label: 'Resolved' },
+                { value: 'CLOSED', label: 'Closed' },
+              ]}
+              onChange={(val) => setStatusFilter(val)}
+            />
           </Grid>
 
           <Grid item xs={6} sm={3} md={2.5}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Category</InputLabel>
-              <Select value={categoryFilter} label="Category" onChange={(e) => setCategoryFilter(e.target.value)}>
-                <MenuItem value="">All Categories</MenuItem>
-                <MenuItem value="BREAKDOWN">Breakdown</MenuItem>
-                <MenuItem value="BATTERY">Battery / Range</MenuItem>
-                <MenuItem value="MOTOR">Motor</MenuItem>
-                <MenuItem value="CONTROLLER">Controller</MenuItem>
-                <MenuItem value="CHARGING">Charging</MenuItem>
-                <MenuItem value="PERFORMANCE">Performance</MenuItem>
-                <MenuItem value="OTHER">Other</MenuItem>
-              </Select>
-            </FormControl>
+            <AppDropdown
+              label="Category"
+              value={categoryFilter}
+              emptyLabel="All Categories"
+              allowEmpty
+              options={[
+                { value: 'BREAKDOWN', label: 'Breakdown' },
+                { value: 'BATTERY', label: 'Battery / Range' },
+                { value: 'MOTOR', label: 'Motor' },
+                { value: 'CONTROLLER', label: 'Controller' },
+                { value: 'CHARGING', label: 'Charging' },
+                { value: 'PERFORMANCE', label: 'Performance' },
+                { value: 'OTHER', label: 'Other' },
+              ]}
+              onChange={(val) => setCategoryFilter(val)}
+            />
           </Grid>
 
           <Grid item xs={6} sm={3} md={1.5}>
@@ -592,40 +602,35 @@ export default function VSWorkOrdersTab() {
           )}
 
           {/* Vehicle Selector */}
-          <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-            <InputLabel>Retrofitted Vehicle *</InputLabel>
-            <Select
-              value={newVehicleId}
+          <Box sx={{ mb: 2 }}>
+            <AppDropdown
               label="Retrofitted Vehicle *"
-              onChange={(e) => handleSelectVehicleInForm(Number(e.target.value))}
-            >
-              {vehicles.map((v) => (
-                <MenuItem key={v.id} value={v.id}>
-                  {v.vehicle_number} — {v.owner_name} (Kit: {v.kit_number || 'Default'})
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+              value={newVehicleId}
+              placeholder="Select vehicle"
+              required
+              options={vehicles.map((v) => ({
+                value: v.id,
+                label: `${v.vehicle_number} — ${v.owner_name} (Kit: ${v.kit_number || 'Default'})`,
+              }))}
+              onChange={(val) => handleSelectVehicleInForm(Number(val))}
+            />
+          </Box>
 
           {/* Component in Kit Selector */}
           {selectedVehicleObj && selectedVehicleObj.components && selectedVehicleObj.components.length > 0 && (
-            <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-              <InputLabel>Affected Component from Kit</InputLabel>
-              <Select
-                value={newComponentId}
+            <Box sx={{ mb: 2 }}>
+              <AppDropdown
                 label="Affected Component from Kit"
-                onChange={(e) => setNewComponentId(e.target.value as number | '')}
-              >
-                <MenuItem value="">
-                  <em>General Vehicle / Non-Component Issue</em>
-                </MenuItem>
-                {selectedVehicleObj.components.map((comp) => (
-                  <MenuItem key={comp.id} value={comp.id}>
-                    {comp.component_label} (Serial: {comp.serial_number})
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+                value={newComponentId}
+                emptyLabel="General Vehicle / Non-Component Issue"
+                allowEmpty
+                options={selectedVehicleObj.components.map((comp) => ({
+                  value: comp.id,
+                  label: `${comp.component_label} (Serial: ${comp.serial_number})`,
+                }))}
+                onChange={(val) => setNewComponentId(val as number | '')}
+              />
+            </Box>
           )}
 
           {/* Complainant Details */}
@@ -653,50 +658,50 @@ export default function VSWorkOrdersTab() {
           {/* Category & Severity */}
           <Grid container spacing={2} sx={{ mb: 2 }}>
             <Grid item xs={6}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Category *</InputLabel>
-                <Select value={newCategory} label="Category *" onChange={(e) => setNewCategory(e.target.value)}>
-                  <MenuItem value="BREAKDOWN">Breakdown</MenuItem>
-                  <MenuItem value="BATTERY">Battery / Range</MenuItem>
-                  <MenuItem value="MOTOR">Motor</MenuItem>
-                  <MenuItem value="CONTROLLER">Controller</MenuItem>
-                  <MenuItem value="CHARGING">Charging</MenuItem>
-                  <MenuItem value="PERFORMANCE">Performance</MenuItem>
-                  <MenuItem value="OTHER">Other</MenuItem>
-                </Select>
-              </FormControl>
+              <AppDropdown
+                label="Category *"
+                value={newCategory}
+                options={[
+                  { value: 'BREAKDOWN', label: 'Breakdown' },
+                  { value: 'BATTERY', label: 'Battery / Range' },
+                  { value: 'MOTOR', label: 'Motor' },
+                  { value: 'CONTROLLER', label: 'Controller' },
+                  { value: 'CHARGING', label: 'Charging' },
+                  { value: 'PERFORMANCE', label: 'Performance' },
+                  { value: 'OTHER', label: 'Other' },
+                ]}
+                onChange={(val) => setNewCategory(String(val))}
+              />
             </Grid>
             <Grid item xs={6}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Severity *</InputLabel>
-                <Select value={newSeverity} label="Severity *" onChange={(e) => setNewSeverity(e.target.value)}>
-                  <MenuItem value="CRITICAL">🔴 Critical</MenuItem>
-                  <MenuItem value="HIGH">🟠 High</MenuItem>
-                  <MenuItem value="MEDIUM">🟡 Medium</MenuItem>
-                  <MenuItem value="LOW">🟢 Low</MenuItem>
-                </Select>
-              </FormControl>
+              <AppDropdown
+                label="Severity *"
+                value={newSeverity}
+                options={[
+                  { value: 'CRITICAL', label: '🔴 Critical' },
+                  { value: 'HIGH', label: '🟠 High' },
+                  { value: 'MEDIUM', label: '🟡 Medium' },
+                  { value: 'LOW', label: '🟢 Low' },
+                ]}
+                onChange={(val) => setNewSeverity(String(val))}
+              />
             </Grid>
           </Grid>
 
           {/* Assignee */}
-          <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-            <InputLabel>Assign Technician / Service Officer</InputLabel>
-            <Select
-              value={newAssignedTo}
+          <Box sx={{ mb: 2 }}>
+            <AppDropdown
               label="Assign Technician / Service Officer"
-              onChange={(e) => setNewAssignedTo(e.target.value as number | '')}
-            >
-              <MenuItem value="">
-                <em>Leave Unassigned</em>
-              </MenuItem>
-              {users.map((u) => (
-                <MenuItem key={u.id} value={u.id}>
-                  {u.full_name} ({u.role})
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+              value={newAssignedTo}
+              emptyLabel="Leave Unassigned"
+              allowEmpty
+              options={users.map((u) => ({
+                value: u.id,
+                label: `${u.full_name} (${u.role})`,
+              }))}
+              onChange={(val) => setNewAssignedTo(val as number | '')}
+            />
+          </Box>
 
           {/* Description */}
           <TextField
@@ -945,23 +950,17 @@ export default function VSWorkOrdersTab() {
                     )}
 
                     {/* Technician Assignment */}
-                    <FormControl fullWidth size="small">
-                      <InputLabel>Assigned Technician</InputLabel>
-                      <Select
-                        value={selectedComplaint.assigned_to_id || ''}
-                        label="Assigned Technician"
-                        onChange={(e) => handleAssignUser(selectedComplaint.id, Number(e.target.value))}
-                      >
-                        <MenuItem value="">
-                          <em>Unassigned</em>
-                        </MenuItem>
-                        {users.map((u) => (
-                          <MenuItem key={u.id} value={u.id}>
-                            {u.full_name} ({u.role})
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
+                    <AppDropdown
+                      label="Assigned Technician"
+                      value={selectedComplaint.assigned_to_id || ''}
+                      emptyLabel="Unassigned"
+                      allowEmpty
+                      options={users.map((u) => ({
+                        value: u.id,
+                        label: `${u.full_name} (${u.role})`,
+                      }))}
+                      onChange={(val) => handleAssignUser(selectedComplaint.id, Number(val))}
+                    />
                   </Paper>
                 </Grid>
               </Grid>

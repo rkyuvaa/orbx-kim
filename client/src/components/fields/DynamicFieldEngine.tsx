@@ -18,6 +18,7 @@ import { useCustomFieldValuesQuery, useSaveCustomFieldValuesMutation } from '@/a
 import { useToast } from '@/components/ui/ToastHost';
 import { useAppSelector } from '@/app/hooks';
 import DocumentPreviewDialog, { type PreviewFileMeta } from '@/components/ui/DocumentPreviewDialog';
+import { AppDropdown } from '@/components/ui/AppDropdown';
 import { compressImageFile } from '@/utils/imageCompressor';
 import type { CrmTabFieldConfig } from '@/types';
 
@@ -273,20 +274,17 @@ export default function DynamicFieldEngine({
               )}
 
               {f.field_type === 'dropdown' && (
-                <Select
-                  size="small"
+                <AppDropdown
                   fullWidth
                   value={val}
                   disabled={isReadonly}
-                  onChange={(e) => handleTextChange(f.id, String(e.target.value))}
-                >
-                  <MenuItem value="">Select option</MenuItem>
-                  {f.options?.map((o, idx) => (
-                    <MenuItem key={idx} value={o.value}>
-                      {o.label}
-                    </MenuItem>
-                  ))}
-                </Select>
+                  placeholder="Select option"
+                  options={(f.options || []).map((o) => ({
+                    value: o.value,
+                    label: o.label,
+                  }))}
+                  onChange={(newVal) => handleTextChange(f.id, String(newVal))}
+                />
               )}
 
               {f.field_type === 'file' && (
