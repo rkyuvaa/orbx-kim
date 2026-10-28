@@ -26,6 +26,13 @@ export default function AppLayout() {
 
   const sidebarWidth = collapsed ? 76 : 244;
 
+  useEffect(() => {
+    document.documentElement.style.setProperty(
+      '--current-sidebar-width',
+      `${isMobile ? 0 : sidebarWidth}px`
+    );
+  }, [sidebarWidth, isMobile]);
+
   return (
     <div style={{ minHeight: '100vh' }}>
       {isMobile ? (
