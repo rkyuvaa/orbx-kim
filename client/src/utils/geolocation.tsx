@@ -75,6 +75,59 @@ export async function reverseGeocodeAreaAndCity(
   return null;
 }
 
+/**
+ * Replaces any raw latitude/longitude coordinates in note text with human-readable Area and City.
+ */
+export function formatNoteLocation(noteText: string, address?: string | null): string {
+  if (!noteText) return '';
+  if (!address || !address.trim()) {
+    // If no address is available yet, clean up raw "(lat, lng)" into generic "location"
+    return noteText.replace(/location\s*\(-?\d+\.\d+,\s*-?\d+\.\d+\)/gi, 'location');
+  }
+
+  const cleanAddr = address.trim();
+  return noteText
+    .replace(/at location\s*\(-?\d+\.\d+,\s*-?\d+\.\d+\)/gi, `at ${cleanAddr}`)
+    .replace(/location:\s*\(-?\d+\.\d+,\s*-?\d+\.\d+\)/gi, `Location: ${cleanAddr}`)
+    .replace(/GPS:\s*\(-?\d+\.\d+,\s*-?\d+\.\d+\)/gi, `Location: ${cleanAddr}`)
+    .replace(/at\s*\(-?\d+\.\d+,\s*-?\d+\.\d+\)/gi, `at ${cleanAddr}`)
+    .replace(/\(-?\d+\.\d+,\s*-?\d+\.\d+\)/g, cleanAddr);
+}
+
+/**
+ * Hook to resolve and cache Area and City for coordinates.
+ */
+export function useResolvedAddress(
+  lat?: number | null,
+  lng?: number | null,
+  initialAddress?: string | null
+): string | null {
+  const [resolved, setResolved] = useState<string | null>(initialAddress || null);
+
+  useEffect(() => {
+    if (initialAddress && initialAddress.trim()) {
+      setResolved(initialAddress);
+      return;
+    }
+
+    if (lat && lng) {
+      const cacheKey = `${lat.toFixed(4)},${lng.toFixed(4)}`;
+      if (geocodeCache.has(cacheKey)) {
+        setResolved(geocodeCache.get(cacheKey)!);
+        return;
+      }
+
+      reverseGeocodeAreaAndCity(lat, lng).then((res) => {
+        if (res?.formatted) {
+          setResolved(res.formatted);
+        }
+      });
+    }
+  }, [lat, lng, initialAddress]);
+
+  return resolved;
+}
+
 interface LocationDisplayProps {
   lat?: number | null;
   lng?: number | null;

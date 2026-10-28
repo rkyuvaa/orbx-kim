@@ -282,7 +282,7 @@ def submit_public_complaint(
     db.flush()
 
     # Add initial note
-    loc_str = gps_addr or (f"({payload.gps_latitude}, {payload.gps_longitude})" if payload.gps_latitude else "No GPS")
+    loc_str = gps_addr or "Customer Location"
     init_note = VSComplaintNote(
         complaint_id=complaint.id,
         author_name=f"Customer ({payload.reported_by})",
@@ -373,11 +373,11 @@ def submit_universal_complaint(
     db.flush()
 
     # Initial Note
-    gps_info = gps_addr or (f"({payload.gps_latitude}, {payload.gps_longitude})" if payload.gps_latitude else "No GPS")
+    gps_info = gps_addr or "Customer Location"
     init_note = VSComplaintNote(
         complaint_id=complaint.id,
         author_name=f"Customer ({payload.reported_by})",
-        note=f"Complaint registered via Universal QR link. Location: {gps_info}. Category: {payload.category}",
+        note=f"Complaint registered via Universal QR link at {gps_info}. Category: {payload.category}",
         is_status_change=False,
     )
     db.add(init_note)
@@ -749,11 +749,12 @@ def create_complaint(
     db.add(complaint)
     db.flush()
 
+    loc_info = f" at {gps_addr}" if gps_addr else ""
     note = VSComplaintNote(
         complaint_id=complaint.id,
         author_id=current_user.id,
         author_name=current_user.full_name,
-        note=f"Complaint registered by {current_user.full_name}. Severity: {payload.severity}",
+        note=f"Complaint registered by {current_user.full_name}{loc_info}. Severity: {payload.severity}",
         is_status_change=False,
     )
     db.add(note)

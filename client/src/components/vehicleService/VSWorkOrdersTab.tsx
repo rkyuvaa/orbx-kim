@@ -58,7 +58,7 @@ import {
 
 import { useUsersQuery } from '@/api/mastersApi';
 import { AppDropdown } from '@/components/ui/AppDropdown';
-import { LocationDisplay } from '@/utils/geolocation';
+import { LocationDisplay, formatNoteLocation, useResolvedAddress } from '@/utils/geolocation';
 import {
   useAddVSComplaintNoteMutation,
   useAddVSServiceCostMutation,
@@ -120,6 +120,11 @@ export default function VSWorkOrdersTab() {
   // Dialog states
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
   const [selectedComplaint, setSelectedComplaint] = useState<VSComplaint | null>(null);
+  const complaintAddress = useResolvedAddress(
+    selectedComplaint?.gps_latitude,
+    selectedComplaint?.gps_longitude,
+    selectedComplaint?.gps_address,
+  );
 
   // New Complaint Form
   const [newVehicleId, setNewVehicleId] = useState<number | ''>('');
@@ -1069,38 +1074,58 @@ export default function VSWorkOrdersTab() {
               }}
             >
               {/* Header */}
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
-                  <Box
-                    sx={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: '7px',
-                      backgroundColor: '#E8F5E9',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: '#023020',
-                    }}
-                  >
-                    <History size={15} />
+              <Box sx={{ mb: 1.5 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                    <Box
+                      sx={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: '7px',
+                        backgroundColor: '#E8F5E9',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#023020',
+                      }}
+                    >
+                      <History size={15} />
+                    </Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#023020', fontSize: 13 }}>
+                      Changelog
+                    </Typography>
                   </Box>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#023020', fontSize: 13 }}>
-                    Changelog
-                  </Typography>
+                  <Chip
+                    label={`${selectedComplaint.notes?.length || 0}`}
+                    size="small"
+                    sx={{
+                      fontWeight: 700,
+                      fontSize: 10.5,
+                      backgroundColor: '#E8F5E9',
+                      color: '#1B5E20',
+                      border: '1px solid #C8E6C9',
+                      height: 20,
+                    }}
+                  />
                 </Box>
-                <Chip
-                  label={`${selectedComplaint.notes?.length || 0}`}
-                  size="small"
-                  sx={{
-                    fontWeight: 700,
-                    fontSize: 10.5,
-                    backgroundColor: '#E8F5E9',
-                    color: '#1B5E20',
-                    border: '1px solid #C8E6C9',
-                    height: 20,
-                  }}
-                />
+                {complaintAddress && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
+                    <MapPin size={11} color="#2563EB" style={{ flexShrink: 0 }} />
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: '#1D4ED8',
+                        fontWeight: 600,
+                        fontSize: 11,
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}
+                    >
+                      {complaintAddress}
+                    </Typography>
+                  </Box>
+                )}
               </Box>
 
               {/* Add Note / Quick Log Box */}
@@ -1203,7 +1228,7 @@ export default function VSWorkOrdersTab() {
                         </Box>
                       )}
                       <Typography variant="body2" sx={{ color: '#1E293B', fontSize: 11.5, whiteSpace: 'pre-wrap', lineHeight: 1.4 }}>
-                        {n.note}
+                        {formatNoteLocation(n.note, complaintAddress)}
                       </Typography>
                     </Box>
                   ))
