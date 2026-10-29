@@ -143,6 +143,7 @@ export default function VSWorkOrdersTab() {
   const [newSeverity, setNewSeverity] = useState('MEDIUM');
   const [newDescription, setNewDescription] = useState('');
   const [newAssignedTo, setNewAssignedTo] = useState<number | ''>('');
+  const [newInitialNote, setNewInitialNote] = useState('');
   const [createError, setCreateError] = useState<string | null>(null);
 
   // Timeline note state
@@ -212,6 +213,7 @@ export default function VSWorkOrdersTab() {
     setNewSeverity('MEDIUM');
     setNewDescription('');
     setNewAssignedTo('');
+    setNewInitialNote('');
     setCreateError(null);
     setIsNewDialogOpen(true);
   };
@@ -241,27 +243,40 @@ export default function VSWorkOrdersTab() {
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if ((!newVehicleId && !selectedKit) || !newReportedBy || !newReportedPhone || !newDescription) {
-      setCreateError('Please search and select a vehicle/kit from KIT Master and fill all required fields.');
+    if (!newVehicleId && !selectedKit) {
+      setCreateError('Please search and select a vehicle/kit from KIT Master.');
       return;
     }
     setCreateError(null);
+
+    const reporter = newReportedBy.trim() || selectedKit?.customer_name || 'Customer';
+    const phone = newReportedPhone.trim() || '0000000000';
+    const desc =
+      newDescription.trim() ||
+      `${newCategory} issue reported for ${selectedKit?.vehicle_number || selectedKit?.kit_name || 'Vehicle'}`;
 
     const payload: VSComplaintCreate = {
       kit_id: selectedKit?.id,
       vehicle_id: newVehicleId ? Number(newVehicleId) : undefined,
       vehicle_number: selectedKit?.vehicle_number || selectedVehicleObj?.vehicle_number || undefined,
       affected_component_id: newComponentId ? Number(newComponentId) : undefined,
-      reported_by: newReportedBy.trim(),
-      reported_phone: newReportedPhone.trim(),
+      reported_by: reporter,
+      reported_phone: phone,
       category: newCategory,
       severity: newSeverity,
-      description: newDescription.trim(),
+      description: desc,
       assigned_to_id: newAssignedTo ? Number(newAssignedTo) : undefined,
     };
 
     try {
-      await createComplaint(payload).unwrap();
+      const created = await createComplaint(payload).unwrap();
+      if (newInitialNote.trim()) {
+        try {
+          await addNote({ complaintId: created.id, note: newInitialNote.trim() }).unwrap();
+        } catch {
+          // Non-blocking note
+        }
+      }
       setIsNewDialogOpen(false);
       refetch();
     } catch (err: any) {
@@ -645,248 +660,289 @@ export default function VSWorkOrdersTab() {
       </Paper>
 
       {/* =====================================================================
-          NEW WORK ORDER DIALOG
+          NEW WORK ORDER DIALOG (Same size & layout as Manage dialog)
       ====================================================================== */}
-      <Dialog open={isNewDialogOpen} onClose={() => setIsNewDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 800 }}>Create New Work Order</DialogTitle>
-        <DialogContent dividers>
-          {createError && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {createError}
-            </Alert>
-          )}
-
-          {/* Retrofitted Vehicle Search from KIT Master (Min 4 digits required) */}
-          <Box sx={{ position: 'relative', mb: 2 }}>
-            <TextField
-              label="Retrofitted Vehicle (from KIT Master)"
-              placeholder="Type at least 4 digits to search (e.g. TN66, KIM1, 7023)..."
-              fullWidth
-              size="small"
-              required
-              value={vehicleSearchText}
-              onChange={(e) => {
-                setVehicleSearchText(e.target.value);
-                setIsVehicleMenuOpen(true);
-                if (selectedKit) {
-                  setSelectedKit(null);
-                  setNewComponentId('');
-                }
-              }}
-              onFocus={() => {
-                if (vehicleSearchText.trim().length >= 4) {
-                  setIsVehicleMenuOpen(true);
-                }
-              }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Search size={16} color="#64748B" />
-                  </InputAdornment>
-                ),
-                endAdornment: vehicleSearchText ? (
-                  <InputAdornment position="end">
-                    <IconButton
-                      size="small"
-                      onClick={() => {
-                        setVehicleSearchText('');
-                        setSelectedKit(null);
-                        setNewComponentId('');
-                        setIsVehicleMenuOpen(false);
-                      }}
-                    >
-                      <X size={14} />
-                    </IconButton>
-                  </InputAdornment>
-                ) : null,
-              }}
-              helperText={
-                !hasMinDigits
-                  ? 'Type at least 4 digits/characters to view matching records from KIT Master.'
-                  : `${matchedKits.length} matching record(s) found in KIT Master.`
-              }
-            />
-
-            {/* Matched Results Floating Menu (Only if >= 4 digits entered) */}
-            {isVehicleMenuOpen && hasMinDigits && (
-              <Paper
-                elevation={4}
-                sx={{
-                  position: 'absolute',
-                  top: '100%',
-                  left: 0,
-                  right: 0,
-                  zIndex: 1400,
-                  maxHeight: 250,
-                  overflowY: 'auto',
-                  borderRadius: '8px',
-                  border: '1px solid #E2E8E2',
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
-                  mt: 0.5,
-                  backgroundColor: '#FFFFFF',
-                }}
-              >
-                {matchedKits.length > 0 ? (
-                  matchedKits.map((k) => (
-                    <Box
-                      key={k.id}
-                      onClick={() => handleSelectKitInForm(k)}
-                      sx={{
-                        p: 1.5,
-                        cursor: 'pointer',
-                        borderBottom: '1px solid #F1F5F9',
-                        '&:hover': {
-                          backgroundColor: '#F0FDF4',
-                        },
-                      }}
-                    >
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.4 }}>
-                        <Typography sx={{ fontWeight: 800, color: '#0F172A', fontSize: 13.5 }}>
-                          {k.vehicle_number || '[No Vehicle No Assigned]'}
-                        </Typography>
-                        <Chip
-                          label={k.kit_name}
-                          size="small"
-                          sx={{ height: 20, fontSize: 11, fontWeight: 700, backgroundColor: '#E2E8F0' }}
-                        />
-                      </Box>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-                        <Typography variant="caption" sx={{ fontFamily: 'monospace', color: '#1D4ED8', fontWeight: 600 }}>
-                          ID: {k.kit_number}
-                        </Typography>
-                        {k.customer_name && (
-                          <Typography variant="caption" sx={{ color: '#334155', fontWeight: 600 }}>
-                            Customer: {k.customer_name}
-                          </Typography>
-                        )}
-                        {k.installed_on && (
-                          <Typography variant="caption" sx={{ color: '#166534', fontWeight: 600 }}>
-                            Installed: {formatDate(k.installed_on)}
-                          </Typography>
-                        )}
-                      </Box>
-                    </Box>
-                  ))
-                ) : (
-                  <Box sx={{ p: 2, textAlign: 'center', color: '#64748B' }}>
-                    <Typography variant="body2" sx={{ fontSize: 12.5 }}>
-                      No matching records found in KIT Master for <strong>"{searchTrimmed}"</strong>.
-                    </Typography>
-                  </Box>
-                )}
-              </Paper>
-            )}
+      <Dialog
+        open={isNewDialogOpen}
+        onClose={() => setIsNewDialogOpen(false)}
+        maxWidth={false}
+        fullWidth
+        sx={{
+          '& .MuiBackdrop-root': {
+            left: { xs: 0, md: 'var(--current-sidebar-width, 244px)' },
+          },
+          '& .MuiDialog-container': {
+            pl: { xs: 0, md: 'calc(var(--current-sidebar-width, 244px) + 16px)' },
+            pr: { xs: 0, md: '16px' },
+            justifyContent: 'center',
+            alignItems: 'center',
+          },
+        }}
+        PaperProps={{
+          sx: {
+            width: '100%',
+            maxWidth: '100%',
+            height: { xs: 'auto', md: '92vh' },
+            maxHeight: '94vh',
+            borderRadius: '16px',
+            display: 'flex',
+            flexDirection: 'column',
+            backgroundColor: '#FFFFFF',
+            m: 0,
+          },
+        }}
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1.5, px: 3, pt: 2.5 }}>
+          <Box>
+            <Typography variant="h6" fontWeight={800} color="#023020">
+              Create New Work Order
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Search vehicle from KIT Master, specify reporter & problem details, and tag affected components.
+            </Typography>
           </Box>
+        </DialogTitle>
 
-          {/* Selected Kit Master Info Card */}
-          {selectedKit && (
-            <Box sx={{ mb: 2, p: 1.5, bgcolor: '#F0FDF4', borderRadius: '8px', border: '1px solid #BBF7D0' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5, flexWrap: 'wrap', gap: 1 }}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#166534' }}>
-                  {selectedKit.vehicle_number || selectedKit.kit_name}
-                </Typography>
-                <Chip
-                  label={selectedKit.kit_number}
+        <DialogContent
+          dividers
+          sx={{
+            p: { xs: 2, md: 3 },
+            display: 'flex',
+            flexDirection: { xs: 'column', md: 'row' },
+            gap: 3,
+            overflow: { xs: 'auto', md: 'hidden' },
+            flex: 1,
+          }}
+        >
+          {/* LEFT SIDE: Work Order Fields (~68%) */}
+          <Box
+            sx={{
+              flex: { xs: '1 1 100%', md: '1 1 68%' },
+              minWidth: 0,
+              overflowY: { xs: 'visible', md: 'auto' },
+              pr: { xs: 0, md: 1 },
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2.5,
+            }}
+          >
+            {createError && (
+              <Alert severity="error" sx={{ borderRadius: 2 }}>
+                {createError}
+              </Alert>
+            )}
+
+            {/* Retrofitted Vehicle Search from KIT Master (Min 4 digits required) */}
+            <Box sx={{ position: 'relative' }}>
+              <TextField
+                label="Retrofitted Vehicle (from KIT Master)"
+                placeholder="Type at least 4 digits to search (e.g. TN66, KIM1, 7023)..."
+                fullWidth
+                size="small"
+                required
+                value={vehicleSearchText}
+                onChange={(e) => {
+                  setVehicleSearchText(e.target.value);
+                  setIsVehicleMenuOpen(true);
+                  if (selectedKit) {
+                    setSelectedKit(null);
+                    setNewComponentId('');
+                  }
+                }}
+                onFocus={() => {
+                  if (vehicleSearchText.trim().length >= 4) {
+                    setIsVehicleMenuOpen(true);
+                  }
+                }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Search size={16} color="#64748B" />
+                    </InputAdornment>
+                  ),
+                  endAdornment: vehicleSearchText ? (
+                    <InputAdornment position="end">
+                      <IconButton
+                        size="small"
+                        onClick={() => {
+                          setVehicleSearchText('');
+                          setSelectedKit(null);
+                          setNewComponentId('');
+                          setIsVehicleMenuOpen(false);
+                        }}
+                      >
+                        <X size={14} />
+                      </IconButton>
+                    </InputAdornment>
+                  ) : null,
+                }}
+                helperText={
+                  !hasMinDigits
+                    ? 'Type at least 4 digits/characters to view matching records from KIT Master.'
+                    : `${matchedKits.length} matching record(s) found in KIT Master.`
+                }
+              />
+
+              {/* Matched Results Floating Menu (Only if >= 4 digits entered) */}
+              {isVehicleMenuOpen && hasMinDigits && (
+                <Paper
+                  elevation={4}
+                  sx={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    zIndex: 1400,
+                    maxHeight: 250,
+                    overflowY: 'auto',
+                    borderRadius: '8px',
+                    border: '1px solid #E2E8E2',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+                    mt: 0.5,
+                    backgroundColor: '#FFFFFF',
+                  }}
+                >
+                  {matchedKits.length > 0 ? (
+                    matchedKits.map((k) => (
+                      <Box
+                        key={k.id}
+                        onClick={() => handleSelectKitInForm(k)}
+                        sx={{
+                          p: 1.5,
+                          cursor: 'pointer',
+                          borderBottom: '1px solid #F1F5F9',
+                          '&:hover': {
+                            backgroundColor: '#F0FDF4',
+                          },
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.4 }}>
+                          <Typography sx={{ fontWeight: 800, color: '#0F172A', fontSize: 13.5 }}>
+                            {k.vehicle_number || '[No Vehicle No Assigned]'}
+                          </Typography>
+                          <Chip
+                            label={k.kit_name}
+                            size="small"
+                            sx={{ height: 20, fontSize: 11, fontWeight: 700, backgroundColor: '#E2E8F0' }}
+                          />
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                          <Typography variant="caption" sx={{ fontFamily: 'monospace', color: '#1D4ED8', fontWeight: 600 }}>
+                            ID: {k.kit_number}
+                          </Typography>
+                          {k.customer_name && (
+                            <Typography variant="caption" sx={{ color: '#334155', fontWeight: 600 }}>
+                              Customer: {k.customer_name}
+                            </Typography>
+                          )}
+                          {k.installed_on && (
+                            <Typography variant="caption" sx={{ color: '#166534', fontWeight: 600 }}>
+                              Installed: {formatDate(k.installed_on)}
+                            </Typography>
+                          )}
+                        </Box>
+                      </Box>
+                    ))
+                  ) : (
+                    <Box sx={{ p: 2, textAlign: 'center', color: '#64748B' }}>
+                      <Typography variant="body2" sx={{ fontSize: 12.5 }}>
+                        No matching records found in KIT Master for <strong>"{searchTrimmed}"</strong>.
+                      </Typography>
+                    </Box>
+                  )}
+                </Paper>
+              )}
+            </Box>
+
+            {/* Selected Kit Master Info Card */}
+            {selectedKit && (
+              <Box sx={{ p: 1.5, bgcolor: '#F0FDF4', borderRadius: '8px', border: '1px solid #BBF7D0' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5, flexWrap: 'gap', gap: 1 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#166534' }}>
+                    {selectedKit.vehicle_number || selectedKit.kit_name}
+                  </Typography>
+                  <Chip
+                    label={selectedKit.kit_number}
+                    size="small"
+                    sx={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 11, backgroundColor: '#DCFCE7', color: '#15803D' }}
+                  />
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                  {selectedKit.customer_name && (
+                    <Typography variant="caption" sx={{ color: '#334155' }}>
+                      Customer: <strong>{selectedKit.customer_name}</strong>
+                    </Typography>
+                  )}
+                  {selectedKit.installed_on && (
+                    <Typography variant="caption" sx={{ color: '#166534' }}>
+                      Installation Done On: <strong>{formatDate(selectedKit.installed_on)}</strong>
+                    </Typography>
+                  )}
+                  <Typography variant="caption" sx={{ color: '#64748B' }}>
+                    {availableComponents.length} component(s) tracked
+                  </Typography>
+                </Box>
+              </Box>
+            )}
+
+            {/* Complainant Details */}
+            <Grid container spacing={2}>
+              <Grid item xs={6}>
+                <TextField
+                  label="Reporter Name"
                   size="small"
-                  sx={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 11, backgroundColor: '#DCFCE7', color: '#15803D' }}
+                  fullWidth
+                  value={newReportedBy}
+                  onChange={(e) => setNewReportedBy(e.target.value)}
+                  placeholder="Owner / Driver name"
                 />
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-                {selectedKit.customer_name && (
-                  <Typography variant="caption" sx={{ color: '#334155' }}>
-                    Customer: <strong>{selectedKit.customer_name}</strong>
-                  </Typography>
-                )}
-                {selectedKit.installed_on && (
-                  <Typography variant="caption" sx={{ color: '#166534' }}>
-                    Installation Done On: <strong>{formatDate(selectedKit.installed_on)}</strong>
-                  </Typography>
-                )}
-                <Typography variant="caption" sx={{ color: '#64748B' }}>
-                  {availableComponents.length} component(s) tracked
-                </Typography>
-              </Box>
-            </Box>
-          )}
-
-          {/* Component in Kit Selector */}
-          {availableComponents.length > 0 && (
-            <Box sx={{ mb: 2 }}>
-              <AppDropdown
-                label="Affected Component from Kit"
-                value={newComponentId}
-                emptyLabel="General Vehicle / Non-Component Issue"
-                allowEmpty
-                options={availableComponents.map((comp) => ({
-                  value: comp.id,
-                  label: comp.label,
-                }))}
-                onChange={(val) => setNewComponentId(val as number | '')}
-              />
-            </Box>
-          )}
-
-          {/* Complainant Details */}
-          <Grid container spacing={2} sx={{ mb: 2 }}>
-            <Grid item xs={6}>
-              <TextField
-                label="Reporter Name"
-                size="small"
-                fullWidth
-                required
-                value={newReportedBy}
-                onChange={(e) => setNewReportedBy(e.target.value)}
-              />
+              </Grid>
+              <Grid item xs={6}>
+                <TextField
+                  label="Reporter Phone"
+                  size="small"
+                  fullWidth
+                  value={newReportedPhone}
+                  onChange={(e) => setNewReportedPhone(e.target.value)}
+                  placeholder="Contact phone"
+                />
+              </Grid>
             </Grid>
-            <Grid item xs={6}>
-              <TextField
-                label="Reporter Phone"
-                size="small"
-                fullWidth
-                required
-                value={newReportedPhone}
-                onChange={(e) => setNewReportedPhone(e.target.value)}
-              />
-            </Grid>
-          </Grid>
 
-          {/* Category & Severity */}
-          <Grid container spacing={2} sx={{ mb: 2 }}>
-            <Grid item xs={6}>
-              <AppDropdown
-                label="Category"
-                required
-                value={newCategory}
-                options={[
-                  { value: 'BREAKDOWN', label: 'Breakdown' },
-                  { value: 'BATTERY', label: 'Battery / Range' },
-                  { value: 'MOTOR', label: 'Motor' },
-                  { value: 'CONTROLLER', label: 'Controller' },
-                  { value: 'CHARGING', label: 'Charging' },
-                  { value: 'PERFORMANCE', label: 'Performance' },
-                  { value: 'OTHER', label: 'Other' },
-                ]}
-                onChange={(val) => setNewCategory(String(val))}
-              />
+            {/* Category & Severity */}
+            <Grid container spacing={2}>
+              <Grid item xs={6}>
+                <AppDropdown
+                  label="Category"
+                  value={newCategory}
+                  options={[
+                    { value: 'BREAKDOWN', label: 'Breakdown' },
+                    { value: 'BATTERY', label: 'Battery / Range' },
+                    { value: 'MOTOR', label: 'Motor' },
+                    { value: 'CONTROLLER', label: 'Controller' },
+                    { value: 'CHARGING', label: 'Charging' },
+                    { value: 'PERFORMANCE', label: 'Performance' },
+                    { value: 'OTHER', label: 'Other' },
+                  ]}
+                  onChange={(val) => setNewCategory(String(val))}
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <AppDropdown
+                  label="Severity"
+                  value={newSeverity}
+                  options={[
+                    { value: 'CRITICAL', label: '🔴 Critical' },
+                    { value: 'HIGH', label: '🟠 High' },
+                    { value: 'MEDIUM', label: '🟡 Medium' },
+                    { value: 'LOW', label: '🟢 Low' },
+                  ]}
+                  onChange={(val) => setNewSeverity(String(val))}
+                />
+              </Grid>
             </Grid>
-            <Grid item xs={6}>
-              <AppDropdown
-                label="Severity"
-                required
-                value={newSeverity}
-                options={[
-                  { value: 'CRITICAL', label: '🔴 Critical' },
-                  { value: 'HIGH', label: '🟠 High' },
-                  { value: 'MEDIUM', label: '🟡 Medium' },
-                  { value: 'LOW', label: '🟢 Low' },
-                ]}
-                onChange={(val) => setNewSeverity(String(val))}
-              />
-            </Grid>
-          </Grid>
 
-          {/* Assignee */}
-          <Box sx={{ mb: 2 }}>
+            {/* Assignee */}
             <AppDropdown
               label="Assign Technician / Service Officer"
               value={newAssignedTo}
@@ -898,28 +954,183 @@ export default function VSWorkOrdersTab() {
               }))}
               onChange={(val) => setNewAssignedTo(val as number | '')}
             />
+
+            {/* Description */}
+            <TextField
+              label="Problem Description"
+              placeholder="Describe issue, symptoms, or observation (optional - defaults to category issue)"
+              multiline
+              rows={3}
+              fullWidth
+              value={newDescription}
+              onChange={(e) => setNewDescription(e.target.value)}
+            />
           </Box>
 
-          {/* Description */}
-          <TextField
-            label="Problem Description"
-            multiline
-            rows={3}
-            fullWidth
-            required
-            value={newDescription}
-            onChange={(e) => setNewDescription(e.target.value)}
-          />
+          {/* RIGHT SIDE: Kit Components & Intake Log (~32%) */}
+          <Paper
+            variant="outlined"
+            sx={{
+              flex: { xs: '1 1 100%', md: '0 0 32%' },
+              width: { xs: '100%', md: '32%' },
+              minWidth: { xs: '100%', md: 280 },
+              maxWidth: { md: 360 },
+              display: 'flex',
+              flexDirection: 'column',
+              borderRadius: '12px',
+              borderColor: '#E4EBE1',
+              backgroundColor: '#FAFBF9',
+              p: 2,
+              overflow: 'hidden',
+            }}
+          >
+            {/* Header */}
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                <Box
+                  sx={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: '7px',
+                    backgroundColor: '#E8F5E9',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#023020',
+                  }}
+                >
+                  <Cpu size={15} />
+                </Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#023020', fontSize: 13 }}>
+                  Kit Components
+                </Typography>
+              </Box>
+              <Chip
+                label={`${availableComponents.length} items`}
+                size="small"
+                sx={{
+                  fontWeight: 700,
+                  fontSize: 10.5,
+                  backgroundColor: '#E8F5E9',
+                  color: '#1B5E20',
+                  border: '1px solid #C8E6C9',
+                  height: 20,
+                }}
+              />
+            </Box>
+
+            <Typography variant="caption" sx={{ color: '#64748B', display: 'block', mb: 1 }}>
+              Click any component below to tag it as the affected part for this work order:
+            </Typography>
+
+            {/* Scrollable Components List */}
+            <Box
+              sx={{
+                flex: 1,
+                overflowY: 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 1,
+                pr: 0.5,
+                maxHeight: 280,
+                mb: 2,
+              }}
+            >
+              {availableComponents.length > 0 ? (
+                availableComponents.map((comp) => {
+                  const isSelected = newComponentId === comp.id;
+                  return (
+                    <Box
+                      key={comp.id}
+                      onClick={() => setNewComponentId(isSelected ? '' : comp.id)}
+                      sx={{
+                        p: 1.2,
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        backgroundColor: isSelected ? '#F0FDF4' : '#FFFFFF',
+                        border: isSelected ? '1.5px solid #16A34A' : '1px solid #E2E8E2',
+                        borderLeft: isSelected ? '3.5px solid #16A34A' : '1px solid #E2E8E2',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+                        transition: 'all 0.12s ease',
+                        '&:hover': {
+                          backgroundColor: isSelected ? '#DCFCE7' : '#F8FAF8',
+                        },
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.3 }}>
+                        <Typography sx={{ fontWeight: isSelected ? 800 : 600, color: isSelected ? '#166534' : '#0F172A', fontSize: 12 }}>
+                          {comp.label}
+                        </Typography>
+                        {isSelected && <Check size={14} color="#16A34A" />}
+                      </Box>
+                      {comp.serial_number && (
+                        <Typography variant="caption" sx={{ fontFamily: 'monospace', color: '#1D4ED8', fontSize: 11 }}>
+                          SN: {comp.serial_number}
+                        </Typography>
+                      )}
+                    </Box>
+                  );
+                })
+              ) : (
+                <Box sx={{ textAlign: 'center', py: 4, color: '#667A6D' }}>
+                  <Cpu size={24} color="#94A3B8" style={{ margin: '0 auto 6px' }} />
+                  <Typography variant="caption" sx={{ fontSize: 11.5, fontWeight: 600, display: 'block' }}>
+                    Select a Kit above to view components
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: '#94A3B8', fontSize: 10.5 }}>
+                    Tracked serial numbers will appear here
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+
+            <Divider sx={{ mb: 1.5, borderColor: '#E4EBE1' }} />
+
+            {/* Intake Remark / Initial Log */}
+            <Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mb: 1 }}>
+                <History size={14} color="#023020" />
+                <Typography variant="caption" sx={{ fontWeight: 700, color: '#023020', fontSize: 12 }}>
+                  Intake Note & Log
+                </Typography>
+              </Box>
+              <TextField
+                placeholder="Add arrival observation, intake note, or initial remark..."
+                size="small"
+                multiline
+                rows={2}
+                fullWidth
+                value={newInitialNote}
+                onChange={(e) => setNewInitialNote(e.target.value)}
+                sx={{
+                  backgroundColor: '#FFFFFF',
+                  borderRadius: '6px',
+                  '& .MuiOutlinedInput-root': { fontSize: 11.5 },
+                }}
+              />
+              <Typography variant="caption" sx={{ color: '#64748B', fontSize: 10.5, display: 'block', mt: 0.5 }}>
+                Will be captured in the work order changelog upon creation.
+              </Typography>
+            </Box>
+          </Paper>
         </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setIsNewDialogOpen(false)} sx={{ textTransform: 'none' }}>
+
+        <DialogActions sx={{ p: 2, px: 3, borderTop: '1px solid #E4EBE1' }}>
+          <Button onClick={() => setIsNewDialogOpen(false)} sx={{ textTransform: 'none', color: '#64748B' }}>
             Cancel
           </Button>
           <Button
             variant="contained"
             onClick={handleCreateSubmit}
             disabled={isCreating}
-            sx={{ textTransform: 'none', fontWeight: 700 }}
+            sx={{
+              textTransform: 'none',
+              fontWeight: 700,
+              backgroundColor: '#023020',
+              '&:hover': { backgroundColor: '#034732' },
+              borderRadius: '8px',
+              px: 3,
+            }}
           >
             {isCreating ? 'Creating...' : 'Create Work Order'}
           </Button>
