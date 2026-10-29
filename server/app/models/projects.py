@@ -247,7 +247,7 @@ class Task(Base):
     __tablename__ = "tasks"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    task_number: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)
+    task_number: Mapped[str] = mapped_column(String(50), index=True, nullable=False)
     project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=True, index=True)
     phase_id: Mapped[int | None] = mapped_column(ForeignKey("project_phases.id", ondelete="SET NULL"), nullable=True, index=True)
     parent_task_id: Mapped[int | None] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"), nullable=True, index=True)

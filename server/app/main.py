@@ -85,6 +85,15 @@ def _ensure_schema_migrations():
                             import logging
                             logging.error(f"Failed to auto-add column {table_name}.{col_name}: {col_err}")
 
+        # Ensure task_number index on tasks table is non-unique to support per-user task series
+        if "tasks" in existing_tables:
+            try:
+                with engine.begin() as conn:
+                    conn.execute(text('DROP INDEX IF EXISTS ix_tasks_task_number'))
+                    conn.execute(text('CREATE INDEX IF NOT EXISTS ix_tasks_task_number ON tasks (task_number)'))
+            except Exception:
+                pass
+
         # Ensure auto_schedule column on tasks table
         if "tasks" in existing_tables:
             task_cols = {c["name"] for c in inspector.get_columns("tasks")}

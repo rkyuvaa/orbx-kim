@@ -24,7 +24,7 @@ from app.schemas.projects import (
 )
 from app.core.deps import get_current_user, require_permission
 from app.api.v1.tasks import (
-    _format_task_out, _generate_task_number, _validate_task_dates,
+    _format_task_out, _generate_task_number, _generate_personal_task_number, _validate_task_dates,
     spawn_next_recurring_task
 )
 
@@ -182,7 +182,7 @@ def create_personal_task(
         # Override logged as warning per spec
         pass
 
-    task_num = _generate_task_number(db, None)
+    task_num = _generate_personal_task_number(db, current_user.id)
 
     # Validate positive estimated hours
     est_hours = max(0.0, float(data.estimated_hours or 0.0))

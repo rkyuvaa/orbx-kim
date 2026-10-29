@@ -161,6 +161,13 @@ export const vehicleServiceApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ['VSComplaints'],
     }),
+    deleteVSComplaint: build.mutation<{ success: boolean; message: string }, number>({
+      query: (id) => ({
+        url: `/vehicle-service/complaints/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['VSComplaints', 'VSDashboard'],
+    }),
 
     // Maintenance Schedules
     getVSMaintenance: build.query<VSMaintenanceSchedule[], { vehicle_id?: number; status?: string } | void>({
@@ -231,6 +238,7 @@ export const {
   useGetVSComplaintQuery,
   useCreateVSComplaintMutation,
   useUpdateVSComplaintMutation,
+  useDeleteVSComplaintMutation,
   useAddVSComplaintNoteMutation,
   useCloseVSComplaintMutation,
   useAddVSServiceCostMutation,

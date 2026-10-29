@@ -210,6 +210,34 @@ def _generate_task_number(db: Session, project_id: Optional[int] = None) -> str:
     return task_num
 
 
+def _generate_personal_task_number(db: Session, user_id: int) -> str:
+    """Generate server-side personal task number sequential per user e.g. TASK-1, TASK-2 starting from 1"""
+    user_tasks = db.query(Task.task_number).filter(
+        Task.is_personal.is_(True),
+        Task.created_by == user_id,
+        Task.task_number.like("TASK-%")
+    ).all()
+    max_seq = 0
+    for (t_num,) in user_tasks:
+        if t_num and t_num.startswith("TASK-"):
+            try:
+                num_part = int(t_num.split("-")[1])
+                if num_part > max_seq:
+                    max_seq = num_part
+            except (ValueError, IndexError):
+                pass
+    seq = max_seq + 1
+    candidate = f"TASK-{seq}"
+    while db.query(Task.id).filter(
+        Task.is_personal.is_(True),
+        Task.created_by == user_id,
+        Task.task_number == candidate
+    ).first():
+        seq += 1
+        candidate = f"TASK-{seq}"
+    return candidate
+
+
 def _get_task_depth(db: Session, parent_task_id: Optional[int]) -> int:
     """Calculate subtask nesting level depth"""
     depth = 1
@@ -1025,7 +1053,10 @@ def spawn_next_recurring_task(db: Session, task: Task, current_user_id: int):
             return # Reached end of recurrence
             
     # Create the duplicate
-    task_num = _generate_task_number(db, task.project_id)
+    if task.is_personal:
+        task_num = _generate_personal_task_number(db, task.created_by or current_user_id)
+    else:
+        task_num = _generate_task_number(db, task.project_id)
     new_task = Task(
         task_number=task_num,
         project_id=task.project_id,
@@ -1106,7 +1137,10 @@ def create_task(
                 detail="Subtask depth exceeds maximum allowed limit of 3 levels"
             )
 
-    task_num = _generate_task_number(db, data.project_id)
+    if getattr(data, "is_personal", False):
+        task_num = _generate_personal_task_number(db, current_user.id)
+    else:
+        task_num = _generate_task_number(db, data.project_id)
 
     from app.services.calendar_service import (
         get_working_calendar as get_cal,

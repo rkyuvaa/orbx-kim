@@ -17,6 +17,7 @@ import {
   IconButton,
   InputAdornment,
   InputLabel,
+  Menu,
   MenuItem,
   Paper,
   Rating,
@@ -36,6 +37,7 @@ import {
   AlertTriangle,
   ArrowRight,
   BatteryCharging,
+  Check,
   CheckCircle2,
   ChevronRight,
   Clock,
@@ -46,18 +48,23 @@ import {
   History,
   MapPin,
   MessageSquare,
+  MoreVertical,
   Plus,
   RefreshCw,
   Search,
   Send,
   ShieldAlert,
   Sliders,
+  Trash2,
   User,
   Wrench,
   X,
   Zap,
 } from 'lucide-react';
 
+import { useAppSelector } from '@/app/hooks';
+import { usePermission } from '@/context/AuthPermissionContext';
+import { useToast } from '@/components/ui/ToastHost';
 import { useUsersQuery } from '@/api/mastersApi';
 import { AppDropdown } from '@/components/ui/AppDropdown';
 import { LocationDisplay, formatNoteLocation, useResolvedAddress } from '@/utils/geolocation';
@@ -67,6 +74,7 @@ import {
   useAddVSServiceCostMutation,
   useCloseVSComplaintMutation,
   useCreateVSComplaintMutation,
+  useDeleteVSComplaintMutation,
   useGetVSComplaintsQuery,
   useGetVSKitsQuery,
   useGetVSVehiclesQuery,
@@ -152,13 +160,54 @@ export default function VSWorkOrdersTab() {
     }
   };
 
+  const { isSuperAdmin, can } = usePermission();
+  const currentUser = useAppSelector((state) => state.auth.user);
+  const canDeleteWorkOrder =
+    isSuperAdmin ||
+    currentUser?.role === 'ADMIN' ||
+    can('delete', 'complaints') ||
+    can('delete', 'vehicle_service');
+
+  const { showToast } = useToast();
+
   // Mutations
   const [createComplaint, { isLoading: isCreating }] = useCreateVSComplaintMutation();
   const [updateComplaint, { isLoading: isUpdating }] = useUpdateVSComplaintMutation();
+  const [deleteComplaint, { isLoading: isDeletingComplaint }] = useDeleteVSComplaintMutation();
   const [addNote, { isLoading: isAddingNote }] = useAddVSComplaintNoteMutation();
   const [closeComplaint, { isLoading: isClosing }] = useCloseVSComplaintMutation();
   const [replaceComponent, { isLoading: isReplacing }] = useReplaceVSComponentMutation();
   const [addCost, { isLoading: isAddingCost }] = useAddVSServiceCostMutation();
+
+  // 3-dot Action Menu state
+  const [actionMenuAnchor, setActionMenuAnchor] = useState<null | HTMLElement>(null);
+  const [actionTargetComplaint, setActionTargetComplaint] = useState<VSComplaint | null>(null);
+
+  const handleOpenActionMenu = (e: React.MouseEvent<HTMLElement>, complaint: VSComplaint) => {
+    e.stopPropagation();
+    setActionMenuAnchor(e.currentTarget);
+    setActionTargetComplaint(complaint);
+  };
+
+  const handleCloseActionMenu = () => {
+    setActionMenuAnchor(null);
+    setActionTargetComplaint(null);
+  };
+
+  // Delete Work Order state
+  const [deleteTargetComplaint, setDeleteTargetComplaint] = useState<VSComplaint | null>(null);
+
+  const handleConfirmDeleteComplaint = async () => {
+    if (!deleteTargetComplaint) return;
+    try {
+      await deleteComplaint(deleteTargetComplaint.id).unwrap();
+      showToast(`Work Order '${deleteTargetComplaint.complaint_no}' deleted successfully`, 'success');
+      setDeleteTargetComplaint(null);
+      refetch();
+    } catch (err: any) {
+      showToast(err?.data?.detail || 'Failed to delete work order.', 'error');
+    }
+  };
 
   // Dialog states
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);

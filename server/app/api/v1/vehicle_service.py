@@ -1095,6 +1095,35 @@ def add_service_cost(
     return VSServiceCostOut.model_validate(cost)
 
 
+@router.delete("/complaints/{complaint_id}")
+def delete_complaint(
+    complaint_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Permanently delete a work order / complaint. Only super admin or admin can perform this action."""
+    is_admin = current_user.role == UserRole.ADMIN
+    if not is_admin:
+        from app.services.rbac_service import get_user_active_roles, can_user
+        roles = get_user_active_roles(db, current_user)
+        is_super = any(r.code in ("super_admin", "admin") for r in roles if r and r.code)
+        can_del = can_user(db, current_user, "delete", "complaints") or can_user(db, current_user, "delete", "vehicle_service")
+        if not is_super and not can_del:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only Super Admin or Admin can delete work orders.",
+            )
+
+    complaint = db.query(VSComplaint).filter(VSComplaint.id == complaint_id).first()
+    if not complaint:
+        raise HTTPException(status_code=404, detail="Work Order / Complaint not found")
+
+    complaint_no = complaint.complaint_no
+    db.delete(complaint)
+    db.commit()
+    return {"success": True, "message": f"Work Order '{complaint_no}' deleted successfully"}
+
+
 # ============================================================================
 # Authenticated Maintenance Schedule Endpoints
 # ============================================================================
