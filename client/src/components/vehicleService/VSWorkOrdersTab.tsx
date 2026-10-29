@@ -835,18 +835,24 @@ export default function VSWorkOrdersTab() {
                         {formatDateTime(c.created_at)}
                       </Typography>
                     </TableCell>
-                    <TableCell align="right">
-                      <Button
+                    <TableCell align="right" sx={{ whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
+                      <IconButton
                         size="small"
-                        variant="outlined"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedComplaint(c);
+                        onClick={(e) => handleOpenActionMenu(e, c)}
+                        sx={{
+                          color: '#64748B',
+                          borderRadius: '8px',
+                          border: '1px solid #E2E8E2',
+                          p: 0.6,
+                          '&:hover': {
+                            color: '#023020',
+                            backgroundColor: '#F0FDF4',
+                            borderColor: '#023020',
+                          },
                         }}
-                        sx={{ textTransform: 'none', fontSize: 11, py: 0.3 }}
                       >
-                        Manage
-                      </Button>
+                        <MoreVertical size={16} />
+                      </IconButton>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -855,6 +861,96 @@ export default function VSWorkOrdersTab() {
           </TableContainer>
         )}
       </Paper>
+
+      {/* 3-dot Row Action Menu */}
+      <Menu
+        anchorEl={actionMenuAnchor}
+        open={Boolean(actionMenuAnchor)}
+        onClose={handleCloseActionMenu}
+        PaperProps={{
+          sx: {
+            minWidth: 175,
+            borderRadius: '10px',
+            border: '1px solid #E2E8E2',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+            py: 0.5,
+          },
+        }}
+      >
+        <MenuItem
+          onClick={() => {
+            if (actionTargetComplaint) {
+              setSelectedComplaint(actionTargetComplaint);
+            }
+            handleCloseActionMenu();
+          }}
+          sx={{ display: 'flex', alignItems: 'center', gap: 1.2, py: 1, fontSize: 13, fontWeight: 600, color: '#0F172A' }}
+        >
+          <Wrench size={15} color="#023020" />
+          Manage Work Order
+        </MenuItem>
+
+        {canDeleteWorkOrder && (
+          <MenuItem
+            onClick={() => {
+              if (actionTargetComplaint) {
+                setDeleteTargetComplaint(actionTargetComplaint);
+              }
+              handleCloseActionMenu();
+            }}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1.2,
+              py: 1,
+              fontSize: 13,
+              fontWeight: 600,
+              color: '#DC2626',
+              '&:hover': {
+                backgroundColor: '#FEF2F2',
+              },
+            }}
+          >
+            <Trash2 size={15} color="#DC2626" />
+            Delete Work Order
+          </MenuItem>
+        )}
+      </Menu>
+
+      {/* Delete Work Order Confirmation Dialog */}
+      {deleteTargetComplaint && (
+        <Dialog
+          open={Boolean(deleteTargetComplaint)}
+          onClose={() => setDeleteTargetComplaint(null)}
+          maxWidth="xs"
+          fullWidth
+          PaperProps={{ sx: { borderRadius: 3, p: 1 } }}
+        >
+          <DialogTitle sx={{ fontWeight: 800, color: '#DC2626', display: 'flex', alignItems: 'center', gap: 1 }}>
+            <AlertTriangle size={20} /> Delete Work Order
+          </DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" sx={{ color: '#334155', fontSize: 13.5, lineHeight: 1.5 }}>
+              Are you sure you want to permanently delete Work Order <strong>{deleteTargetComplaint.complaint_no}</strong> for vehicle <strong>{deleteTargetComplaint.vehicle_number || 'Vehicle'}</strong>?
+              This will remove all associated logs, technician notes, and service cost records.
+            </Typography>
+          </DialogContent>
+          <DialogActions sx={{ px: 2.5, pb: 1.5 }}>
+            <Button onClick={() => setDeleteTargetComplaint(null)} sx={{ textTransform: 'none', color: '#64748B' }}>
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              color="error"
+              onClick={handleConfirmDeleteComplaint}
+              disabled={isDeletingComplaint}
+              sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '8px' }}
+            >
+              {isDeletingComplaint ? 'Deleting...' : 'Delete Work Order'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
 
       {/* =====================================================================
           NEW WORK ORDER DIALOG (Same size & layout as Manage dialog)
