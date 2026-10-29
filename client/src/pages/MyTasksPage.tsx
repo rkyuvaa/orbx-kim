@@ -13,11 +13,15 @@ import {
   Alert,
   IconButton,
   CircularProgress,
+  Tooltip,
   useTheme,
 } from '@mui/material';
 import {
   Search,
   Filter,
+  List,
+  LayoutGrid,
+  Calendar,
   Plus,
   Play,
   Square,
@@ -503,51 +507,155 @@ export default function MyTasksPage() {
         {/* Sticky Quick Capture Bar */}
         <PTQuickCapture onQuickAdd={handleQuickAdd} isLoading={isCreating} />
 
-        {/* Filters and View Switcher for Table Views */}
-        {['all-tasks', 'upcoming', 'overdue', 'completed'].includes(activeSection) && (
-          <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
-            <TextField
-              size="small"
-              placeholder="Search tasks or #tags..."
-              value={searchQ}
-              onChange={(e) => setSearchQ(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Search size={16} />
-                  </InputAdornment>
-                ),
-              }}
-              sx={{ width: 240 }}
-            />
-
-            <Select
-              size="small"
-              displayEmpty
-              value={priorityFilter}
-              onChange={(e) => setPriorityFilter(e.target.value)}
-              sx={{ minWidth: 140 }}
-            >
-              <MenuItem value="">All Priorities</MenuItem>
-              <MenuItem value="URGENT">Urgent</MenuItem>
-              <MenuItem value="HIGH">High</MenuItem>
-              <MenuItem value="NORMAL">Normal</MenuItem>
-              <MenuItem value="LOW">Low</MenuItem>
-            </Select>
-
-            {(searchQ || priorityFilter) && (
-              <Button
+        {/* Filters and View Switcher for Table, Kanban, and Calendar */}
+        {['all-tasks', 'upcoming', 'overdue', 'completed', 'kanban', 'calendar'].includes(activeSection) && (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 1.5,
+            }}
+          >
+            {/* Left: Search, Priority filter & Clear */}
+            <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
+              <TextField
                 size="small"
-                variant="text"
-                onClick={() => {
-                  setSearchQ('');
-                  setPriorityFilter('');
+                placeholder="Search tasks or #tags..."
+                value={searchQ}
+                onChange={(e) => setSearchQ(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Search size={16} />
+                    </InputAdornment>
+                  ),
                 }}
-                sx={{ textTransform: 'none', color: '#64748B' }}
+                sx={{ width: 240 }}
+              />
+
+              <Select
+                size="small"
+                displayEmpty
+                value={priorityFilter}
+                onChange={(e) => setPriorityFilter(e.target.value)}
+                sx={{ minWidth: 140 }}
               >
-                Clear Filters
-              </Button>
-            )}
+                <MenuItem value="">All Priorities</MenuItem>
+                <MenuItem value="URGENT">Urgent</MenuItem>
+                <MenuItem value="HIGH">High</MenuItem>
+                <MenuItem value="NORMAL">Normal</MenuItem>
+                <MenuItem value="LOW">Low</MenuItem>
+              </Select>
+
+              {(searchQ || priorityFilter) && (
+                <Button
+                  size="small"
+                  variant="text"
+                  onClick={() => {
+                    setSearchQ('');
+                    setPriorityFilter('');
+                  }}
+                  sx={{ textTransform: 'none', color: '#64748B' }}
+                >
+                  Clear Filters
+                </Button>
+              )}
+            </Box>
+
+            {/* Right End: View Switcher Icons (Hover shows view name) */}
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                backgroundColor: isDark ? '#14181C' : '#FFFFFF',
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+                p: 0.5,
+                gap: 0.5,
+              }}
+            >
+              <Tooltip title="List View" arrow>
+                <IconButton
+                  size="small"
+                  onClick={() => {
+                    if (['kanban', 'calendar'].includes(activeSection)) {
+                      setActiveSection('all-tasks');
+                    }
+                  }}
+                  sx={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 1.5,
+                    backgroundColor: ['all-tasks', 'upcoming', 'overdue', 'completed'].includes(activeSection)
+                      ? isDark ? 'rgba(22, 196, 127, 0.16)' : 'rgba(22, 196, 127, 0.12)'
+                      : 'transparent',
+                    color: ['all-tasks', 'upcoming', 'overdue', 'completed'].includes(activeSection)
+                      ? '#16C47F'
+                      : isDark ? '#94A3B8' : '#64748B',
+                    '&:hover': {
+                      backgroundColor: isDark ? 'rgba(22, 196, 127, 0.22)' : 'rgba(22, 196, 127, 0.18)',
+                      color: '#16C47F',
+                    },
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <List size={17} />
+                </IconButton>
+              </Tooltip>
+
+              <Tooltip title="Kanban Board" arrow>
+                <IconButton
+                  size="small"
+                  onClick={() => setActiveSection('kanban')}
+                  sx={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 1.5,
+                    backgroundColor: activeSection === 'kanban'
+                      ? isDark ? 'rgba(22, 196, 127, 0.16)' : 'rgba(22, 196, 127, 0.12)'
+                      : 'transparent',
+                    color: activeSection === 'kanban'
+                      ? '#16C47F'
+                      : isDark ? '#94A3B8' : '#64748B',
+                    '&:hover': {
+                      backgroundColor: isDark ? 'rgba(22, 196, 127, 0.22)' : 'rgba(22, 196, 127, 0.18)',
+                      color: '#16C47F',
+                    },
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <LayoutGrid size={17} />
+                </IconButton>
+              </Tooltip>
+
+              <Tooltip title="Calendar View" arrow>
+                <IconButton
+                  size="small"
+                  onClick={() => setActiveSection('calendar')}
+                  sx={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 1.5,
+                    backgroundColor: activeSection === 'calendar'
+                      ? isDark ? 'rgba(22, 196, 127, 0.16)' : 'rgba(22, 196, 127, 0.12)'
+                      : 'transparent',
+                    color: activeSection === 'calendar'
+                      ? '#16C47F'
+                      : isDark ? '#94A3B8' : '#64748B',
+                    '&:hover': {
+                      backgroundColor: isDark ? 'rgba(22, 196, 127, 0.22)' : 'rgba(22, 196, 127, 0.18)',
+                      color: '#16C47F',
+                    },
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <Calendar size={17} />
+                </IconButton>
+              </Tooltip>
+            </Box>
           </Box>
         )}
 
@@ -631,12 +739,12 @@ export default function MyTasksPage() {
         )}
 
         {activeSection === 'calendar' && (
-          <PTCalendarView tasks={tasks} onOpenTask={handleOpenTask} />
+          <PTCalendarView tasks={displayedTasks} onOpenTask={handleOpenTask} />
         )}
 
         {activeSection === 'kanban' && (
           <PTKanban
-            tasks={tasks}
+            tasks={displayedTasks}
             activeTimerTaskId={activeTimer?.task_id}
             onOpenTask={handleOpenTask}
             onStatusChange={handleKanbanStatusChange}
