@@ -55,6 +55,7 @@ import {
   useReplaceVSComponentMutation,
 } from '@/api/vehicleServiceApi';
 import type { VSVehicle, VSVehicleComponent } from '@/types/vehicleService';
+import { formatDate, formatDateTime } from '@/utils/format';
 
 export default function VSServiceHistoryTab() {
   const { data: vehicles = [], isLoading: isVehiclesLoading, refetch: refetchVehicles } = useGetVSVehiclesQuery();
@@ -211,10 +212,10 @@ export default function VSServiceHistoryTab() {
                   </Grid>
                   <Grid item xs={6} sm={4}>
                     <Typography variant="caption" color="text.secondary" display="block">
-                      Retrofit Date
+                      Installation Done On
                     </Typography>
                     <Typography variant="body2" fontWeight={600}>
-                      {selectedVehicle.retrofit_date || '—'}
+                      {selectedVehicle.retrofit_date ? formatDate(selectedVehicle.retrofit_date) : '—'}
                     </Typography>
                   </Grid>
                   <Grid item xs={6} sm={4}>
@@ -222,7 +223,7 @@ export default function VSServiceHistoryTab() {
                       Warranty Expiry
                     </Typography>
                     <Typography variant="body2" fontWeight={600}>
-                      {selectedVehicle.warranty_expiry || '—'}
+                      {selectedVehicle.warranty_expiry ? formatDate(selectedVehicle.warranty_expiry) : '—'}
                     </Typography>
                   </Grid>
                   <Grid item xs={6} sm={4}>
@@ -399,7 +400,7 @@ export default function VSServiceHistoryTab() {
                               <TableCell sx={{ fontFamily: 'monospace', color: '#16a34a', fontWeight: 700 }}>
                                 {h.new_serial_number}
                               </TableCell>
-                              <TableCell>{h.replaced_date}</TableCell>
+                              <TableCell>{h.replaced_date ? formatDate(h.replaced_date) : '—'}</TableCell>
                               <TableCell>{h.replaced_by_name || 'Service Team'}</TableCell>
                               <TableCell>{h.reason || 'Component failed / worn'}</TableCell>
                             </TableRow>
@@ -449,7 +450,7 @@ export default function VSServiceHistoryTab() {
                               </TableCell>
                               <TableCell>{c.affected_component_label || '—'}</TableCell>
                               <TableCell>{c.resolution_summary || '—'}</TableCell>
-                              <TableCell>{new Date(c.created_at).toLocaleDateString()}</TableCell>
+                              <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDate(c.created_at)}</TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
@@ -484,8 +485,8 @@ export default function VSServiceHistoryTab() {
                               <TableCell sx={{ fontWeight: 700 }}>
                                 {m.title} ({m.service_type})
                               </TableCell>
-                              <TableCell>{m.scheduled_date}</TableCell>
-                              <TableCell>{m.completed_date || '—'}</TableCell>
+                              <TableCell sx={{ whiteSpace: 'nowrap' }}>{m.scheduled_date ? formatDate(m.scheduled_date) : '—'}</TableCell>
+                              <TableCell sx={{ whiteSpace: 'nowrap' }}>{m.completed_date ? formatDate(m.completed_date) : '—'}</TableCell>
                               <TableCell>
                                 <Chip label={m.status} size="small" />
                               </TableCell>

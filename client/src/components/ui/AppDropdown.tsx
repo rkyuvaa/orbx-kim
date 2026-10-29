@@ -98,6 +98,7 @@ export function AppDropdown<T extends string | number = string>({
 
   const showEmptyOption = allowEmpty || Boolean(emptyLabel) || Boolean(placeholder);
   const displayEmptyLabel = emptyLabel || placeholder || 'Select an option';
+  const cleanLabel = label ? label.replace(/\s*\*+$/, '') : '';
 
   return (
     <FormControl
@@ -112,7 +113,7 @@ export function AppDropdown<T extends string | number = string>({
         ...sx,
       }}
     >
-      {label && (
+      {cleanLabel && (
         <InputLabel
           id={labelId}
           sx={{
@@ -124,15 +125,15 @@ export function AppDropdown<T extends string | number = string>({
             },
           }}
         >
-          {label}
+          {cleanLabel}
         </InputLabel>
       )}
 
       <Select
         id={selectId}
         name={name}
-        labelId={label ? labelId : undefined}
-        label={label}
+        labelId={cleanLabel ? labelId : undefined}
+        label={cleanLabel}
         value={safeValue}
         onChange={handleChange}
         readOnly={readOnly}

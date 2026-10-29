@@ -14,6 +14,7 @@ export interface VSKit {
   kit_name: string;
   customer_name: string | null;
   vehicle_number: string | null;
+  installed_on: string | null;
   description: string | null;
   is_active: boolean;
   created_at: string;
@@ -26,6 +27,7 @@ export interface VSKitCreate {
   kit_name: string;
   customer_name?: string;
   vehicle_number?: string;
+  installed_on?: string;
   description?: string;
   component_types: {
     component_type: string;
@@ -40,6 +42,7 @@ export interface VSKitUpdate {
   kit_name?: string;
   customer_name?: string;
   vehicle_number?: string;
+  installed_on?: string;
   description?: string;
   is_active?: boolean;
 }
@@ -49,6 +52,7 @@ export interface VSKitPdfParsePreview {
   kit_number: string;
   customer_name?: string | null;
   vehicle_number?: string | null;
+  installed_on?: string | null;
   components: {
     component_type: string;
     label: string;

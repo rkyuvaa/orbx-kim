@@ -1,3 +1,4 @@
+from datetime import date
 import io
 import re
 from typing import BinaryIO, Dict, List, Optional, Union
@@ -117,6 +118,7 @@ def parse_kit_traceability_pdf(file_source: Union[str, bytes, BinaryIO]) -> Dict
             records.append({
                 "reference": ref,
                 "product": product,
+                "date": date_str,
                 "lot_serial": lot_serial,
                 "from": from_loc,
                 "to": to_loc,
@@ -132,6 +134,16 @@ def parse_kit_traceability_pdf(file_source: Union[str, bytes, BinaryIO]) -> Dict
     kit_name = first["product"]
     kit_number = first["lot_serial"] or "UNKNOWN_KIT"
     customer_name = first["to"]
+
+    installed_on: Optional[date] = None
+    if first.get("date"):
+        date_match = re.search(r"(\d{2})/(\d{2})/(\d{4})", first["date"])
+        if date_match:
+            d_day, d_month, d_year = map(int, date_match.groups())
+            try:
+                installed_on = date(d_year, d_month, d_day)
+            except ValueError:
+                pass
 
     seen_serials = set()
     seen_serials.add(kit_number)
@@ -172,6 +184,7 @@ def parse_kit_traceability_pdf(file_source: Union[str, bytes, BinaryIO]) -> Dict
         "kit_number": kit_number,
         "customer_name": customer_name,
         "vehicle_number": "",  # Empty title field for user to update as needed
+        "installed_on": installed_on,
         "components": components,
         "total_raw": total_raw,
         "total_serialized": total_serialized,

@@ -58,6 +58,7 @@ import {
 
 import { useUsersQuery } from '@/api/mastersApi';
 import { useToast } from '@/components/ui/ToastHost';
+import { formatDate, formatDateTime } from '@/utils/format';
 import {
   useCreateVSKitMutation,
   useCreateVSMaintenanceMutation,
@@ -120,6 +121,7 @@ export default function VSConfigurationTab() {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [parsedPdfData, setParsedPdfData] = useState<VSKitPdfParsePreview | null>(null);
   const [importVehicleNumber, setImportVehicleNumber] = useState('');
+  const [importInstalledOn, setImportInstalledOn] = useState('');
   const [importError, setImportError] = useState<string | null>(null);
 
   // View Components Modal
@@ -139,6 +141,7 @@ export default function VSConfigurationTab() {
     kit_number: '',
     customer_name: '',
     vehicle_number: '',
+    installed_on: '',
     description: '',
     is_active: true,
   });
@@ -150,6 +153,7 @@ export default function VSConfigurationTab() {
   // New Kit Form State
   const [kitNumber, setKitNumber] = useState('');
   const [kitName, setKitName] = useState('');
+  const [kitInstalledOn, setKitInstalledOn] = useState('');
   const [kitDescription, setKitDescription] = useState('');
   const [kitComponentTypes, setKitComponentTypes] = useState(DEFAULT_KIT_COMPONENTS);
   const [kitError, setKitError] = useState<string | null>(null);
@@ -200,6 +204,7 @@ export default function VSConfigurationTab() {
     const payload: VSKitCreate = {
       kit_number: kitNumber.trim().toUpperCase(),
       kit_name: kitName.trim(),
+      installed_on: kitInstalledOn || undefined,
       description: kitDescription.trim() || undefined,
       component_types: kitComponentTypes,
     };
@@ -209,6 +214,7 @@ export default function VSConfigurationTab() {
       setIsKitDialogOpen(false);
       setKitNumber('');
       setKitName('');
+      setKitInstalledOn('');
       setKitDescription('');
       refetchKits();
     } catch (err: any) {
@@ -227,6 +233,7 @@ export default function VSConfigurationTab() {
       const res = await parsePdf(formData).unwrap();
       setParsedPdfData(res);
       setImportVehicleNumber(res.vehicle_number || '');
+      setImportInstalledOn(res.installed_on || '');
     } catch (err: any) {
       setImportError(err?.data?.detail || 'Failed to parse Kit PDF document.');
     }
@@ -239,6 +246,9 @@ export default function VSConfigurationTab() {
     if (importVehicleNumber.trim()) {
       formData.append('vehicle_number', importVehicleNumber.trim().toUpperCase());
     }
+    if (importInstalledOn) {
+      formData.append('installed_on', importInstalledOn);
+    }
     try {
       await importPdf(formData).unwrap();
       showToast('Kit and components successfully imported into Kit Master!', 'success');
@@ -246,6 +256,7 @@ export default function VSConfigurationTab() {
       setPdfFile(null);
       setParsedPdfData(null);
       setImportVehicleNumber('');
+      setImportInstalledOn('');
       refetchKits();
     } catch (err: any) {
       setImportError(err?.data?.detail || 'Failed to import Kit PDF.');
@@ -273,6 +284,7 @@ export default function VSConfigurationTab() {
       kit_number: kit.kit_number,
       customer_name: kit.customer_name || '',
       vehicle_number: kit.vehicle_number || '',
+      installed_on: kit.installed_on || '',
       description: kit.description || '',
       is_active: kit.is_active,
     });
@@ -294,6 +306,7 @@ export default function VSConfigurationTab() {
           kit_number: editKitForm.kit_number.trim().toUpperCase(),
           customer_name: editKitForm.customer_name?.trim() || undefined,
           vehicle_number: editKitForm.vehicle_number?.trim().toUpperCase() || undefined,
+          installed_on: editKitForm.installed_on || undefined,
           description: editKitForm.description?.trim() || undefined,
           is_active: editKitForm.is_active,
         },
@@ -515,6 +528,7 @@ export default function VSConfigurationTab() {
                         <TableCell sx={{ fontWeight: 700 }}>Kit ID / Lot/Serial</TableCell>
                         <TableCell sx={{ fontWeight: 700 }}>Customer Name</TableCell>
                         <TableCell sx={{ fontWeight: 700 }}>Serialized Components</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>Installation Done On</TableCell>
                         <TableCell sx={{ fontWeight: 700 }}>Created Date</TableCell>
                         <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
                         <TableCell align="right" sx={{ fontWeight: 700 }}>Actions</TableCell>
@@ -623,13 +637,14 @@ export default function VSConfigurationTab() {
                             </Button>
                           </TableCell>
 
+                          {/* Installation Done On */}
+                          <TableCell sx={{ color: '#0F172A', fontWeight: 600, fontSize: 12, whiteSpace: 'nowrap' }}>
+                            {kit.installed_on ? formatDate(kit.installed_on) : '—'}
+                          </TableCell>
+
                           {/* Created Date */}
-                          <TableCell sx={{ color: '#475569', fontSize: 12, whiteSpace: 'nowrap' }}>
-                            {kit.created_at ? new Date(kit.created_at).toLocaleDateString([], {
-                              day: '2-digit',
-                              month: 'short',
-                              year: 'numeric',
-                            }) : '—'}
+                          <TableCell sx={{ color: '#64748B', fontSize: 12, whiteSpace: 'nowrap' }}>
+                            {kit.created_at ? formatDate(kit.created_at) : '—'}
                           </TableCell>
 
                           {/* Status */}
@@ -717,7 +732,7 @@ export default function VSConfigurationTab() {
                         <TableCell sx={{ fontWeight: 700 }}>Kit Number</TableCell>
                         <TableCell sx={{ fontWeight: 700 }}>Owner Details</TableCell>
                         <TableCell sx={{ fontWeight: 700 }}>Fitted Component Serials</TableCell>
-                        <TableCell sx={{ fontWeight: 700 }}>Retrofit Date</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>Installation Done On</TableCell>
                         <TableCell sx={{ fontWeight: 700 }}>Warranty Expiry</TableCell>
                         <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
                       </TableRow>
@@ -752,8 +767,12 @@ export default function VSConfigurationTab() {
                               ))}
                             </Box>
                           </TableCell>
-                          <TableCell>{v.retrofit_date || '—'}</TableCell>
-                          <TableCell>{v.warranty_expiry || '—'}</TableCell>
+                          <TableCell sx={{ whiteSpace: 'nowrap', fontWeight: 600, color: '#0F172A' }}>
+                            {v.retrofit_date ? formatDate(v.retrofit_date) : '—'}
+                          </TableCell>
+                          <TableCell sx={{ whiteSpace: 'nowrap', color: '#64748B' }}>
+                            {v.warranty_expiry ? formatDate(v.warranty_expiry) : '—'}
+                          </TableCell>
                           <TableCell>
                             <Chip label={v.is_active ? 'Active' : 'Inactive'} size="small" color={v.is_active ? 'success' : 'default'} />
                           </TableCell>
@@ -839,7 +858,7 @@ export default function VSConfigurationTab() {
                           <TableCell sx={{ fontWeight: 800 }}>{m.vehicle_number || `Vehicle #${m.vehicle_id}`}</TableCell>
                           <TableCell sx={{ fontWeight: 700 }}>{m.title}</TableCell>
                           <TableCell>{m.service_type}</TableCell>
-                          <TableCell>{m.scheduled_date}</TableCell>
+                          <TableCell sx={{ whiteSpace: 'nowrap' }}>{m.scheduled_date ? formatDate(m.scheduled_date) : '—'}</TableCell>
                           <TableCell>{m.technician_name || 'Unassigned'}</TableCell>
                           <TableCell>
                             <Chip
@@ -886,7 +905,7 @@ export default function VSConfigurationTab() {
           )}
 
           <TextField
-            label="Kit Identifier Number *"
+            label="Kit Identifier Number"
             placeholder="e.g. KIT-EV-3W-001"
             size="small"
             fullWidth
@@ -897,13 +916,25 @@ export default function VSConfigurationTab() {
           />
 
           <TextField
-            label="Kit Model Name *"
+            label="Kit Model Name"
             placeholder="e.g. 60V High-Torque Auto-Rickshaw EV Kit"
             size="small"
             fullWidth
             required
             value={kitName}
             onChange={(e) => setKitName(e.target.value)}
+            sx={{ mb: 2 }}
+          />
+
+          <TextField
+            label="Installation Done On Date"
+            type="date"
+            size="small"
+            fullWidth
+            value={kitInstalledOn}
+            onChange={(e) => setKitInstalledOn(e.target.value)}
+            InputLabelProps={{ shrink: true }}
+            helperText={kitInstalledOn ? `Selected: ${formatDate(kitInstalledOn)} (dd/mm/yyyy)` : 'Format: dd/mm/yyyy'}
             sx={{ mb: 2 }}
           />
 
@@ -1050,24 +1081,26 @@ export default function VSConfigurationTab() {
           <Grid container spacing={2} sx={{ mb: 3 }}>
             <Grid item xs={12} sm={4}>
               <TextField
-                label="Retrofit Date"
+                label="Installation Done On Date"
                 type="date"
                 size="small"
                 fullWidth
                 InputLabelProps={{ shrink: true }}
                 value={retrofitDate}
                 onChange={(e) => setRetrofitDate(e.target.value)}
+                helperText={retrofitDate ? `${formatDate(retrofitDate)} (dd/mm/yyyy)` : 'Format: dd/mm/yyyy'}
               />
             </Grid>
             <Grid item xs={12} sm={4}>
               <TextField
-                label="Warranty Expiry"
+                label="Warranty Expiry Date"
                 type="date"
                 size="small"
                 fullWidth
                 InputLabelProps={{ shrink: true }}
                 value={warrantyExpiry}
                 onChange={(e) => setWarrantyExpiry(e.target.value)}
+                helperText={warrantyExpiry ? `${formatDate(warrantyExpiry)} (dd/mm/yyyy)` : 'Format: dd/mm/yyyy'}
               />
             </Grid>
             <Grid item xs={12} sm={4}>
@@ -1251,20 +1284,38 @@ export default function VSConfigurationTab() {
             </Alert>
           )}
 
-          {/* Top Empty Field for Vehicle Number */}
+          {/* Top Empty Field for Vehicle Number & Installation Date */}
           <Box sx={{ mb: 2.5, p: 2, bgcolor: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '10px' }}>
-            <Typography variant="caption" sx={{ fontWeight: 700, color: '#166534', display: 'block', mb: 0.6 }}>
-              VEHICLE REGISTRATION NUMBER (TITLE)
+            <Typography variant="caption" sx={{ fontWeight: 700, color: '#166534', display: 'block', mb: 0.8 }}>
+              VEHICLE REGISTRATION NUMBER (TITLE) & INSTALLATION DATE
             </Typography>
-            <TextField
-              placeholder="Enter Vehicle Number (e.g. KA01AB1234) — you can enter now or update anytime in Kit Master"
-              fullWidth
-              size="small"
-              value={importVehicleNumber}
-              onChange={(e) => setImportVehicleNumber(e.target.value)}
-              sx={{ backgroundColor: '#FFFFFF', borderRadius: '8px' }}
-              helperText="Vehicle number is the primary title of this kit record."
-            />
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={7}>
+                <TextField
+                  placeholder="Enter Vehicle Number (e.g. KA01AB1234) — enter now or update anytime"
+                  label="Vehicle Number (Title)"
+                  fullWidth
+                  size="small"
+                  value={importVehicleNumber}
+                  onChange={(e) => setImportVehicleNumber(e.target.value)}
+                  sx={{ backgroundColor: '#FFFFFF', borderRadius: '8px' }}
+                  helperText="Primary vehicle registration number for this kit"
+                />
+              </Grid>
+              <Grid item xs={12} sm={5}>
+                <TextField
+                  label="Installation Done On Date"
+                  type="date"
+                  fullWidth
+                  size="small"
+                  value={importInstalledOn || ''}
+                  onChange={(e) => setImportInstalledOn(e.target.value)}
+                  InputLabelProps={{ shrink: true }}
+                  sx={{ backgroundColor: '#FFFFFF', borderRadius: '8px' }}
+                  helperText={importInstalledOn ? `${formatDate(importInstalledOn)} (dd/mm/yyyy)` : 'Format: dd/mm/yyyy'}
+                />
+              </Grid>
+            </Grid>
           </Box>
 
           {/* PDF File Selector */}
@@ -1316,7 +1367,7 @@ export default function VSConfigurationTab() {
             <Box>
               {/* Summary Cards */}
               <Grid container spacing={2} sx={{ mb: 2 }}>
-                <Grid item xs={12} sm={4}>
+                <Grid item xs={6} sm={3}>
                   <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
                     <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 700, display: 'block' }}>
                       KIT NAME (PRODUCT)
@@ -1326,7 +1377,7 @@ export default function VSConfigurationTab() {
                     </Typography>
                   </Paper>
                 </Grid>
-                <Grid item xs={12} sm={4}>
+                <Grid item xs={6} sm={3}>
                   <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
                     <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 700, display: 'block' }}>
                       KIT ID (LOT / SERIAL)
@@ -1336,13 +1387,23 @@ export default function VSConfigurationTab() {
                     </Typography>
                   </Paper>
                 </Grid>
-                <Grid item xs={12} sm={4}>
+                <Grid item xs={6} sm={3}>
                   <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
                     <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 700, display: 'block' }}>
                       CUSTOMER
                     </Typography>
                     <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#0F172A' }}>
                       {parsedPdfData.customer_name || '—'}
+                    </Typography>
+                  </Paper>
+                </Grid>
+                <Grid item xs={6} sm={3}>
+                  <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                    <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 700, display: 'block' }}>
+                      INSTALLATION DONE ON
+                    </Typography>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#15803D' }}>
+                      {parsedPdfData.installed_on ? formatDate(parsedPdfData.installed_on) : '—'}
                     </Typography>
                   </Paper>
                 </Grid>
@@ -1521,7 +1582,7 @@ export default function VSConfigurationTab() {
               {/* Kit Name & Kit Number in 2 columns */}
               <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
                 <TextField
-                  label="Kit Name *"
+                  label="Kit Name"
                   size="small"
                   required
                   fullWidth
@@ -1529,7 +1590,7 @@ export default function VSConfigurationTab() {
                   onChange={(e) => setEditKitForm((prev) => ({ ...prev, kit_name: e.target.value }))}
                 />
                 <TextField
-                  label="Kit ID / Lot/Serial *"
+                  label="Kit ID / Lot/Serial"
                   size="small"
                   required
                   fullWidth
@@ -1538,15 +1599,27 @@ export default function VSConfigurationTab() {
                 />
               </Box>
 
-              {/* Customer Name */}
-              <TextField
-                label="Customer Name"
-                size="small"
-                fullWidth
-                placeholder="e.g. D PUTTASWAMY"
-                value={editKitForm.customer_name || ''}
-                onChange={(e) => setEditKitForm((prev) => ({ ...prev, customer_name: e.target.value }))}
-              />
+              {/* Customer Name & Installation Done On Date */}
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 2 }}>
+                <TextField
+                  label="Customer Name"
+                  size="small"
+                  fullWidth
+                  placeholder="e.g. D PUTTASWAMY"
+                  value={editKitForm.customer_name || ''}
+                  onChange={(e) => setEditKitForm((prev) => ({ ...prev, customer_name: e.target.value }))}
+                />
+                <TextField
+                  label="Installation Done On Date"
+                  type="date"
+                  size="small"
+                  fullWidth
+                  value={editKitForm.installed_on || ''}
+                  onChange={(e) => setEditKitForm((prev) => ({ ...prev, installed_on: e.target.value }))}
+                  InputLabelProps={{ shrink: true }}
+                  helperText={editKitForm.installed_on ? `${formatDate(editKitForm.installed_on)} (dd/mm/yyyy)` : 'Format: dd/mm/yyyy'}
+                />
+              </Box>
 
               {/* Description */}
               <TextField

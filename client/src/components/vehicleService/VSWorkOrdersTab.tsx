@@ -59,6 +59,7 @@ import {
 import { useUsersQuery } from '@/api/mastersApi';
 import { AppDropdown } from '@/components/ui/AppDropdown';
 import { LocationDisplay, formatNoteLocation, useResolvedAddress } from '@/utils/geolocation';
+import { formatDate, formatDateTime } from '@/utils/format';
 import {
   useAddVSComplaintNoteMutation,
   useAddVSServiceCostMutation,
@@ -560,8 +561,8 @@ export default function VSWorkOrdersTab() {
                       />
                     </TableCell>
                     <TableCell>
-                      <Typography variant="caption" color="text.secondary">
-                        {new Date(c.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                      <Typography variant="caption" sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>
+                        {formatDateTime(c.created_at)}
                       </Typography>
                     </TableCell>
                     <TableCell align="right">
@@ -600,7 +601,7 @@ export default function VSWorkOrdersTab() {
           {/* Vehicle Selector */}
           <Box sx={{ mb: 2 }}>
             <AppDropdown
-              label="Retrofitted Vehicle *"
+              label="Retrofitted Vehicle"
               value={newVehicleId}
               placeholder="Select vehicle"
               required
@@ -611,6 +612,20 @@ export default function VSWorkOrdersTab() {
               onChange={(val) => handleSelectVehicleInForm(Number(val))}
             />
           </Box>
+
+          {/* Vehicle Installation Date Info */}
+          {selectedVehicleObj && selectedVehicleObj.retrofit_date && (
+            <Box sx={{ mb: 2, p: 1.2, bgcolor: '#F0FDF4', borderRadius: '8px', border: '1px solid #BBF7D0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
+              <Typography variant="caption" sx={{ color: '#166534', fontWeight: 600 }}>
+                Installation Done On: <strong>{formatDate(selectedVehicleObj.retrofit_date)}</strong>
+              </Typography>
+              {selectedVehicleObj.owner_name && (
+                <Typography variant="caption" sx={{ color: '#166534' }}>
+                  Owner: <strong>{selectedVehicleObj.owner_name}</strong>
+                </Typography>
+              )}
+            </Box>
+          )}
 
           {/* Component in Kit Selector */}
           {selectedVehicleObj && selectedVehicleObj.components && selectedVehicleObj.components.length > 0 && (
@@ -633,18 +648,20 @@ export default function VSWorkOrdersTab() {
           <Grid container spacing={2} sx={{ mb: 2 }}>
             <Grid item xs={6}>
               <TextField
-                label="Reporter Name *"
+                label="Reporter Name"
                 size="small"
                 fullWidth
+                required
                 value={newReportedBy}
                 onChange={(e) => setNewReportedBy(e.target.value)}
               />
             </Grid>
             <Grid item xs={6}>
               <TextField
-                label="Reporter Phone *"
+                label="Reporter Phone"
                 size="small"
                 fullWidth
+                required
                 value={newReportedPhone}
                 onChange={(e) => setNewReportedPhone(e.target.value)}
               />
@@ -655,7 +672,8 @@ export default function VSWorkOrdersTab() {
           <Grid container spacing={2} sx={{ mb: 2 }}>
             <Grid item xs={6}>
               <AppDropdown
-                label="Category *"
+                label="Category"
+                required
                 value={newCategory}
                 options={[
                   { value: 'BREAKDOWN', label: 'Breakdown' },
@@ -671,7 +689,8 @@ export default function VSWorkOrdersTab() {
             </Grid>
             <Grid item xs={6}>
               <AppDropdown
-                label="Severity *"
+                label="Severity"
+                required
                 value={newSeverity}
                 options={[
                   { value: 'CRITICAL', label: '🔴 Critical' },
@@ -701,10 +720,11 @@ export default function VSWorkOrdersTab() {
 
           {/* Description */}
           <TextField
-            label="Problem Description *"
+            label="Problem Description"
             multiline
             rows={3}
             fullWidth
+            required
             value={newDescription}
             onChange={(e) => setNewDescription(e.target.value)}
           />
@@ -765,7 +785,7 @@ export default function VSWorkOrdersTab() {
               </Typography>
               <Typography variant="caption" color="text.secondary">
                 Registered via {selectedComplaint.registered_via} on{' '}
-                {new Date(selectedComplaint.created_at).toLocaleString()}
+                {formatDateTime(selectedComplaint.created_at)}
               </Typography>
             </Box>
             <Box sx={{ display: 'flex', gap: 1 }}>
@@ -883,6 +903,17 @@ export default function VSWorkOrdersTab() {
                     <Typography variant="body2">
                       <strong>Contact:</strong> {selectedComplaint.owner_phone}
                     </Typography>
+                    {(() => {
+                      const veh = vehicles.find((v) => v.id === selectedComplaint.vehicle_id);
+                      if (veh?.retrofit_date) {
+                        return (
+                          <Typography variant="body2">
+                            <strong>Installation Done On:</strong> {formatDate(veh.retrofit_date)}
+                          </Typography>
+                        );
+                      }
+                      return null;
+                    })()}
                     <Typography variant="body2">
                       <strong>Reported By:</strong> {selectedComplaint.reported_by} ({selectedComplaint.reported_phone})
                     </Typography>
@@ -1208,7 +1239,7 @@ export default function VSWorkOrdersTab() {
                           </Typography>
                         </Box>
                         <Typography variant="caption" sx={{ color: '#64748B', fontSize: 10 }}>
-                          {new Date(n.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                          {formatDateTime(n.created_at)}
                         </Typography>
                       </Box>
                       {n.is_status_change && (

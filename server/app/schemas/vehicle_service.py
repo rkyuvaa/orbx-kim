@@ -32,6 +32,7 @@ class VSKitCreate(BaseModel):
     kit_name: str = Field(..., max_length=120)
     customer_name: Optional[str] = Field(None, max_length=120)
     vehicle_number: Optional[str] = Field(None, max_length=40)
+    installed_on: Optional[date] = None
     description: Optional[str] = None
     component_types: List[VSKitComponentTypeCreate] = []
 
@@ -41,6 +42,7 @@ class VSKitUpdate(BaseModel):
     kit_name: Optional[str] = Field(None, max_length=120)
     customer_name: Optional[str] = Field(None, max_length=120)
     vehicle_number: Optional[str] = Field(None, max_length=40)
+    installed_on: Optional[date] = None
     description: Optional[str] = None
     is_active: Optional[bool] = None
 
@@ -51,6 +53,7 @@ class VSKitOut(BaseModel):
     kit_name: str
     customer_name: Optional[str] = None
     vehicle_number: Optional[str] = None
+    installed_on: Optional[date] = None
     description: Optional[str]
     is_active: bool
     created_at: datetime
@@ -65,6 +68,7 @@ class VSKitPdfParsePreview(BaseModel):
     kit_number: str
     customer_name: Optional[str] = None
     vehicle_number: Optional[str] = None
+    installed_on: Optional[date] = None
     components: List[VSKitComponentTypeCreate] = []
     total_raw: int
     total_serialized: int

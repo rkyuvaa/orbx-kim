@@ -18,6 +18,7 @@ class VSKit(Base):
     kit_name: Mapped[str] = mapped_column(String(120), nullable=False)
     customer_name: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
     vehicle_number: Mapped[Optional[str]] = mapped_column(String(40), index=True, nullable=True)
+    installed_on: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

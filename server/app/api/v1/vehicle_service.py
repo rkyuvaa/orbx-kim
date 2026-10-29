@@ -437,6 +437,7 @@ def create_kit(
         kit_name=payload.kit_name,
         customer_name=payload.customer_name,
         vehicle_number=payload.vehicle_number,
+        installed_on=payload.installed_on,
         description=payload.description,
         is_active=True,
     )
@@ -478,6 +479,7 @@ async def parse_kit_pdf_endpoint(
 async def import_kit_pdf_endpoint(
     file: UploadFile = File(...),
     vehicle_number: Optional[str] = Form(None),
+    installed_on: Optional[date] = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -498,11 +500,13 @@ async def import_kit_pdf_endpoint(
         )
 
     v_num = (vehicle_number or "").strip() or None
+    final_installed_on = installed_on or data.get("installed_on")
     kit = VSKit(
         kit_number=data["kit_number"],
         kit_name=data["kit_name"],
         customer_name=data["customer_name"],
         vehicle_number=v_num,
+        installed_on=final_installed_on,
         description=f"Imported from {file.filename}. Customer: {data['customer_name']}",
         is_active=True,
     )
@@ -560,6 +564,8 @@ def update_kit(
         kit.customer_name = payload.customer_name.strip() if payload.customer_name else None
     if payload.vehicle_number is not None:
         kit.vehicle_number = payload.vehicle_number.strip().upper() if payload.vehicle_number else None
+    if payload.installed_on is not None:
+        kit.installed_on = payload.installed_on
     if payload.description is not None:
         kit.description = payload.description.strip() if payload.description else None
     if payload.is_active is not None:

@@ -87,30 +87,18 @@ export function formatDate(iso?: string | Date | null): string {
 export function formatDateTime(iso?: string | Date | null): string {
   if (!iso) return '';
 
-  if (iso instanceof Date) {
-    if (isNaN(iso.getTime())) return '';
-    const dd = String(iso.getDate()).padStart(2, '0');
-    const mm = String(iso.getMonth() + 1).padStart(2, '0');
-    const yyyy = iso.getFullYear();
-    const hh = String(iso.getHours()).padStart(2, '0');
-    const min = String(iso.getMinutes()).padStart(2, '0');
-    return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
-  }
-
-  const raw = String(iso).trim();
-  if (!raw) return '';
-
-  const d = new Date(raw);
-  if (!isNaN(d.getTime())) {
-    const dd = String(d.getDate()).padStart(2, '0');
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const yyyy = d.getFullYear();
-    const hh = String(d.getHours()).padStart(2, '0');
-    const min = String(d.getMinutes()).padStart(2, '0');
-    return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
-  }
-
-  return formatStandardDateTime(raw);
+  const d = iso instanceof Date ? iso : new Date(String(iso).trim());
+  if (isNaN(d.getTime())) return String(iso);
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  let hours = d.getHours();
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+  const hh = String(hours).padStart(2, '0');
+  return `${dd}/${mm}/${yyyy}, ${hh}:${minutes} ${ampm}`;
 }
 
 export function initialsOf(name?: string | null): string {
