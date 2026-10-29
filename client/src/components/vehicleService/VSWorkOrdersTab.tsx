@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Alert,
   Box,
@@ -53,6 +53,7 @@ import {
   Sliders,
   User,
   Wrench,
+  X,
   Zap,
 } from 'lucide-react';
 
@@ -66,6 +67,7 @@ import {
   useCloseVSComplaintMutation,
   useCreateVSComplaintMutation,
   useGetVSComplaintsQuery,
+  useGetVSKitsQuery,
   useGetVSVehiclesQuery,
   useReplaceVSComponentMutation,
   useUpdateVSComplaintMutation,
@@ -74,6 +76,7 @@ import type {
   VSComplaint,
   VSComplaintCloseRequest,
   VSComplaintCreate,
+  VSKit,
   VSVehicle,
 } from '@/types/vehicleService';
 
@@ -108,6 +111,7 @@ export default function VSWorkOrdersTab() {
   });
 
   const { data: vehicles = [] } = useGetVSVehiclesQuery();
+  const { data: kits = [] } = useGetVSKitsQuery();
   const { data: users = [] } = useUsersQuery();
 
   // Mutations
@@ -128,6 +132,9 @@ export default function VSWorkOrdersTab() {
   );
 
   // New Complaint Form
+  const [vehicleSearchText, setVehicleSearchText] = useState('');
+  const [selectedKit, setSelectedKit] = useState<VSKit | null>(null);
+  const [isVehicleMenuOpen, setIsVehicleMenuOpen] = useState(false);
   const [newVehicleId, setNewVehicleId] = useState<number | ''>('');
   const [newComponentId, setNewComponentId] = useState<number | ''>('');
   const [newReportedBy, setNewReportedBy] = useState('');
@@ -160,7 +167,43 @@ export default function VSWorkOrdersTab() {
 
   const selectedVehicleObj: VSVehicle | undefined = vehicles.find((v) => v.id === newVehicleId);
 
+  const searchTrimmed = vehicleSearchText.trim();
+  const hasMinDigits = searchTrimmed.length >= 4;
+
+  const matchedKits = useMemo(() => {
+    if (!hasMinDigits) return [];
+    const q = searchTrimmed.toLowerCase();
+    return kits.filter((k) => {
+      const vNo = (k.vehicle_number || '').toLowerCase();
+      const kNo = (k.kit_number || '').toLowerCase();
+      const kName = (k.kit_name || '').toLowerCase();
+      const cust = (k.customer_name || '').toLowerCase();
+      return vNo.includes(q) || kNo.includes(q) || kName.includes(q) || cust.includes(q);
+    });
+  }, [kits, searchTrimmed, hasMinDigits]);
+
+  const availableComponents = useMemo(() => {
+    if (selectedKit?.component_types && selectedKit.component_types.length > 0) {
+      return selectedKit.component_types.map((ct) => ({
+        id: ct.id,
+        label: ct.serial_number ? `${ct.label} (Serial: ${ct.serial_number})` : ct.label,
+        serial_number: ct.serial_number,
+      }));
+    }
+    if (selectedVehicleObj?.components && selectedVehicleObj.components.length > 0) {
+      return selectedVehicleObj.components.map((c) => ({
+        id: c.id,
+        label: `${c.component_label} (Serial: ${c.serial_number})`,
+        serial_number: c.serial_number,
+      }));
+    }
+    return [];
+  }, [selectedKit, selectedVehicleObj]);
+
   const handleOpenNewDialog = () => {
+    setVehicleSearchText('');
+    setSelectedKit(null);
+    setIsVehicleMenuOpen(false);
     setNewVehicleId('');
     setNewComponentId('');
     setNewReportedBy('');
@@ -173,26 +216,41 @@ export default function VSWorkOrdersTab() {
     setIsNewDialogOpen(true);
   };
 
-  const handleSelectVehicleInForm = (vid: number) => {
-    setNewVehicleId(vid);
+  const handleSelectKitInForm = (k: VSKit) => {
+    setSelectedKit(k);
+    setVehicleSearchText(k.vehicle_number ? `${k.vehicle_number} — ${k.kit_name}` : `${k.kit_name} (${k.kit_number})`);
+    setIsVehicleMenuOpen(false);
     setNewComponentId('');
-    const v = vehicles.find((veh) => veh.id === vid);
-    if (v) {
-      setNewReportedBy(v.owner_name);
-      setNewReportedPhone(v.owner_phone);
+
+    // Pre-fill reporter name with customer name
+    if (k.customer_name) {
+      setNewReportedBy(k.customer_name);
+    }
+
+    // Check if vehicle exists for kit to sync phone/id
+    const matchedVeh = vehicles.find((v) => v.kit_id === k.id || (k.vehicle_number && v.vehicle_number.toUpperCase() === k.vehicle_number.toUpperCase()));
+    if (matchedVeh) {
+      setNewVehicleId(matchedVeh.id);
+      if (matchedVeh.owner_phone && !newReportedPhone) {
+        setNewReportedPhone(matchedVeh.owner_phone);
+      }
+    } else {
+      setNewVehicleId('');
     }
   };
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newVehicleId || !newReportedBy || !newReportedPhone || !newDescription) {
-      setCreateError('Please fill all mandatory fields.');
+    if ((!newVehicleId && !selectedKit) || !newReportedBy || !newReportedPhone || !newDescription) {
+      setCreateError('Please search and select a vehicle/kit from KIT Master and fill all required fields.');
       return;
     }
     setCreateError(null);
 
     const payload: VSComplaintCreate = {
-      vehicle_id: Number(newVehicleId),
+      kit_id: selectedKit?.id,
+      vehicle_id: newVehicleId ? Number(newVehicleId) : undefined,
+      vehicle_number: selectedKit?.vehicle_number || selectedVehicleObj?.vehicle_number || undefined,
       affected_component_id: newComponentId ? Number(newComponentId) : undefined,
       reported_by: newReportedBy.trim(),
       reported_phone: newReportedPhone.trim(),
@@ -598,46 +656,170 @@ export default function VSWorkOrdersTab() {
             </Alert>
           )}
 
-          {/* Vehicle Selector */}
-          <Box sx={{ mb: 2 }}>
-            <AppDropdown
-              label="Retrofitted Vehicle"
-              value={newVehicleId}
-              placeholder="Select vehicle"
+          {/* Retrofitted Vehicle Search from KIT Master (Min 4 digits required) */}
+          <Box sx={{ position: 'relative', mb: 2 }}>
+            <TextField
+              label="Retrofitted Vehicle (from KIT Master)"
+              placeholder="Type at least 4 digits to search (e.g. TN66, KIM1, 7023)..."
+              fullWidth
+              size="small"
               required
-              options={vehicles.map((v) => ({
-                value: v.id,
-                label: `${v.vehicle_number} — ${v.owner_name} (Kit: ${v.kit_number || 'Default'})`,
-              }))}
-              onChange={(val) => handleSelectVehicleInForm(Number(val))}
+              value={vehicleSearchText}
+              onChange={(e) => {
+                setVehicleSearchText(e.target.value);
+                setIsVehicleMenuOpen(true);
+                if (selectedKit) {
+                  setSelectedKit(null);
+                  setNewComponentId('');
+                }
+              }}
+              onFocus={() => {
+                if (vehicleSearchText.trim().length >= 4) {
+                  setIsVehicleMenuOpen(true);
+                }
+              }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search size={16} color="#64748B" />
+                  </InputAdornment>
+                ),
+                endAdornment: vehicleSearchText ? (
+                  <InputAdornment position="end">
+                    <IconButton
+                      size="small"
+                      onClick={() => {
+                        setVehicleSearchText('');
+                        setSelectedKit(null);
+                        setNewComponentId('');
+                        setIsVehicleMenuOpen(false);
+                      }}
+                    >
+                      <X size={14} />
+                    </IconButton>
+                  </InputAdornment>
+                ) : null,
+              }}
+              helperText={
+                !hasMinDigits
+                  ? 'Type at least 4 digits/characters to view matching records from KIT Master.'
+                  : `${matchedKits.length} matching record(s) found in KIT Master.`
+              }
             />
+
+            {/* Matched Results Floating Menu (Only if >= 4 digits entered) */}
+            {isVehicleMenuOpen && hasMinDigits && (
+              <Paper
+                elevation={4}
+                sx={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  right: 0,
+                  zIndex: 1400,
+                  maxHeight: 250,
+                  overflowY: 'auto',
+                  borderRadius: '8px',
+                  border: '1px solid #E2E8E2',
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+                  mt: 0.5,
+                  backgroundColor: '#FFFFFF',
+                }}
+              >
+                {matchedKits.length > 0 ? (
+                  matchedKits.map((k) => (
+                    <Box
+                      key={k.id}
+                      onClick={() => handleSelectKitInForm(k)}
+                      sx={{
+                        p: 1.5,
+                        cursor: 'pointer',
+                        borderBottom: '1px solid #F1F5F9',
+                        '&:hover': {
+                          backgroundColor: '#F0FDF4',
+                        },
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.4 }}>
+                        <Typography sx={{ fontWeight: 800, color: '#0F172A', fontSize: 13.5 }}>
+                          {k.vehicle_number || '[No Vehicle No Assigned]'}
+                        </Typography>
+                        <Chip
+                          label={k.kit_name}
+                          size="small"
+                          sx={{ height: 20, fontSize: 11, fontWeight: 700, backgroundColor: '#E2E8F0' }}
+                        />
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                        <Typography variant="caption" sx={{ fontFamily: 'monospace', color: '#1D4ED8', fontWeight: 600 }}>
+                          ID: {k.kit_number}
+                        </Typography>
+                        {k.customer_name && (
+                          <Typography variant="caption" sx={{ color: '#334155', fontWeight: 600 }}>
+                            Customer: {k.customer_name}
+                          </Typography>
+                        )}
+                        {k.installed_on && (
+                          <Typography variant="caption" sx={{ color: '#166534', fontWeight: 600 }}>
+                            Installed: {formatDate(k.installed_on)}
+                          </Typography>
+                        )}
+                      </Box>
+                    </Box>
+                  ))
+                ) : (
+                  <Box sx={{ p: 2, textAlign: 'center', color: '#64748B' }}>
+                    <Typography variant="body2" sx={{ fontSize: 12.5 }}>
+                      No matching records found in KIT Master for <strong>"{searchTrimmed}"</strong>.
+                    </Typography>
+                  </Box>
+                )}
+              </Paper>
+            )}
           </Box>
 
-          {/* Vehicle Installation Date Info */}
-          {selectedVehicleObj && selectedVehicleObj.retrofit_date && (
-            <Box sx={{ mb: 2, p: 1.2, bgcolor: '#F0FDF4', borderRadius: '8px', border: '1px solid #BBF7D0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
-              <Typography variant="caption" sx={{ color: '#166534', fontWeight: 600 }}>
-                Installation Done On: <strong>{formatDate(selectedVehicleObj.retrofit_date)}</strong>
-              </Typography>
-              {selectedVehicleObj.owner_name && (
-                <Typography variant="caption" sx={{ color: '#166534' }}>
-                  Owner: <strong>{selectedVehicleObj.owner_name}</strong>
+          {/* Selected Kit Master Info Card */}
+          {selectedKit && (
+            <Box sx={{ mb: 2, p: 1.5, bgcolor: '#F0FDF4', borderRadius: '8px', border: '1px solid #BBF7D0' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5, flexWrap: 'wrap', gap: 1 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#166534' }}>
+                  {selectedKit.vehicle_number || selectedKit.kit_name}
                 </Typography>
-              )}
+                <Chip
+                  label={selectedKit.kit_number}
+                  size="small"
+                  sx={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 11, backgroundColor: '#DCFCE7', color: '#15803D' }}
+                />
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                {selectedKit.customer_name && (
+                  <Typography variant="caption" sx={{ color: '#334155' }}>
+                    Customer: <strong>{selectedKit.customer_name}</strong>
+                  </Typography>
+                )}
+                {selectedKit.installed_on && (
+                  <Typography variant="caption" sx={{ color: '#166534' }}>
+                    Installation Done On: <strong>{formatDate(selectedKit.installed_on)}</strong>
+                  </Typography>
+                )}
+                <Typography variant="caption" sx={{ color: '#64748B' }}>
+                  {availableComponents.length} component(s) tracked
+                </Typography>
+              </Box>
             </Box>
           )}
 
           {/* Component in Kit Selector */}
-          {selectedVehicleObj && selectedVehicleObj.components && selectedVehicleObj.components.length > 0 && (
+          {availableComponents.length > 0 && (
             <Box sx={{ mb: 2 }}>
               <AppDropdown
                 label="Affected Component from Kit"
                 value={newComponentId}
                 emptyLabel="General Vehicle / Non-Component Issue"
                 allowEmpty
-                options={selectedVehicleObj.components.map((comp) => ({
+                options={availableComponents.map((comp) => ({
                   value: comp.id,
-                  label: `${comp.component_label} (Serial: ${comp.serial_number})`,
+                  label: comp.label,
                 }))}
                 onChange={(val) => setNewComponentId(val as number | '')}
               />

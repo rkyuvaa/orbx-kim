@@ -213,7 +213,9 @@ export interface VSComplaint {
 }
 
 export interface VSComplaintCreate {
-  vehicle_id: number;
+  vehicle_id?: number;
+  kit_id?: number;
+  vehicle_number?: string;
   affected_component_id?: number;
   reported_by: string;
   reported_phone: string;

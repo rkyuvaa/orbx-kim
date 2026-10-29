@@ -236,7 +236,9 @@ class VSCustomerFeedbackOut(BaseModel):
 # ============================================================================
 
 class VSComplaintCreate(BaseModel):
-    vehicle_id: int
+    vehicle_id: Optional[int] = None
+    kit_id: Optional[int] = None
+    vehicle_number: Optional[str] = None
     affected_component_id: Optional[int] = None
     reported_by: str = Field(..., max_length=120)
     reported_phone: str = Field(..., max_length=20)

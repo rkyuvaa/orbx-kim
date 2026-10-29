@@ -836,15 +836,68 @@ def create_complaint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    vehicle = db.query(VSVehicle).filter(VSVehicle.id == payload.vehicle_id).first()
+    vehicle = None
+    if payload.vehicle_id:
+        vehicle = db.query(VSVehicle).filter(VSVehicle.id == payload.vehicle_id).first()
+
+    # If vehicle not found by vehicle_id, look up or create vehicle linked to Kit Master
+    if not vehicle and payload.kit_id:
+        kit = db.query(VSKit).filter(VSKit.id == payload.kit_id).first()
+        if kit:
+            v_no = (kit.vehicle_number or payload.vehicle_number or kit.kit_number).strip().upper()
+            vehicle = db.query(VSVehicle).filter(
+                or_(
+                    VSVehicle.kit_id == kit.id,
+                    VSVehicle.vehicle_number == v_no,
+                )
+            ).first()
+            if not vehicle:
+                vehicle = VSVehicle(
+                    vehicle_number=v_no,
+                    kit_id=kit.id,
+                    owner_name=kit.customer_name or payload.reported_by,
+                    owner_phone=payload.reported_phone or "0000000000",
+                    retrofit_date=kit.installed_on,
+                    qr_token=uuid.uuid4().hex,
+                    is_active=True,
+                )
+                db.add(vehicle)
+                db.flush()
+                for ct in kit.component_types:
+                    vc = VSVehicleComponent(
+                        vehicle_id=vehicle.id,
+                        component_type_id=ct.id,
+                        component_type=ct.component_type,
+                        component_label=ct.label,
+                        serial_number=ct.serial_number or f"{ct.component_type}-SN",
+                        installed_date=kit.installed_on,
+                        is_active=True,
+                    )
+                    db.add(vc)
+                db.flush()
+
+    if not vehicle and payload.vehicle_number:
+        v_no = payload.vehicle_number.strip().upper()
+        vehicle = db.query(VSVehicle).filter(VSVehicle.vehicle_number == v_no).first()
+        if not vehicle:
+            vehicle = VSVehicle(
+                vehicle_number=v_no,
+                owner_name=payload.reported_by,
+                owner_phone=payload.reported_phone,
+                qr_token=uuid.uuid4().hex,
+                is_active=True,
+            )
+            db.add(vehicle)
+            db.flush()
+
     if not vehicle:
-        raise HTTPException(status_code=404, detail="Vehicle not found")
+        raise HTTPException(status_code=404, detail="Vehicle not found. Please select a valid Kit Master record.")
 
     complaint_no = _generate_complaint_no(db)
     gps_addr = payload.gps_address or _reverse_geocode_area_and_city(payload.gps_latitude, payload.gps_longitude)
     complaint = VSComplaint(
         complaint_no=complaint_no,
-        vehicle_id=payload.vehicle_id,
+        vehicle_id=vehicle.id,
         affected_component_id=payload.affected_component_id,
         reported_by=payload.reported_by,
         reported_phone=payload.reported_phone,
