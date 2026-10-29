@@ -100,9 +100,11 @@ export default function AppLayout() {
               isSidebarCollapsed={false}
             />
             <main
-              className="app-main scroll-y-touch"
+              className="app-main"
               style={{
                 flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
                 padding: 'max(14px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px)) max(18px, env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px))',
                 minWidth: 0,
                 minHeight: 0,
@@ -136,9 +138,11 @@ export default function AppLayout() {
               isSidebarCollapsed={collapsed}
             />
             <main
-              className="app-main scroll-y-touch"
+              className="app-main"
               style={{
                 flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
                 padding: '16px 24px max(24px, env(safe-area-inset-bottom, 0px))',
                 minWidth: 0,
                 minHeight: 0,
@@ -146,9 +150,7 @@ export default function AppLayout() {
                 boxSizing: 'border-box',
               }}
             >
-              <div className="ultrawide-container" style={{ width: '100%' }}>
-                <Outlet />
-              </div>
+              <Outlet />
             </main>
           </div>
         </>

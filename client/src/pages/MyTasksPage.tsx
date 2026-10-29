@@ -476,8 +476,10 @@ export default function MyTasksPage() {
       sx={{
         display: 'flex',
         flexDirection: 'column',
-        flex: 1,
-        minHeight: { xs: 'calc(100dvh - 70px)', md: 'calc(100vh - 80px)' },
+        height: { xs: 'calc(100dvh - 54px)', md: 'calc(100vh - 60px)' },
+        maxHeight: { xs: 'calc(100dvh - 54px)', md: 'calc(100vh - 60px)' },
+        minHeight: 0,
+        overflow: 'hidden',
         mx: { xs: '-12px', sm: '-16px', md: '-24px' },
         mt: { xs: '-14px', sm: '-16px', md: '-16px' },
         mb: { xs: '-18px', sm: '-20px', md: '-24px' },
