@@ -120,7 +120,7 @@ export default function PTWeeklyReview({ review, isLoading, onOpenTask }: PTWeek
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Sparkles size={18} color="#16C47F" />
           <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-            Automated Weekly Summary Draft (AI Assistant)
+            Automated Weekly Summary Draft
           </Typography>
         </Box>
         <Typography variant="body2" sx={{ lineHeight: 1.6 }}>
