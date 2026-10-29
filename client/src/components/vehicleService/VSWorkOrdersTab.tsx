@@ -37,6 +37,7 @@ import {
   ArrowRight,
   BatteryCharging,
   CheckCircle2,
+  ChevronRight,
   Clock,
   Cpu,
   Download,
@@ -96,13 +97,25 @@ const STATUS_COLORS: Record<string, 'default' | 'primary' | 'secondary' | 'error
   CLOSED: 'default',
 };
 
+const WORKFLOW_STATUS_STAGES = [
+  { key: 'OPEN', label: 'OPEN', color: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE', tip: 'Newly registered complaints awaiting acknowledgement' },
+  { key: 'ACKNOWLEDGED', label: 'ACKNOWLEDGED', color: '#059669', bg: '#ECFDF5', border: '#A7F3D0', tip: 'Verified and acknowledged complaints' },
+  { key: 'ASSIGNED', label: 'ASSIGNED', color: '#0891B2', bg: '#CFFAFE', border: '#A5F3FC', tip: 'Assigned to service technician' },
+  { key: 'IN_PROGRESS', label: 'IN PROGRESS', color: '#7C3AED', bg: '#F3E8FF', border: '#DDD6FE', tip: 'Under active repair or diagnostic check' },
+  { key: 'RESOLVED', label: 'RESOLVED', color: '#D97706', bg: '#FEF3C7', border: '#FDE68A', tip: 'Repairs completed, pending final closure' },
+  { key: 'CLOSED', label: 'CLOSED', color: '#475569', bg: '#F8FAFC', border: '#CBD5E1', tip: 'Closed work orders with customer feedback' },
+];
+
 export default function VSWorkOrdersTab() {
   const [search, setSearch] = useState('');
   const [severityFilter, setSeverityFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
 
-  // Queries
+  // Unfiltered complaints for status pipeline counts
+  const { data: allComplaints = [] } = useGetVSComplaintsQuery({});
+
+  // Filtered complaints for table
   const { data: complaints = [], isLoading, refetch } = useGetVSComplaintsQuery({
     search: search || undefined,
     severity: severityFilter || undefined,
@@ -113,6 +126,31 @@ export default function VSWorkOrdersTab() {
   const { data: vehicles = [] } = useGetVSVehiclesQuery();
   const { data: kits = [] } = useGetVSKitsQuery();
   const { data: users = [] } = useUsersQuery();
+
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = {
+      OPEN: 0,
+      ACKNOWLEDGED: 0,
+      ASSIGNED: 0,
+      IN_PROGRESS: 0,
+      RESOLVED: 0,
+      CLOSED: 0,
+    };
+    allComplaints.forEach((c) => {
+      if (counts[c.status] !== undefined) {
+        counts[c.status]++;
+      }
+    });
+    return counts;
+  }, [allComplaints]);
+
+  const handlePillClick = (statusKey: string) => {
+    if (statusFilter === statusKey) {
+      setStatusFilter('');
+    } else {
+      setStatusFilter(statusKey);
+    }
+  };
 
   // Mutations
   const [createComplaint, { isLoading: isCreating }] = useCreateVSComplaintMutation();
@@ -401,19 +439,125 @@ export default function VSWorkOrdersTab() {
 
   return (
     <div>
-      {/* Header matching CRM */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 16, flexWrap: 'wrap', gap: 14 }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 19, fontWeight: 800, letterSpacing: -0.3, color: '#023020' }}>
-              Work Orders & Service Complaints
-            </span>
-            <Chip label={`${complaints.length} Total`} size="small" sx={{ fontWeight: 700 }} />
-          </div>
-          <div style={{ fontSize: 13, color: '#7A8B80', marginTop: 3 }}>
-            Manage incoming breakdown alerts, customer complaints, and technician dispatch.
-          </div>
-        </div>
+      {/* Top Header: Status Pipeline Pills (matching CRM) & Create Work Order */}
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: 2,
+          mb: 2,
+        }}
+      >
+        {/* Status Pipeline Pills */}
+        <Box sx={{ overflowX: 'auto', py: 0.5, flex: 1, minWidth: 0 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 'max-content', gap: 0 }}>
+            {WORKFLOW_STATUS_STAGES.map((stage, i) => {
+              const isSelected = statusFilter === stage.key;
+              const count = statusCounts[stage.key] || 0;
+
+              return (
+                <Box key={stage.key} sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Tooltip title={stage.tip} placement="top" arrow>
+                    <Box
+                      component="button"
+                      type="button"
+                      onClick={() => handlePillClick(stage.key)}
+                      sx={{
+                        width: 124,
+                        height: 78,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 0.6,
+                        border: '1.5px solid',
+                        borderColor: isSelected ? stage.color : stage.border,
+                        borderRadius: '12px',
+                        padding: '6px 4px',
+                        cursor: 'pointer',
+                        backgroundColor: isSelected ? `${stage.color}18` : stage.bg,
+                        boxShadow: isSelected
+                          ? `0 4px 14px ${stage.color}33`
+                          : '0 1px 3px rgba(0, 0, 0, 0.04)',
+                        transition: 'all 0.15s ease',
+                        fontFamily: 'inherit',
+                        boxSizing: 'border-box',
+                        flexShrink: 0,
+                        '&:hover': {
+                          borderColor: stage.color,
+                          transform: 'translateY(-2px)',
+                          boxShadow: `0 4px 12px ${stage.color}26`,
+                        },
+                      }}
+                    >
+                      {/* Rounded white background badge for count */}
+                      <Box
+                        sx={{
+                          minWidth: 36,
+                          height: 28,
+                          padding: '0 9px',
+                          borderRadius: 14,
+                          backgroundColor: '#FFFFFF',
+                          boxShadow: '0 2px 5px rgba(0, 0, 0, 0.08)',
+                          border: `1px solid ${stage.color}25`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Typography
+                          component="span"
+                          sx={{
+                            fontSize: 16,
+                            fontWeight: 800,
+                            color: stage.color,
+                            letterSpacing: '-0.3px',
+                            lineHeight: 1,
+                          }}
+                        >
+                          {count}
+                        </Typography>
+                      </Box>
+
+                      {/* Stage Label */}
+                      <Typography
+                        sx={{
+                          fontSize: 9.5,
+                          fontWeight: 700,
+                          color: stage.color,
+                          textAlign: 'center',
+                          textTransform: 'uppercase',
+                          letterSpacing: 0.3,
+                          lineHeight: 1.15,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {stage.label}
+                      </Typography>
+                    </Box>
+                  </Tooltip>
+
+                  {i < WORKFLOW_STATUS_STAGES.length - 1 && (
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#9BA99F',
+                        width: 20,
+                        flexShrink: 0,
+                      }}
+                    >
+                      <ChevronRight size={15} />
+                    </Box>
+                  )}
+                </Box>
+              );
+            })}
+          </Box>
+        </Box>
 
         <Button
           variant="contained"
@@ -425,11 +569,15 @@ export default function VSWorkOrdersTab() {
             fontWeight: 700,
             bgcolor: '#2563eb',
             '&:hover': { bgcolor: '#1d4ed8' },
+            px: 2.2,
+            py: 1,
+            boxShadow: '0 2px 6px rgba(37,99,235,0.25)',
+            flexShrink: 0,
           }}
         >
           Create Work Order
         </Button>
-      </div>
+      </Box>
 
       {/* Filters */}
       <Paper sx={{ p: 2, mb: 2.5, borderRadius: 2.5, border: '1px solid #E4EBE1' }}>
