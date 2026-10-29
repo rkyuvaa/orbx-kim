@@ -33,6 +33,8 @@ export interface PTTaskFilters {
   include_archived?: boolean;
   start_date?: string;
   due_date?: string;
+  limit?: number;
+  offset?: number;
 }
 
 export interface PTTaskCreate {

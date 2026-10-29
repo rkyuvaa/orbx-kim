@@ -114,6 +114,8 @@ def get_personal_tasks(
     include_archived: bool = Query(False),
     start_date: Optional[date] = Query(None),
     due_date: Optional[date] = Query(None),
+    limit: Optional[int] = Query(None),
+    offset: Optional[int] = Query(0),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -159,7 +161,12 @@ def get_personal_tasks(
     if due_date:
         query = query.filter(Task.due_date <= due_date)
 
-    tasks = query.order_by(Task.due_date.asc().nullslast(), Task.priority.desc(), Task.created_at.desc()).all()
+    query = query.order_by(Task.due_date.asc().nullslast(), Task.priority.desc(), Task.created_at.desc())
+    if offset:
+        query = query.offset(offset)
+    if limit:
+        query = query.limit(limit)
+    tasks = query.all()
     return [_format_task_out(t, db) for t in tasks]
 
 

@@ -319,6 +319,16 @@ export default function MyTasksPage() {
     }
   };
 
+  const handleQuickUpdate = async (id: number, patch: Partial<PTTaskUpdate>) => {
+    try {
+      await updateTask({ id, data: patch }).unwrap();
+      showToast('Task updated.', 'success');
+      refetchTasks();
+    } catch {
+      showToast('Failed to update task.', 'error');
+    }
+  };
+
   const triggerUndoToast = (label: string, undoFn: () => Promise<void>) => {
     if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
     setUndoAction({ label, undoFn });
@@ -476,6 +486,7 @@ export default function MyTasksPage() {
             onReopenTask={handleReopenTask}
             onArchiveTask={handleArchiveTask}
             onDeleteTask={handleDeleteTask}
+            onUpdateTask={handleQuickUpdate}
           />
         )}
 
@@ -511,6 +522,7 @@ export default function MyTasksPage() {
             onReopenTask={handleReopenTask}
             onArchiveTask={handleArchiveTask}
             onDeleteTask={handleDeleteTask}
+            onUpdateTask={handleQuickUpdate}
           />
         )}
 

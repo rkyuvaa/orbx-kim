@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import KpiCard from '@/components/ui/KpiCard';
 import PTTaskTable from './PTTaskTable';
-import { PTTask, MyDaySummary } from '@/api/personalTasksApi';
+import { PTTask, MyDaySummary, PTTaskUpdate } from '@/api/personalTasksApi';
 
 interface PTDashboardProps {
   summary: MyDaySummary | undefined;
@@ -35,6 +35,7 @@ interface PTDashboardProps {
   onReopenTask: (taskId: number) => void;
   onArchiveTask: (taskId: number) => void;
   onDeleteTask: (taskId: number) => void;
+  onUpdateTask?: (id: number, data: Partial<PTTaskUpdate>) => Promise<void> | void;
 }
 
 export default function PTDashboard({
@@ -49,6 +50,7 @@ export default function PTDashboard({
   onReopenTask,
   onArchiveTask,
   onDeleteTask,
+  onUpdateTask,
 }: PTDashboardProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
@@ -151,6 +153,7 @@ export default function PTDashboard({
             onReopenTask={onReopenTask}
             onArchiveTask={onArchiveTask}
             onDeleteTask={onDeleteTask}
+            onUpdateTask={onUpdateTask}
           />
         </Box>
       )}
