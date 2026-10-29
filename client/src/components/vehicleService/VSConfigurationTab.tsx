@@ -56,6 +56,8 @@ import {
   Zap,
 } from 'lucide-react';
 
+import { useAppSelector } from '@/app/hooks';
+import { usePermission } from '@/context/AuthPermissionContext';
 import { useUsersQuery } from '@/api/mastersApi';
 import { useToast } from '@/components/ui/ToastHost';
 import { formatDate, formatDateTime } from '@/utils/format';
@@ -92,8 +94,115 @@ const DEFAULT_KIT_COMPONENTS = [
   { component_type: 'THROTTLE', label: 'Digital Electronic Throttle', is_required: false },
 ];
 
+function DdMmYyyyInput({
+  label,
+  value,
+  onChange,
+  disabled = false,
+  required = false,
+  fullWidth = true,
+}: {
+  label: string;
+  value: string;
+  onChange: (val: string) => void;
+  disabled?: boolean;
+  required?: boolean;
+  fullWidth?: boolean;
+}) {
+  const hiddenDateRef = useRef<HTMLInputElement>(null);
+
+  const toDisplay = (iso: string) => {
+    if (!iso) return '';
+    const clean = iso.split('T')[0].trim();
+    const parts = clean.split('-');
+    if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    return iso;
+  };
+
+  const toIso = (formatted: string) => {
+    if (!formatted) return '';
+    const parts = formatted.trim().split('/');
+    if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    return formatted;
+  };
+
+  const displayVal = toDisplay(value);
+
+  const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(raw.trim())) {
+      onChange(toIso(raw.trim()));
+    } else {
+      onChange(raw);
+    }
+  };
+
+  return (
+    <Box sx={{ position: 'relative', width: fullWidth ? '100%' : 'auto' }}>
+      <TextField
+        label={label}
+        size="small"
+        fullWidth={fullWidth}
+        required={required}
+        disabled={disabled}
+        placeholder="dd/mm/yyyy"
+        value={displayVal}
+        onChange={handleTextChange}
+        InputProps={{
+          endAdornment: (
+            <IconButton
+              size="small"
+              disabled={disabled}
+              onClick={() => {
+                if (hiddenDateRef.current) {
+                  if (typeof hiddenDateRef.current.showPicker === 'function') {
+                    hiddenDateRef.current.showPicker();
+                  } else {
+                    hiddenDateRef.current.focus();
+                  }
+                }
+              }}
+              sx={{ color: '#64748B' }}
+            >
+              <Calendar size={16} />
+            </IconButton>
+          ),
+        }}
+      />
+      <input
+        type="date"
+        ref={hiddenDateRef}
+        value={value ? value.slice(0, 10) : ''}
+        onChange={(e) => {
+          if (e.target.value) {
+            onChange(e.target.value);
+          }
+        }}
+        style={{
+          position: 'absolute',
+          opacity: 0,
+          pointerEvents: 'none',
+          bottom: 0,
+          right: 0,
+          width: 1,
+          height: 1,
+        }}
+      />
+    </Box>
+  );
+}
+
 export default function VSConfigurationTab() {
   const [activeTab, setActiveTab] = useState(0);
+
+  // Auth & Admin verification
+  const currentUser = useAppSelector((state) => state.auth.user);
+  const { isSuperAdmin, can } = usePermission();
+  const isAdmin =
+    isSuperAdmin ||
+    currentUser?.role === 'ADMIN' ||
+    can('edit', 'kits') ||
+    can('edit', 'vehicle_service');
 
   // Queries
   const { data: kits = [], isLoading: isKitsLoading, refetch: refetchKits } = useGetVSKitsQuery();
@@ -121,6 +230,7 @@ export default function VSConfigurationTab() {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [parsedPdfData, setParsedPdfData] = useState<VSKitPdfParsePreview | null>(null);
   const [importVehicleNumber, setImportVehicleNumber] = useState('');
+  const [importCustomerPhone, setImportCustomerPhone] = useState('');
   const [importInstalledOn, setImportInstalledOn] = useState('');
   const [importError, setImportError] = useState<string | null>(null);
 
@@ -134,17 +244,21 @@ export default function VSConfigurationTab() {
   // Delete Kit Mutation
   const [deleteKit, { isLoading: isDeletingKit }] = useDeleteVSKitMutation();
 
-  // Edit Kit Modal State
+  // Edit Kit Modal State (Admin Only)
   const [editingKit, setEditingKit] = useState<VSKit | null>(null);
   const [editKitForm, setEditKitForm] = useState<VSKitUpdate>({
     kit_name: '',
     kit_number: '',
     customer_name: '',
+    customer_phone: '',
     vehicle_number: '',
     installed_on: '',
     description: '',
     is_active: true,
   });
+  const [editKitComponents, setEditKitComponents] = useState<
+    { id?: number; component_type: string; label: string; serial_number: string; is_required: boolean }[]
+  >([]);
   const [editKitError, setEditKitError] = useState<string | null>(null);
 
   // Delete Kit State
@@ -153,6 +267,8 @@ export default function VSConfigurationTab() {
   // New Kit Form State
   const [kitNumber, setKitNumber] = useState('');
   const [kitName, setKitName] = useState('');
+  const [kitCustomerName, setKitCustomerName] = useState('');
+  const [kitCustomerPhone, setKitCustomerPhone] = useState('');
   const [kitInstalledOn, setKitInstalledOn] = useState('');
   const [kitDescription, setKitDescription] = useState('');
   const [kitComponentTypes, setKitComponentTypes] = useState(DEFAULT_KIT_COMPONENTS);
@@ -204,6 +320,8 @@ export default function VSConfigurationTab() {
     const payload: VSKitCreate = {
       kit_number: kitNumber.trim().toUpperCase(),
       kit_name: kitName.trim(),
+      customer_name: kitCustomerName.trim() || undefined,
+      customer_phone: kitCustomerPhone.trim() || undefined,
       installed_on: kitInstalledOn || undefined,
       description: kitDescription.trim() || undefined,
       component_types: kitComponentTypes,
@@ -214,6 +332,8 @@ export default function VSConfigurationTab() {
       setIsKitDialogOpen(false);
       setKitNumber('');
       setKitName('');
+      setKitCustomerName('');
+      setKitCustomerPhone('');
       setKitInstalledOn('');
       setKitDescription('');
       refetchKits();
@@ -246,6 +366,9 @@ export default function VSConfigurationTab() {
     if (importVehicleNumber.trim()) {
       formData.append('vehicle_number', importVehicleNumber.trim().toUpperCase());
     }
+    if (importCustomerPhone.trim()) {
+      formData.append('customer_phone', importCustomerPhone.trim());
+    }
     if (importInstalledOn) {
       formData.append('installed_on', importInstalledOn);
     }
@@ -256,6 +379,7 @@ export default function VSConfigurationTab() {
       setPdfFile(null);
       setParsedPdfData(null);
       setImportVehicleNumber('');
+      setImportCustomerPhone('');
       setImportInstalledOn('');
       refetchKits();
     } catch (err: any) {
@@ -278,21 +402,61 @@ export default function VSConfigurationTab() {
   };
 
   const handleOpenEditKit = (kit: VSKit) => {
+    if (!isAdmin) {
+      showToast('Only Admin role can edit Kit Master records and components.', 'error');
+      return;
+    }
     setEditingKit(kit);
     setEditKitForm({
       kit_name: kit.kit_name,
       kit_number: kit.kit_number,
       customer_name: kit.customer_name || '',
+      customer_phone: kit.customer_phone || '',
       vehicle_number: kit.vehicle_number || '',
       installed_on: kit.installed_on || '',
       description: kit.description || '',
       is_active: kit.is_active,
     });
+    setEditKitComponents(
+      (kit.component_types || []).map((ct) => ({
+        id: ct.id,
+        component_type: ct.component_type,
+        label: ct.label,
+        serial_number: ct.serial_number || '',
+        is_required: ct.is_required,
+      }))
+    );
     setEditKitError(null);
+  };
+
+  const handleAddEditComponent = () => {
+    setEditKitComponents((prev) => [
+      ...prev,
+      {
+        component_type: 'CUSTOM',
+        label: '',
+        serial_number: '',
+        is_required: true,
+      },
+    ]);
+  };
+
+  const handleRemoveEditComponent = (index: number) => {
+    setEditKitComponents((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
+  const handleUpdateEditComponent = (index: number, field: string, val: string) => {
+    setEditKitComponents((prev) =>
+      prev.map((c, idx) => (idx === index ? { ...c, [field]: val } : c))
+    );
   };
 
   const handleSaveEditKit = async () => {
     if (!editingKit) return;
+    if (!isAdmin) {
+      setEditKitError('Only Admin role can edit Kit Master records and components.');
+      return;
+    }
     if (!editKitForm.kit_name?.trim() || !editKitForm.kit_number?.trim()) {
       setEditKitError('Kit Name and Kit Number are required.');
       return;
@@ -305,13 +469,20 @@ export default function VSConfigurationTab() {
           kit_name: editKitForm.kit_name.trim(),
           kit_number: editKitForm.kit_number.trim().toUpperCase(),
           customer_name: editKitForm.customer_name?.trim() || undefined,
+          customer_phone: editKitForm.customer_phone?.trim() || undefined,
           vehicle_number: editKitForm.vehicle_number?.trim().toUpperCase() || undefined,
           installed_on: editKitForm.installed_on || undefined,
           description: editKitForm.description?.trim() || undefined,
           is_active: editKitForm.is_active,
+          component_types: editKitComponents.map((c) => ({
+            component_type: c.component_type.trim() || 'CUSTOM',
+            label: c.label.trim(),
+            serial_number: c.serial_number.trim() || undefined,
+            is_required: c.is_required,
+          })),
         },
       }).unwrap();
-      showToast('Kit Master updated successfully', 'success');
+      showToast('Kit Master and component details updated successfully', 'success');
       setEditingKit(null);
       refetchKits();
     } catch (err: any) {
@@ -612,7 +783,12 @@ export default function VSConfigurationTab() {
                           </TableCell>
 
                           <TableCell sx={{ fontWeight: 600, color: '#334155' }}>
-                            {kit.customer_name || '—'}
+                            <Typography sx={{ fontWeight: 600, fontSize: 13 }}>{kit.customer_name || '—'}</Typography>
+                            {kit.customer_phone && (
+                              <Typography variant="caption" sx={{ color: '#64748B', display: 'block', fontSize: 11 }}>
+                                {kit.customer_phone}
+                              </Typography>
+                            )}
                           </TableCell>
 
                           <TableCell>
@@ -659,14 +835,20 @@ export default function VSConfigurationTab() {
                           {/* Actions (after status) */}
                           <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
-                              <Tooltip title="Edit Kit Details">
-                                <IconButton
-                                  size="small"
-                                  onClick={() => handleOpenEditKit(kit)}
-                                  sx={{ color: '#64748B', '&:hover': { color: '#023020', backgroundColor: '#F0FDF4' } }}
-                                >
-                                  <Pencil size={15} />
-                                </IconButton>
+                              <Tooltip title={isAdmin ? "Edit Kit Details & Components" : "Only Admin can edit Kit Master"}>
+                                <span>
+                                  <IconButton
+                                    size="small"
+                                    disabled={!isAdmin}
+                                    onClick={() => handleOpenEditKit(kit)}
+                                    sx={{
+                                      color: isAdmin ? '#64748B' : '#CBD5E1',
+                                      '&:hover': isAdmin ? { color: '#023020', backgroundColor: '#F0FDF4' } : undefined,
+                                    }}
+                                  >
+                                    <Pencil size={15} />
+                                  </IconButton>
+                                </span>
                               </Tooltip>
 
                               <Tooltip title="Delete Kit">
@@ -926,17 +1108,32 @@ export default function VSConfigurationTab() {
             sx={{ mb: 2 }}
           />
 
-          <TextField
-            label="Installation Done On Date"
-            type="date"
-            size="small"
-            fullWidth
-            value={kitInstalledOn}
-            onChange={(e) => setKitInstalledOn(e.target.value)}
-            InputLabelProps={{ shrink: true }}
-            helperText={kitInstalledOn ? `Selected: ${formatDate(kitInstalledOn)} (dd/mm/yyyy)` : 'Format: dd/mm/yyyy'}
-            sx={{ mb: 2 }}
-          />
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 2, mb: 2 }}>
+            <TextField
+              label="Customer Name"
+              placeholder="e.g. D PUTTASWAMY"
+              size="small"
+              fullWidth
+              value={kitCustomerName}
+              onChange={(e) => setKitCustomerName(e.target.value)}
+            />
+            <TextField
+              label="Contact Number"
+              placeholder="e.g. 9876543210"
+              size="small"
+              fullWidth
+              value={kitCustomerPhone}
+              onChange={(e) => setKitCustomerPhone(e.target.value)}
+            />
+          </Box>
+
+          <Box sx={{ mb: 2 }}>
+            <DdMmYyyyInput
+              label="Installation Done On Date"
+              value={kitInstalledOn}
+              onChange={(val) => setKitInstalledOn(val)}
+            />
+          </Box>
 
           <TextField
             label="Description / Specifications"
@@ -1290,29 +1487,33 @@ export default function VSConfigurationTab() {
               VEHICLE REGISTRATION NUMBER (TITLE) & INSTALLATION DATE
             </Typography>
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={7}>
+              <Grid item xs={12} sm={4}>
                 <TextField
-                  placeholder="Enter Vehicle Number (e.g. KA01AB1234) — enter now or update anytime"
+                  placeholder="e.g. KA01AB1234"
                   label="Vehicle Number (Title)"
                   fullWidth
                   size="small"
                   value={importVehicleNumber}
                   onChange={(e) => setImportVehicleNumber(e.target.value)}
                   sx={{ backgroundColor: '#FFFFFF', borderRadius: '8px' }}
-                  helperText="Primary vehicle registration number for this kit"
                 />
               </Grid>
-              <Grid item xs={12} sm={5}>
+              <Grid item xs={12} sm={4}>
                 <TextField
-                  label="Installation Done On Date"
-                  type="date"
+                  placeholder="e.g. 9876543210"
+                  label="Contact Number"
                   fullWidth
                   size="small"
-                  value={importInstalledOn || ''}
-                  onChange={(e) => setImportInstalledOn(e.target.value)}
-                  InputLabelProps={{ shrink: true }}
+                  value={importCustomerPhone}
+                  onChange={(e) => setImportCustomerPhone(e.target.value)}
                   sx={{ backgroundColor: '#FFFFFF', borderRadius: '8px' }}
-                  helperText={importInstalledOn ? `${formatDate(importInstalledOn)} (dd/mm/yyyy)` : 'Format: dd/mm/yyyy'}
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <DdMmYyyyInput
+                  label="Installation Done On Date"
+                  value={importInstalledOn || ''}
+                  onChange={(val) => setImportInstalledOn(val)}
                 />
               </Grid>
             </Grid>
@@ -1547,27 +1748,33 @@ export default function VSConfigurationTab() {
       )}
 
       {/* =====================================================================
-          EDIT KIT MASTER DIALOG
+          EDIT KIT MASTER DIALOG (Admin Only)
       ====================================================================== */}
       {editingKit && (
         <Dialog
           open={Boolean(editingKit)}
           onClose={() => setEditingKit(null)}
-          maxWidth="sm"
+          maxWidth="md"
           fullWidth
           PaperProps={{ sx: { borderRadius: 3, p: 1 } }}
         >
-          <DialogTitle sx={{ fontWeight: 800, color: '#023020', fontSize: 17, pb: 1 }}>
-            Edit Kit Master
+          <DialogTitle sx={{ fontWeight: 800, color: '#023020', fontSize: 17, pb: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Box>
+              Edit Kit Master: {editingKit.kit_name}
+              <Typography variant="caption" sx={{ color: '#64748B', display: 'block' }}>
+                Admin access: edit all kit master records and tracked component serials
+              </Typography>
+            </Box>
+            <Chip label="Admin Access" size="small" color="primary" sx={{ fontWeight: 700 }} />
           </DialogTitle>
-          <DialogContent sx={{ pt: 1.5 }}>
+          <DialogContent dividers sx={{ pt: 2 }}>
             {editKitError && (
               <Alert severity="error" sx={{ mb: 2 }}>
                 {editKitError}
               </Alert>
             )}
 
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {/* Vehicle Number (Title) */}
               <TextField
                 label="Vehicle Number (Title)"
@@ -1599,25 +1806,28 @@ export default function VSConfigurationTab() {
                 />
               </Box>
 
-              {/* Customer Name & Installation Done On Date */}
-              <Box sx={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 2 }}>
+              {/* Customer Name, Contact Number & Installation Done On Date in 3 columns */}
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: 2 }}>
                 <TextField
                   label="Customer Name"
                   size="small"
                   fullWidth
-                  placeholder="e.g. D PUTTASWAMY"
+                  placeholder="e.g. R Hari Krishna"
                   value={editKitForm.customer_name || ''}
                   onChange={(e) => setEditKitForm((prev) => ({ ...prev, customer_name: e.target.value }))}
                 />
                 <TextField
-                  label="Installation Done On Date"
-                  type="date"
+                  label="Contact Number"
                   size="small"
                   fullWidth
+                  placeholder="e.g. 9876543210"
+                  value={editKitForm.customer_phone || ''}
+                  onChange={(e) => setEditKitForm((prev) => ({ ...prev, customer_phone: e.target.value }))}
+                />
+                <DdMmYyyyInput
+                  label="Installation Done On Date"
                   value={editKitForm.installed_on || ''}
-                  onChange={(e) => setEditKitForm((prev) => ({ ...prev, installed_on: e.target.value }))}
-                  InputLabelProps={{ shrink: true }}
-                  helperText={editKitForm.installed_on ? `${formatDate(editKitForm.installed_on)} (dd/mm/yyyy)` : 'Format: dd/mm/yyyy'}
+                  onChange={(val) => setEditKitForm((prev) => ({ ...prev, installed_on: val }))}
                 />
               </Box>
 
@@ -1647,6 +1857,89 @@ export default function VSConfigurationTab() {
                   </Typography>
                 }
               />
+
+              <Divider sx={{ my: 1 }} />
+
+              {/* Component Details Section (Editable by Admin) */}
+              <Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#023020', fontSize: 13.5 }}>
+                      Kit Components & Serial Numbers ({editKitComponents.length} items)
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: '#64748B' }}>
+                      Admin can modify component product names, serial numbers, add new parts, or remove items.
+                    </Typography>
+                  </Box>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<Plus size={14} />}
+                    onClick={handleAddEditComponent}
+                    sx={{
+                      textTransform: 'none',
+                      fontWeight: 600,
+                      fontSize: 12,
+                      borderColor: '#023020',
+                      color: '#023020',
+                    }}
+                  >
+                    Add Component
+                  </Button>
+                </Box>
+
+                <Paper variant="outlined" sx={{ maxHeight: 260, overflowY: 'auto', borderRadius: 2, p: 1 }}>
+                  {editKitComponents.length === 0 ? (
+                    <Typography variant="caption" sx={{ color: '#94A3B8', p: 2, display: 'block', textAlign: 'center' }}>
+                      No components defined. Click "Add Component" to add parts.
+                    </Typography>
+                  ) : (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      {editKitComponents.map((comp, idx) => (
+                        <Box
+                          key={idx}
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 1.5,
+                            p: 1,
+                            borderRadius: '6px',
+                            backgroundColor: '#F8FAF8',
+                            border: '1px solid #E2E8E2',
+                          }}
+                        >
+                          <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 700, width: 22 }}>
+                            #{idx + 1}
+                          </Typography>
+                          <TextField
+                            size="small"
+                            placeholder="Component Product Name (e.g. [CHA0201F] Bracket)"
+                            value={comp.label}
+                            onChange={(e) => handleUpdateEditComponent(idx, 'label', e.target.value)}
+                            sx={{ flex: 2, '& .MuiOutlinedInput-input': { fontSize: 12.5, py: 0.6 } }}
+                          />
+                          <TextField
+                            size="small"
+                            placeholder="Lot / Serial Number"
+                            value={comp.serial_number}
+                            onChange={(e) => handleUpdateEditComponent(idx, 'serial_number', e.target.value)}
+                            sx={{ flex: 1.5, '& .MuiOutlinedInput-input': { fontSize: 12.5, py: 0.6, fontFamily: 'monospace' } }}
+                          />
+                          <Tooltip title="Remove this component">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleRemoveEditComponent(idx)}
+                              sx={{ color: '#94A3B8', '&:hover': { color: '#DC2626' } }}
+                            >
+                              <Trash2 size={15} />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
+                      ))}
+                    </Box>
+                  )}
+                </Paper>
+              </Box>
             </Box>
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>

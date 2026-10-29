@@ -17,6 +17,7 @@ class VSKit(Base):
     kit_number: Mapped[str] = mapped_column(String(80), unique=True, index=True, nullable=False)
     kit_name: Mapped[str] = mapped_column(String(120), nullable=False)
     customer_name: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
+    customer_phone: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     vehicle_number: Mapped[Optional[str]] = mapped_column(String(40), index=True, nullable=True)
     installed_on: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

@@ -436,6 +436,7 @@ def create_kit(
         kit_number=payload.kit_number,
         kit_name=payload.kit_name,
         customer_name=payload.customer_name,
+        customer_phone=payload.customer_phone,
         vehicle_number=payload.vehicle_number,
         installed_on=payload.installed_on,
         description=payload.description,
@@ -547,6 +548,19 @@ def update_kit(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    """Update Kit Master record and component details. Only Admin role can perform edits."""
+    is_admin = current_user.role == UserRole.ADMIN
+    if not is_admin:
+        from app.services.rbac_service import get_user_active_roles, can_user
+        roles = get_user_active_roles(db, current_user)
+        is_super = any(r.code in ("super_admin", "admin") for r in roles if r and r.code)
+        can_edit = can_user(db, current_user, "edit", "vehicle_service") or can_user(db, current_user, "edit", "kits")
+        if not is_super and not can_edit:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only Admin role can edit Kit Master records and component details.",
+            )
+
     kit = db.query(VSKit).filter(VSKit.id == kit_id).first()
     if not kit:
         raise HTTPException(status_code=404, detail="Kit not found")
@@ -562,6 +576,8 @@ def update_kit(
         kit.kit_name = payload.kit_name.strip()
     if payload.customer_name is not None:
         kit.customer_name = payload.customer_name.strip() if payload.customer_name else None
+    if payload.customer_phone is not None:
+        kit.customer_phone = payload.customer_phone.strip() if payload.customer_phone else None
     if payload.vehicle_number is not None:
         kit.vehicle_number = payload.vehicle_number.strip().upper() if payload.vehicle_number else None
     if payload.installed_on is not None:
@@ -570,6 +586,19 @@ def update_kit(
         kit.description = payload.description.strip() if payload.description else None
     if payload.is_active is not None:
         kit.is_active = payload.is_active
+
+    if payload.component_types is not None:
+        # Delete existing and replace with updated component types list
+        db.query(VSKitComponentType).filter(VSKitComponentType.kit_id == kit_id).delete()
+        for comp in payload.component_types:
+            ct = VSKitComponentType(
+                kit_id=kit.id,
+                component_type=comp.component_type.strip(),
+                label=comp.label.strip(),
+                serial_number=comp.serial_number.strip() if comp.serial_number else None,
+                is_required=comp.is_required,
+            )
+            db.add(ct)
 
     db.commit()
     db.refresh(kit)
