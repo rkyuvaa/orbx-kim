@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Box,
   Button,
@@ -17,6 +17,8 @@ import {
   Tabs,
   Tab,
   useTheme,
+  ToggleButton,
+  ToggleButtonGroup,
 } from '@mui/material';
 import {
   Plus,
@@ -73,6 +75,7 @@ export default function TasksPage({ defaultView = 'list', defaultScope = 'all' }
   const [selectedProjectId, setSelectedProjectId] = useState<number | ''>('');
   const [selectedStatusId, setSelectedStatusId] = useState<number | ''>('');
   const [selectedPriority, setSelectedPriority] = useState<string>('');
+  const [taskScopeFilter, setTaskScopeFilter] = useState<'open' | 'all'>('open');
 
   const [selectedTaskIds, setSelectedTaskIds] = useState<number[]>([]);
   const [createOpen, setCreateOpen] = useState(false);
@@ -171,7 +174,13 @@ export default function TasksPage({ defaultView = 'list', defaultScope = 'all' }
   const safeTasks = Array.isArray(tasks) ? tasks : [];
   const safeProjects = Array.isArray(projects) ? projects : [];
 
-  const filteredTasks = safeTasks; // Use directly since backend is filtering
+  const filteredTasks = useMemo(() => {
+    let list = safeTasks;
+    if (taskScopeFilter === 'open') {
+      list = list.filter((t) => !t.is_completed && t.status_id !== 4 && !t.is_archived && !t.is_deleted);
+    }
+    return list;
+  }, [safeTasks, taskScopeFilter]);
 
   return (
     <Box sx={{ width: '100%', maxWidth: 'none', minWidth: 0, px: 0, py: 0.5, boxSizing: 'border-box' }}>
@@ -327,6 +336,72 @@ export default function TasksPage({ defaultView = 'list', defaultScope = 'all' }
             <MenuItem value="NORMAL">Normal</MenuItem>
             <MenuItem value="LOW">Low</MenuItem>
           </Select>
+
+          {/* Option B: Segmented Pill Toggle (Open / All Tasks) */}
+          <ToggleButtonGroup
+            value={taskScopeFilter}
+            exclusive
+            onChange={(_, val) => {
+              if (val) setTaskScopeFilter(val);
+            }}
+            size="small"
+            sx={{
+              height: 36,
+              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#F1F5F9',
+              p: '2px',
+              borderRadius: 2,
+              border: '1px solid',
+              borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : '#E2E8F0',
+              '& .MuiToggleButtonGroup-grouped': {
+                border: 0,
+                borderRadius: '6px !important',
+                mx: '2px',
+              },
+              '& .MuiToggleButton-root': {
+                textTransform: 'none',
+                fontWeight: 600,
+                fontSize: '0.8125rem',
+                px: 1.5,
+                py: 0.25,
+                color: isDark ? '#94A3B8' : '#64748B',
+                transition: 'all 0.15s ease-in-out',
+                '&.Mui-selected': {
+                  backgroundColor: isDark ? '#16C47F' : '#203020',
+                  color: '#FFFFFF',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
+                  '&:hover': {
+                    backgroundColor: isDark ? '#13a86c' : '#172317',
+                  },
+                },
+                '&:hover': {
+                  backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#E2E8F0',
+                },
+              },
+            }}
+          >
+            <ToggleButton value="open">
+              Open
+            </ToggleButton>
+            <ToggleButton value="all">
+              All Tasks
+            </ToggleButton>
+          </ToggleButtonGroup>
+
+          {(searchQ || selectedProjectId || selectedPriority || taskScopeFilter !== 'open') && (
+            <Button
+              size="small"
+              variant="text"
+              onClick={() => {
+                setSearchQ('');
+                setSelectedProjectId('');
+                setSelectedPriority('');
+                setTaskScopeFilter('open');
+              }}
+              sx={{ textTransform: 'none', color: '#64748B' }}
+            >
+              Clear Filters
+            </Button>
+          )}
         </Box>
       </Paper>
 
