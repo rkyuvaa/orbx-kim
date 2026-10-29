@@ -595,17 +595,27 @@ def update_kit(
         kit.is_active = payload.is_active
 
     if payload.component_types is not None:
-        # Delete existing and replace with updated component types list
-        db.query(VSKitComponentType).filter(VSKitComponentType.kit_id == kit_id).delete()
+        # Match existing components to preserve IDs and avoid foreign key or session conflicts
+        existing_by_type = {c.component_type: c for c in kit.component_types}
+        new_comps = []
         for comp in payload.component_types:
-            ct = VSKitComponentType(
-                kit_id=kit.id,
-                component_type=comp.component_type.strip(),
-                label=comp.label.strip(),
-                serial_number=comp.serial_number.strip() if comp.serial_number else None,
-                is_required=comp.is_required,
-            )
-            db.add(ct)
+            c_type = comp.component_type.strip()
+            if c_type in existing_by_type:
+                ct = existing_by_type[c_type]
+                ct.label = comp.label.strip()
+                ct.serial_number = comp.serial_number.strip() if comp.serial_number else None
+                ct.is_required = comp.is_required
+                new_comps.append(ct)
+            else:
+                ct = VSKitComponentType(
+                    kit_id=kit.id,
+                    component_type=c_type,
+                    label=comp.label.strip(),
+                    serial_number=comp.serial_number.strip() if comp.serial_number else None,
+                    is_required=comp.is_required,
+                )
+                new_comps.append(ct)
+        kit.component_types = new_comps
 
     db.commit()
     db.refresh(kit)
