@@ -1,10 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Typography,
   Badge,
+  IconButton,
+  Tooltip,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
   Divider,
-  Button,
   useTheme,
 } from '@mui/material';
 import {
@@ -13,16 +18,18 @@ import {
   ListTodo,
   AlertTriangle,
   CheckCircle2,
+  LayoutGrid,
+  Calendar,
   BarChart3,
   BarChart2,
-  Calendar,
-  LayoutGrid,
-  Activity,
+  CalendarCheck,
   Clock,
+  Activity,
   Archive,
   Settings2,
   Download,
-  CalendarCheck,
+  MoreVertical,
+  CalendarRange,
 } from 'lucide-react';
 
 export type PTSection =
@@ -31,14 +38,14 @@ export type PTSection =
   | 'all-tasks'
   | 'overdue'
   | 'completed'
+  | 'kanban'
+  | 'calendar'
   | 'workload'
   | 'weekly-workload'
-  | 'calendar'
-  | 'kanban'
-  | 'activity'
+  | 'weekly-review'
   | 'time-reports'
-  | 'archive'
-  | 'weekly-review';
+  | 'activity'
+  | 'archive';
 
 interface PTSectionNavProps {
   activeSection: PTSection;
@@ -61,6 +68,8 @@ export default function PTSectionNav({
 }: PTSectionNavProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
+
+  const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
 
   const navItems: Array<{
     id: PTSection;
@@ -87,154 +96,193 @@ export default function PTSectionNav({
   return (
     <Box
       sx={{
-        width: 240,
+        width: '100%',
         flexShrink: 0,
-        borderRight: '1px solid',
+        backgroundColor: isDark ? '#141A1F' : '#FFFFFF',
+        borderBottom: '1px solid',
         borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
-        p: 2,
         display: 'flex',
-        flexDirection: 'column',
+        alignItems: 'stretch',
         justifyContent: 'space-between',
-        backgroundColor: isDark ? 'transparent' : '#FAFBF9',
+        px: { xs: 1, sm: 2 },
+        boxShadow: isDark ? '0 1px 3px rgba(0,0,0,0.2)' : '0 1px 3px rgba(0,0,0,0.03)',
+        zIndex: 5,
       }}
     >
-      <Box>
-        <Typography
-          variant="caption"
-          sx={{
-            fontWeight: 700,
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-            color: isDark ? '#94A3B8' : '#64748B',
-            px: 1.5,
-            mb: 1,
-            display: 'block',
-          }}
-        >
-          Planner Views
-        </Typography>
-
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeSection === item.id;
-            return (
-              <Box
-                key={item.id}
-                onClick={() => onSelectSection(item.id)}
-                role="button"
-                tabIndex={0}
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  px: 1.5,
-                  py: 1,
-                  borderRadius: 1.5,
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
+      {/* Scrollable Horizontal Tabs Container */}
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'stretch',
+          flex: 1,
+          overflowX: 'auto',
+          scrollbarWidth: 'none',
+          '&::-webkit-scrollbar': { display: 'none' },
+        }}
+      >
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = activeSection === item.id;
+          return (
+            <Box
+              key={item.id}
+              onClick={() => onSelectSection(item.id)}
+              role="tab"
+              aria-selected={isActive}
+              tabIndex={0}
+              sx={{
+                flex: { xs: '0 0 auto', lg: 1 },
+                minWidth: { xs: 68, sm: 76 },
+                py: 1.2,
+                px: { xs: 1, sm: 1.5 },
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                userSelect: 'none',
+                position: 'relative',
+                transition: 'all 0.15s ease',
+                backgroundColor: isActive
+                  ? isDark
+                    ? 'rgba(22, 196, 127, 0.15)'
+                    : '#E9FBF3'
+                  : 'transparent',
+                color: isActive
+                  ? '#16C47F'
+                  : isDark
+                  ? '#94A3B8'
+                  : '#64748B',
+                '&:hover': {
                   backgroundColor: isActive
                     ? isDark
-                      ? '#16C47F20'
-                      : '#203020'
-                    : 'transparent',
-                  color: isActive
-                    ? isDark
-                      ? '#16C47F'
-                      : '#FFFFFF'
+                      ? 'rgba(22, 196, 127, 0.2)'
+                      : '#DEF7EC'
                     : isDark
-                    ? '#CBD5E1'
-                    : '#334155',
-                  fontWeight: isActive ? 600 : 500,
-                  fontSize: '0.875rem',
-                  '&:hover': {
-                    backgroundColor: isActive
-                      ? isDark
-                        ? '#16C47F25'
-                        : '#2A402A'
-                      : isDark
-                      ? 'rgba(255,255,255,0.05)'
-                      : 'rgba(0,0,0,0.04)',
+                    ? 'rgba(255,255,255,0.04)'
+                    : 'rgba(0,0,0,0.03)',
+                  color: isActive ? '#16C47F' : isDark ? '#E2E8F0' : '#1E293B',
+                },
+                ...(isActive && {
+                  '&::after': {
+                    content: '""',
+                    position: 'absolute',
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    height: '3px',
+                    backgroundColor: '#16C47F',
+                    borderRadius: '2px 2px 0 0',
                   },
+                }),
+              }}
+            >
+              {item.badge !== undefined && item.badge > 0 ? (
+                <Badge
+                  badgeContent={item.badge}
+                  color={item.badgeColor || 'primary'}
+                  sx={{
+                    '& .MuiBadge-badge': {
+                      fontSize: '0.62rem',
+                      height: 15,
+                      minWidth: 15,
+                      px: 0.4,
+                      fontWeight: 700,
+                      top: -2,
+                      right: -6,
+                    },
+                  }}
+                >
+                  <Icon size={19} />
+                </Badge>
+              ) : (
+                <Icon size={19} />
+              )}
+              <Typography
+                variant="caption"
+                sx={{
+                  mt: 0.5,
+                  fontSize: '0.72rem',
+                  fontWeight: isActive ? 600 : 500,
+                  whiteSpace: 'nowrap',
+                  lineHeight: 1.2,
+                  textAlign: 'center',
+                  color: 'inherit',
                 }}
               >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
-                  <Icon size={18} />
-                  <span>{item.label}</span>
-                </Box>
-                {item.badge !== undefined && item.badge > 0 && (
-                  <Badge
-                    badgeContent={item.badge}
-                    color={item.badgeColor || 'primary'}
-                    sx={{
-                      '& .MuiBadge-badge': {
-                        fontSize: '0.72rem',
-                        height: 18,
-                        minWidth: 18,
-                        fontWeight: 700,
-                      },
-                    }}
-                  />
-                )}
-              </Box>
-            );
-          })}
-        </Box>
+                {item.label}
+              </Typography>
+            </Box>
+          );
+        })}
       </Box>
 
-      {/* Bottom Actions */}
-      <Box sx={{ pt: 2 }}>
-        <Divider sx={{ mb: 2 }} />
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          <Button
+      {/* Right-aligned Actions: Settings & Export */}
+      <Box sx={{ display: 'flex', alignItems: 'center', pl: 1, gap: 0.5, flexShrink: 0 }}>
+        <Divider orientation="vertical" flexItem sx={{ my: 1.5, mx: 0.5 }} />
+
+        <Tooltip title="Planner Settings">
+          <IconButton
             size="small"
-            variant="outlined"
-            startIcon={<Settings2 size={16} />}
             onClick={onOpenSettings}
             sx={{
-              justifyContent: 'flex-start',
-              textTransform: 'none',
-              fontSize: '0.8rem',
-              borderColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)',
-              color: isDark ? '#E2E8F0' : '#475569',
+              color: isDark ? '#94A3B8' : '#64748B',
+              '&:hover': {
+                color: isDark ? '#E2E8F0' : '#1E293B',
+                backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+              },
             }}
           >
-            Planner Settings
-          </Button>
+            <Settings2 size={18} />
+          </IconButton>
+        </Tooltip>
 
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <Button
-              size="small"
-              variant="text"
-              startIcon={<Download size={14} />}
-              onClick={onExportCsv}
-              sx={{
-                flex: 1,
-                textTransform: 'none',
-                fontSize: '0.75rem',
-                color: isDark ? '#94A3B8' : '#64748B',
-                py: 0.5,
-              }}
-            >
-              Export CSV
-            </Button>
-            <Button
-              size="small"
-              variant="text"
-              startIcon={<Calendar size={14} />}
-              onClick={onExportIcs}
-              sx={{
-                flex: 1,
-                textTransform: 'none',
-                fontSize: '0.75rem',
-                color: isDark ? '#94A3B8' : '#64748B',
-                py: 0.5,
-              }}
-            >
-              Sync iCal
-            </Button>
-          </Box>
-        </Box>
+        <Tooltip title="Export & Sync">
+          <IconButton
+            size="small"
+            onClick={(e) => setMenuAnchor(e.currentTarget)}
+            sx={{
+              color: isDark ? '#94A3B8' : '#64748B',
+              '&:hover': {
+                color: isDark ? '#E2E8F0' : '#1E293B',
+                backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+              },
+            }}
+          >
+            <MoreVertical size={18} />
+          </IconButton>
+        </Tooltip>
+
+        <Menu
+          anchorEl={menuAnchor}
+          open={Boolean(menuAnchor)}
+          onClose={() => setMenuAnchor(null)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        >
+          <MenuItem
+            onClick={() => {
+              setMenuAnchor(null);
+              onExportCsv();
+            }}
+          >
+            <ListItemIcon>
+              <Download size={16} />
+            </ListItemIcon>
+            <ListItemText primary="Export Tasks (CSV)" primaryTypographyProps={{ fontSize: '0.82rem' }} />
+          </MenuItem>
+          <MenuItem
+            onClick={() => {
+              setMenuAnchor(null);
+              onExportIcs();
+            }}
+          >
+            <ListItemIcon>
+              <CalendarRange size={16} />
+            </ListItemIcon>
+            <ListItemText primary="Sync Calendar (iCal)" primaryTypographyProps={{ fontSize: '0.82rem' }} />
+          </MenuItem>
+        </Menu>
       </Box>
     </Box>
   );

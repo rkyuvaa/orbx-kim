@@ -377,8 +377,16 @@ export default function MyTasksPage() {
   }, [activeTimer, tasks]);
 
   return (
-    <Box sx={{ display: 'flex', height: 'calc(100vh - 65px)', overflow: 'hidden' }}>
-      {/* 1. Left Rail Section Nav */}
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: 'calc(100vh - 65px)',
+        overflow: 'hidden',
+        backgroundColor: isDark ? '#0F1215' : '#F8FAF8',
+      }}
+    >
+      {/* 1. Top Horizontal Tab Nav */}
       <PTSectionNav
         activeSection={activeSection}
         onSelectSection={setActiveSection}
@@ -398,7 +406,6 @@ export default function MyTasksPage() {
           display: 'flex',
           flexDirection: 'column',
           gap: 2.5,
-          backgroundColor: isDark ? '#0F1215' : '#F8FAF8',
         }}
       >
         {/* Sticky Quick Capture Bar */}
