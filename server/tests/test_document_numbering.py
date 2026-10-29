@@ -168,11 +168,26 @@ def test_document_numbering_api_and_complaint_integration(db, client):
     complaint_data = complaint_resp.json()
     assert complaint_data["complaint_no"] == "TEST-CMP-050"
 
-    # Next complaint should be TEST-CMP-051
-    complaint_resp2 = client.post(
+    # Same vehicle on the same day should be blocked to prevent duplicates (429)
+    duplicate_resp = client.post(
         "/api/v1/vehicle-service/public/universal-register",
         json={
             "vehicle_number": "KA01AB1234",
+            "reported_by": "Jane Doe",
+            "reported_phone": "9876543211",
+            "category": "MOTOR",
+            "severity": "MEDIUM",
+            "description": "Motor heating up",
+        },
+    )
+    assert duplicate_resp.status_code == 429
+    assert "Maximum 1 request per day" in duplicate_resp.json()["detail"]
+
+    # Different vehicle should succeed and get TEST-CMP-051
+    complaint_resp2 = client.post(
+        "/api/v1/vehicle-service/public/universal-register",
+        json={
+            "vehicle_number": "KA02CD5678",
             "reported_by": "Jane Doe",
             "reported_phone": "9876543211",
             "category": "MOTOR",

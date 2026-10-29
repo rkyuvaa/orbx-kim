@@ -19,6 +19,7 @@ from app.models.enums import (
     RegisteredVia,
     UserRole,
 )
+from app.models.crm_dropdown_option import CrmDropdownOption
 from app.models.user import UserStatus
 from app.services.document_numbering import generate_next_document_number
 from app.services.pdf_kit_parser import parse_kit_traceability_pdf
@@ -253,6 +254,33 @@ def get_public_vehicle_by_qr(qr_token: str, db: Session = Depends(get_db)):
     )
 
 
+@router.get("/public/complaint-categories")
+def get_public_complaint_categories(db: Session = Depends(get_db)):
+    """Retrieve active complaint categories from configuration."""
+    opts = (
+        db.query(CrmDropdownOption)
+        .filter(
+            CrmDropdownOption.category == "complaint_category",
+            CrmDropdownOption.is_active == True,  # noqa: E712
+        )
+        .order_by(CrmDropdownOption.order_index.asc(), CrmDropdownOption.label.asc())
+        .all()
+    )
+    if opts:
+        return [{"key": o.value, "label": o.label} for o in opts]
+
+    # Standard default categories if none configured yet
+    return [
+        {"key": "BREAKDOWN", "label": "Vehicle Breakdown"},
+        {"key": "BATTERY", "label": "Battery / Range Issue"},
+        {"key": "MOTOR", "label": "Motor Issue"},
+        {"key": "CONTROLLER", "label": "Controller / Throttle"},
+        {"key": "CHARGING", "label": "Charging Failure"},
+        {"key": "PERFORMANCE", "label": "Speed / Performance"},
+        {"key": "OTHER", "label": "Other Issue"},
+    ]
+
+
 @router.post("/public/register/{qr_token}", response_model=VSComplaintOut, status_code=status.HTTP_201_CREATED)
 def submit_public_complaint(
     qr_token: str,
@@ -270,6 +298,22 @@ def submit_public_complaint(
             detail="Vehicle not found or QR code is invalid",
         )
 
+    # Prevent duplicate complaints: Maximum 1 request per vehicle per day
+    today_start = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+    existing_today = (
+        db.query(VSComplaint)
+        .filter(
+            VSComplaint.vehicle_id == vehicle.id,
+            VSComplaint.created_at >= today_start,
+        )
+        .first()
+    )
+    if existing_today:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"A service request ({existing_today.complaint_no}) has already been registered for vehicle {vehicle.vehicle_number} today. Maximum 1 request per day is allowed to prevent duplicate requests.",
+        )
+
     complaint_no = _generate_complaint_no(db)
     gps_addr = payload.gps_address or _reverse_geocode_area_and_city(payload.gps_latitude, payload.gps_longitude)
     complaint = VSComplaint(
@@ -279,8 +323,8 @@ def submit_public_complaint(
         reported_by=payload.reported_by,
         reported_phone=payload.reported_phone,
         category=payload.category,
-        severity=payload.severity,
-        description=payload.description,
+        severity=payload.severity or ComplaintSeverity.MEDIUM,
+        description=payload.description or f"{payload.category} service request reported for {vehicle.vehicle_number}",
         gps_latitude=payload.gps_latitude,
         gps_longitude=payload.gps_longitude,
         gps_address=gps_addr,
@@ -357,6 +401,22 @@ def submit_universal_complaint(
         # Keep contact phone updated if not present
         if not vehicle.owner_phone and payload.reported_phone:
             vehicle.owner_phone = payload.reported_phone.strip()
+
+    # Prevent duplicate complaints: Maximum 1 request per vehicle per day
+    today_start = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+    existing_today = (
+        db.query(VSComplaint)
+        .filter(
+            VSComplaint.vehicle_id == vehicle.id,
+            VSComplaint.created_at >= today_start,
+        )
+        .first()
+    )
+    if existing_today:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"A service request ({existing_today.complaint_no}) has already been registered for vehicle {clean_no} today. Maximum 1 request per day is allowed to prevent duplicate requests.",
+        )
 
     complaint_no = _generate_complaint_no(db)
     desc = (payload.description or "").strip() or f"{payload.category} service issue reported for {clean_no}"

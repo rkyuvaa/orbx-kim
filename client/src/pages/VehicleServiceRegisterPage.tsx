@@ -8,69 +8,51 @@ import {
   CardContent,
   CircularProgress,
   Container,
-  Divider,
-  FormControl,
   Grid,
-  InputLabel,
-  MenuItem,
   Paper,
-  Select,
   TextField,
   Typography,
 } from '@mui/material';
 import {
-  AlertTriangle,
-  BatteryCharging,
   CheckCircle2,
-  Cpu,
-  Gauge,
-  HelpCircle,
   MapPin,
   MessageSquare,
-  Navigation,
-  Phone,
   Send,
-  ShieldAlert,
-  User,
-  Wrench,
   Zap,
 } from 'lucide-react';
 
 import {
   useGetVSPublicVehicleQuery,
-  useLazyLookupVSPublicVehicleQuery,
+  useGetVSPublicCategoriesQuery,
   useSubmitVSPublicComplaintMutation,
   useSubmitVSUniversalComplaintMutation,
 } from '@/api/vehicleServiceApi';
-import type { VSPublicVehicleInfo, VSUniversalComplaintCreate } from '@/types/vehicleService';
+import type { VSUniversalComplaintCreate } from '@/types/vehicleService';
 import { reverseGeocodeAreaAndCity } from '@/utils/geolocation';
+import { AppDropdown } from '@/components/ui/AppDropdown';
 
-const CATEGORIES = [
-  { key: 'BREAKDOWN', label: 'Vehicle Breakdown', icon: ShieldAlert, color: '#ef4444' },
-  { key: 'BATTERY', label: 'Battery / Range Issue', icon: BatteryCharging, color: '#f59e0b' },
-  { key: 'MOTOR', label: 'Motor Issue', icon: Wrench, color: '#3b82f6' },
-  { key: 'CONTROLLER', label: 'Controller / Throttle', icon: Cpu, color: '#8b5cf6' },
-  { key: 'CHARGING', label: 'Charging Failure', icon: Zap, color: '#ec4899' },
-  { key: 'PERFORMANCE', label: 'Speed / Performance', icon: Gauge, color: '#10b981' },
-  { key: 'OTHER', label: 'Other Issue', icon: HelpCircle, color: '#6b7280' },
-];
-
-const SEVERITIES = [
-  { key: 'CRITICAL', label: 'Critical (Vehicle Immobility / Emergency)', color: '#dc2626' },
-  { key: 'HIGH', label: 'High (Major malfunction, driveable with caution)', color: '#ea580c' },
-  { key: 'MEDIUM', label: 'Medium (Minor fault, normal operation possible)', color: '#d97706' },
-  { key: 'LOW', label: 'Low (Cosmetic / routine observation)', color: '#16a34a' },
+const DEFAULT_CATEGORIES = [
+  { key: 'BREAKDOWN', label: 'Vehicle Breakdown' },
+  { key: 'BATTERY', label: 'Battery / Range Issue' },
+  { key: 'MOTOR', label: 'Motor Issue' },
+  { key: 'CONTROLLER', label: 'Controller / Throttle' },
+  { key: 'CHARGING', label: 'Charging Failure' },
+  { key: 'PERFORMANCE', label: 'Speed / Performance' },
+  { key: 'OTHER', label: 'Other Issue' },
 ];
 
 export default function VehicleServiceRegisterPage() {
   const { qrToken } = useParams<{ qrToken: string }>();
 
-  // If accessed via legacy vehicle-specific token
+  // If accessed via vehicle-specific QR token
   const { data: tokenVehicle } = useGetVSPublicVehicleQuery(qrToken || '', {
     skip: !qrToken,
   });
 
-  const [lookupVehicle, { isLoading: isLookingUp }] = useLazyLookupVSPublicVehicleQuery();
+  // Dynamic complaint categories from Configuration
+  const { data: configCategories = [] } = useGetVSPublicCategoriesQuery();
+  const categoriesToDisplay = configCategories.length > 0 ? configCategories : DEFAULT_CATEGORIES;
+
   const [submitUniversal, { isLoading: isSubmittingUniversal }] = useSubmitVSUniversalComplaintMutation();
   const [submitByToken, { isLoading: isSubmittingToken }] = useSubmitVSPublicComplaintMutation();
 
@@ -78,12 +60,9 @@ export default function VehicleServiceRegisterPage() {
 
   // Form Fields
   const [vehicleNumber, setVehicleNumber] = useState('');
-  const [verifiedVehicle, setVerifiedVehicle] = useState<VSPublicVehicleInfo | null>(null);
   const [reportedBy, setReportedBy] = useState('');
   const [reportedPhone, setReportedPhone] = useState('');
   const [category, setCategory] = useState('BREAKDOWN');
-  const [severity, setSeverity] = useState('MEDIUM');
-  const [affectedComponentId, setAffectedComponentId] = useState<number | ''>('');
   const [description, setDescription] = useState('');
 
   // GPS Coordinates
@@ -99,11 +78,16 @@ export default function VehicleServiceRegisterPage() {
   useEffect(() => {
     if (tokenVehicle) {
       setVehicleNumber(tokenVehicle.vehicle_number);
-      setVerifiedVehicle(tokenVehicle);
       if (!reportedBy) setReportedBy(tokenVehicle.owner_name);
       if (!reportedPhone) setReportedPhone(tokenVehicle.owner_phone);
     }
   }, [tokenVehicle]);
+
+  useEffect(() => {
+    if (categoriesToDisplay.length > 0 && !category) {
+      setCategory(categoriesToDisplay[0].key);
+    }
+  }, [categoriesToDisplay, category]);
 
   const captureGps = () => {
     if (!navigator.geolocation) {
@@ -136,24 +120,6 @@ export default function VehicleServiceRegisterPage() {
     captureGps();
   }, []);
 
-  const handleVehicleNumberBlur = async () => {
-    const trimmed = vehicleNumber.trim().toUpperCase();
-    if (!trimmed || trimmed.length < 3) return;
-
-    try {
-      const res = await lookupVehicle(trimmed).unwrap();
-      if (res) {
-        setVerifiedVehicle(res);
-        if (!reportedBy && res.owner_name) setReportedBy(res.owner_name);
-        if (!reportedPhone && res.owner_phone) setReportedPhone(res.owner_phone);
-      } else {
-        setVerifiedVehicle(null);
-      }
-    } catch {
-      setVerifiedVehicle(null);
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!vehicleNumber.trim() || !reportedBy.trim() || !reportedPhone.trim()) {
@@ -170,9 +136,8 @@ export default function VehicleServiceRegisterPage() {
       reported_by: reportedBy.trim(),
       reported_phone: reportedPhone.trim(),
       category,
-      severity,
+      severity: 'MEDIUM',
       description: desc,
-      affected_component_id: affectedComponentId ? Number(affectedComponentId) : undefined,
       gps_latitude: gps?.lat,
       gps_longitude: gps?.lng,
       gps_address: gpsAddress || undefined,
@@ -193,16 +158,30 @@ export default function VehicleServiceRegisterPage() {
     }
   };
 
+  const selectedCategoryLabel =
+    categoriesToDisplay.find((c) => c.key === category)?.label || category;
+
+  // Success Screen (Image 2)
   if (submittedComplaintNo) {
     return (
-      <Container maxWidth="sm" sx={{ py: { xs: 4, sm: 8 } }}>
-        <Paper sx={{ p: 4, textAlign: 'center', borderRadius: 4, boxShadow: '0 8px 30px rgba(0,0,0,0.08)' }}>
+      <Box sx={{ minHeight: '100dvh', bgcolor: '#F8FAF8', py: { xs: 4, sm: 8 } }}>
+        <Container maxWidth="sm">
+          <Paper
+          sx={{
+            p: 4,
+            textAlign: 'center',
+            borderRadius: 4,
+            boxShadow: '0 8px 30px rgba(32, 48, 32, 0.08)',
+            backgroundColor: '#FFFFFF',
+            border: '1px solid #E2E8E2',
+          }}
+        >
           <Box
             sx={{
               width: 72,
               height: 72,
               borderRadius: '50%',
-              bgcolor: '#ecfdf5',
+              bgcolor: '#EAF0EA',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -210,47 +189,51 @@ export default function VehicleServiceRegisterPage() {
               mb: 2,
             }}
           >
-            <CheckCircle2 size={42} color="#10b981" />
+            <CheckCircle2 size={42} color="#203020" />
           </Box>
-          <Typography variant="h5" fontWeight={800} color="#0f172a" gutterBottom>
+          <Typography variant="h5" fontWeight={800} color="#203020" gutterBottom>
             Service Request Registered
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
             Your complaint has been assigned to the on-call emergency technician team.
           </Typography>
 
-          <Box sx={{ p: 2, bgcolor: '#f1f5f9', borderRadius: 2, mb: 2.5 }}>
-            <Typography variant="caption" color="text.secondary" display="block">
+          <Box sx={{ p: 2, bgcolor: '#F3F7F3', border: '1px solid #C9E0C6', borderRadius: 2, mb: 2.5 }}>
+            <Typography variant="caption" sx={{ color: '#526356' }} display="block">
               Complaint / Work Order Tracking ID
             </Typography>
-            <Typography variant="h5" fontWeight={800} color="#2563eb">
+            <Typography variant="h5" fontWeight={800} sx={{ color: '#203020', letterSpacing: 0.5 }}>
               {submittedComplaintNo}
             </Typography>
           </Box>
 
-          {/* SMS Notification Banner */}
-          <Box sx={{ p: 1.5, bgcolor: '#eff6ff', borderRadius: 2, border: '1px solid #bfdbfe', mb: 3, display: 'flex', alignItems: 'center', gap: 1.2 }}>
-            <MessageSquare size={18} color="#2563eb" />
-            <Typography variant="caption" fontWeight={600} color="#1e40af" textAlign="left">
-              SMS Confirmation triggered to <strong>{reportedPhone}</strong>. You will receive live status updates.
+          {/* SMS Notification Banner (Updated text and deep green emerald theme) */}
+          <Box
+            sx={{
+              p: 1.5,
+              bgcolor: '#EAF0EA',
+              borderRadius: 2,
+              border: '1px solid #C9E0C6',
+              mb: 3,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1.2,
+            }}
+          >
+            <MessageSquare size={18} color="#203020" />
+            <Typography variant="caption" fontWeight={600} color="#203020" textAlign="left">
+              You will receive confirmation and ticket ID by SMS.
             </Typography>
           </Box>
 
-          <Box sx={{ textAlign: 'left', p: 2, bgcolor: '#f8fafc', borderRadius: 2, mb: 3 }}>
-            <Typography variant="body2" sx={{ mb: 0.8 }}>
+          {/* Vehicle and Category info only (No GPS, No Severity) */}
+          <Box sx={{ textAlign: 'left', p: 2, bgcolor: '#F8FAF8', border: '1px solid #E2E8E2', borderRadius: 2, mb: 3 }}>
+            <Typography variant="body2" sx={{ mb: 0.8, color: '#16231B' }}>
               <strong>Vehicle Number:</strong> {vehicleNumber.toUpperCase()}
             </Typography>
-            <Typography variant="body2" sx={{ mb: 0.8 }}>
-              <strong>Category:</strong> {category}
+            <Typography variant="body2" sx={{ color: '#16231B' }}>
+              <strong>Category:</strong> {selectedCategoryLabel}
             </Typography>
-            <Typography variant="body2" sx={{ mb: 0.8 }}>
-              <strong>Severity:</strong> {severity}
-            </Typography>
-            {gps && (
-              <Typography variant="body2" color="text.secondary">
-                <strong>GPS Recorded:</strong> {gps.lat.toFixed(5)}, {gps.lng.toFixed(5)}
-              </Typography>
-            )}
           </Box>
 
           <Button
@@ -260,36 +243,52 @@ export default function VehicleServiceRegisterPage() {
               setSubmittedComplaintNo(null);
               setDescription('');
             }}
-            sx={{ borderRadius: 2, py: 1.2, textTransform: 'none', fontWeight: 700 }}
+            sx={{
+              borderRadius: 2.5,
+              py: 1.3,
+              textTransform: 'none',
+              fontWeight: 700,
+              bgcolor: '#203020',
+              '&:hover': { bgcolor: '#172417' },
+            }}
           >
             Register Another Request
           </Button>
         </Paper>
       </Container>
-    );
-  }
+    </Box>
+  );
+}
 
   return (
-    <Box sx={{ minHeight: '100dvh', bgcolor: '#f8fafc', py: { xs: 2, sm: 6 }, pb: 'max(24px, env(safe-area-inset-bottom, 0px))' }}>
+    <Box sx={{ minHeight: '100dvh', bgcolor: '#F8FAF8', py: { xs: 2, sm: 6 }, pb: 'max(24px, env(safe-area-inset-bottom, 0px))' }}>
       <Container maxWidth="sm">
-        {/* Header */}
+        {/* Header (Subtitle removed) */}
         <Box sx={{ textAlign: 'center', mb: 3 }}>
-          <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1, bgcolor: '#eff6ff', px: 2, py: 0.8, borderRadius: 9999, mb: 1.5 }}>
-            <Zap size={18} color="#2563eb" />
-            <Typography variant="caption" fontWeight={700} color="#2563eb">
+          <Box
+            sx={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 1,
+              bgcolor: '#EAF0EA',
+              px: 2,
+              py: 0.8,
+              borderRadius: 9999,
+              mb: 1.5,
+            }}
+          >
+            <Zap size={18} color="#203020" />
+            <Typography variant="caption" fontWeight={700} color="#203020">
               EV 3-WHEELER RETROFIT SERVICE
             </Typography>
           </Box>
-          <Typography variant="h5" fontWeight={800} color="#0f172a">
+          <Typography variant="h5" fontWeight={800} color="#203020">
             Register Service Complaint
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Scan-to-Report service request for your retrofitted EV auto-rickshaw
           </Typography>
         </Box>
 
         {/* GPS Location Status Card */}
-        <Card sx={{ mb: 2.5, borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: 'none' }}>
+        <Card sx={{ mb: 2.5, borderRadius: 3, border: '1px solid #E2E8E2', boxShadow: 'none', backgroundColor: '#FFFFFF' }}>
           <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
@@ -298,16 +297,16 @@ export default function VehicleServiceRegisterPage() {
                     width: 32,
                     height: 32,
                     borderRadius: '50%',
-                    bgcolor: gps ? '#dcfce7' : '#fef3c7',
+                    bgcolor: gps ? '#EAF0EA' : '#FEF3C7',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
                 >
-                  <MapPin size={16} color={gps ? '#16a34a' : '#d97706'} />
+                  <MapPin size={16} color={gps ? '#203020' : '#D97706'} />
                 </Box>
                 <Box>
-                  <Typography variant="caption" fontWeight={700} color={gps ? '#16a34a' : '#d97706'} display="block">
+                  <Typography variant="caption" fontWeight={700} color={gps ? '#203020' : '#D97706'} display="block">
                     {gps ? (gpsAddress || 'GPS Location Captured') : gpsLoading ? 'Detecting Location...' : 'Location Pending'}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
@@ -315,7 +314,12 @@ export default function VehicleServiceRegisterPage() {
                   </Typography>
                 </Box>
               </Box>
-              <Button size="small" onClick={captureGps} disabled={gpsLoading} sx={{ textTransform: 'none', fontSize: 11 }}>
+              <Button
+                size="small"
+                onClick={captureGps}
+                disabled={gpsLoading}
+                sx={{ textTransform: 'none', fontSize: 11, color: '#203020', fontWeight: 600 }}
+              >
                 {gpsLoading ? 'Locating...' : 'Refresh GPS'}
               </Button>
             </Box>
@@ -328,7 +332,11 @@ export default function VehicleServiceRegisterPage() {
         </Card>
 
         {/* Complaint Form */}
-        <Paper component="form" onSubmit={handleSubmit} sx={{ p: 3, borderRadius: 3, border: '1px solid #e2e8f0' }}>
+        <Paper
+          component="form"
+          onSubmit={handleSubmit}
+          sx={{ p: 3, borderRadius: 3, border: '1px solid #E2E8E2', backgroundColor: '#FFFFFF' }}
+        >
           {submitError && (
             <Alert severity="error" sx={{ mb: 2.5, borderRadius: 2 }}>
               {submitError}
@@ -336,7 +344,7 @@ export default function VehicleServiceRegisterPage() {
           )}
 
           {/* Vehicle Registration Number */}
-          <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 0.8 }}>
+          <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 0.8, color: '#16231B' }}>
             Vehicle Registration Number *
           </Typography>
           <TextField
@@ -346,112 +354,63 @@ export default function VehicleServiceRegisterPage() {
             fullWidth
             value={vehicleNumber}
             onChange={(e) => setVehicleNumber(e.target.value.toUpperCase())}
-            onBlur={handleVehicleNumberBlur}
             helperText="Enter your 3-wheeler auto registration number"
-            sx={{ mb: 2 }}
+            sx={{
+              mb: 2.5,
+              '& .MuiOutlinedInput-root.Mui-focused fieldset': {
+                borderColor: '#203020',
+              },
+            }}
           />
 
-          {/* Verified Vehicle Badge */}
-          {verifiedVehicle && (
-            <Box sx={{ mb: 2.5, p: 1.5, bgcolor: '#f0fdf4', borderRadius: 2, border: '1px solid #bbf7d0' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <CheckCircle2 size={16} color="#16a34a" />
-                <Typography variant="caption" fontWeight={700} color="#16a34a">
-                  Retrofitted Fleet Match: {verifiedVehicle.vehicle_number}
-                </Typography>
-              </Box>
-              <Typography variant="caption" color="#14532d" display="block">
-                Registered Owner: {verifiedVehicle.owner_name} ? Kit: {verifiedVehicle.kit_number || 'Standard'}
-              </Typography>
-            </Box>
-          )}
-
-          {/* Customer / Complainant Details */}
+          {/* Customer Details */}
           <Grid container spacing={2} sx={{ mb: 2.5 }}>
             <Grid item xs={12} sm={6}>
               <TextField
-                label="Your Name *"
+                label="Your Name"
                 size="small"
                 required
                 fullWidth
                 value={reportedBy}
                 onChange={(e) => setReportedBy(e.target.value)}
+                sx={{
+                  '& .MuiOutlinedInput-root.Mui-focused fieldset': {
+                    borderColor: '#203020',
+                  },
+                }}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
-                label="Mobile Number (for SMS) *"
+                label="Mobile Number (for SMS)"
                 placeholder="10-digit mobile"
                 size="small"
                 required
                 fullWidth
                 value={reportedPhone}
                 onChange={(e) => setReportedPhone(e.target.value)}
+                sx={{
+                  '& .MuiOutlinedInput-root.Mui-focused fieldset': {
+                    borderColor: '#203020',
+                  },
+                }}
               />
             </Grid>
           </Grid>
 
-          {/* Complaint Category Dropdown */}
-          <FormControl fullWidth size="small" sx={{ mb: 2.5 }}>
-            <InputLabel id="category-select-label">Complaint Category *</InputLabel>
-            <Select
-              labelId="category-select-label"
+          {/* Complaint Category Dropdown from Configuration */}
+          <Box sx={{ mb: 2.5 }}>
+            <AppDropdown
+              label="Complaint Category"
+              required
               value={category}
-              label="Complaint Category *"
-              onChange={(e) => setCategory(e.target.value)}
-            >
-              {CATEGORIES.map((cat) => (
-                <MenuItem key={cat.key} value={cat.key}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
-                    <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: cat.color }} />
-                    <Typography variant="body2">{cat.label}</Typography>
-                  </Box>
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
-          {/* Specific Kit Component (if vehicle verified) */}
-          {verifiedVehicle && verifiedVehicle.components && verifiedVehicle.components.length > 0 && (
-            <FormControl fullWidth size="small" sx={{ mb: 2.5 }}>
-              <InputLabel id="comp-label">Affected Kit Component (Optional)</InputLabel>
-              <Select
-                labelId="comp-label"
-                value={affectedComponentId}
-                label="Affected Kit Component (Optional)"
-                onChange={(e) => setAffectedComponentId(e.target.value as number | '')}
-              >
-                <MenuItem value="">
-                  <em>Not Sure / Overall Vehicle</em>
-                </MenuItem>
-                {verifiedVehicle.components.map((c) => (
-                  <MenuItem key={c.id} value={c.id}>
-                    {c.component_label} (SN: {c.serial_number})
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          )}
-
-          {/* Severity Dropdown */}
-          <FormControl fullWidth size="small" sx={{ mb: 2.5 }}>
-            <InputLabel id="severity-label">Severity / Urgency Level *</InputLabel>
-            <Select
-              labelId="severity-label"
-              value={severity}
-              label="Severity / Urgency Level *"
-              onChange={(e) => setSeverity(e.target.value)}
-            >
-              {SEVERITIES.map((s) => (
-                <MenuItem key={s.key} value={s.key}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: s.color }} />
-                    <Typography variant="body2">{s.label}</Typography>
-                  </Box>
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+              options={categoriesToDisplay.map((cat) => ({
+                value: cat.key,
+                label: cat.label,
+              }))}
+              onChange={(val) => setCategory(String(val))}
+            />
+          </Box>
 
           {/* Problem Description (Optional) */}
           <TextField
@@ -462,7 +421,12 @@ export default function VehicleServiceRegisterPage() {
             fullWidth
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            sx={{ mb: 3 }}
+            sx={{
+              mb: 3,
+              '& .MuiOutlinedInput-root.Mui-focused fieldset': {
+                borderColor: '#203020',
+              },
+            }}
           />
 
           <Button
@@ -478,16 +442,12 @@ export default function VehicleServiceRegisterPage() {
               textTransform: 'none',
               fontWeight: 700,
               fontSize: '1rem',
-              bgcolor: '#2563eb',
-              '&:hover': { bgcolor: '#1d4ed8' },
+              bgcolor: '#203020',
+              '&:hover': { bgcolor: '#172417' },
             }}
           >
             {isSubmitting ? 'Registering & Sending...' : 'Register Complaint & Send'}
           </Button>
-
-          <Typography variant="caption" color="text.secondary" display="block" textAlign="center" sx={{ mt: 2 }}>
-            An SMS confirmation with tracking ID will be triggered to the provided mobile number.
-          </Typography>
         </Paper>
       </Container>
     </Box>

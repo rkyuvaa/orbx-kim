@@ -45,6 +45,7 @@ export default function ConfigurationPage() {
           <Tab label="Customer Statuses" />
           <Tab label="Sources" />
           <Tab label="Lost Reasons" />
+          <Tab label="Complaint Categories" />
         </Tabs>
       </Box>
 
@@ -88,6 +89,15 @@ export default function ConfigurationPage() {
           singularTitle="Lost Reason"
           description="Reasons when a lead or opportunity is lost (e.g. Price Too High, Bought Another Brand, Dropped Out)."
           placeholder="e.g. Price Too High"
+        />
+      )}
+      {tab === 10 && (
+        <DropdownOptionsPanel
+          category="complaint_category"
+          title="Complaint Categories"
+          singularTitle="Complaint Category"
+          description="Configurable service complaint categories used across vehicle service and customer reporting."
+          placeholder="e.g. Battery / Range Issue"
         />
       )}
     </div>

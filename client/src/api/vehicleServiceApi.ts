@@ -200,6 +200,9 @@ export const vehicleServiceApi = baseApi.injectEndpoints({
     getVSPublicVehicle: build.query<VSPublicVehicleInfo, string>({
       query: (qrToken) => ({ url: `/vehicle-service/public/register/${qrToken}` }),
     }),
+    getVSPublicCategories: build.query<{ key: string; label: string }[], void>({
+      query: () => ({ url: '/vehicle-service/public/complaint-categories' }),
+    }),
     lookupVSPublicVehicle: build.query<VSPublicVehicleInfo | null, string>({
       query: (vehicleNumber) => ({ url: `/vehicle-service/public/lookup?vehicle_number=${encodeURIComponent(vehicleNumber)}` }),
     }),
@@ -247,6 +250,7 @@ export const {
   useUpdateVSMaintenanceMutation,
   useGetVSDashboardQuery,
   useGetVSPublicVehicleQuery,
+  useGetVSPublicCategoriesQuery,
   useLookupVSPublicVehicleQuery,
   useLazyLookupVSPublicVehicleQuery,
   useSubmitVSPublicComplaintMutation,

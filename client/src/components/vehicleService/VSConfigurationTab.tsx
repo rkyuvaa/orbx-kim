@@ -61,6 +61,7 @@ import { usePermission } from '@/context/AuthPermissionContext';
 import { useUsersQuery } from '@/api/mastersApi';
 import { useToast } from '@/components/ui/ToastHost';
 import { formatDate, formatDateTime } from '@/utils/format';
+import DropdownOptionsPanel from '@/features/configuration/DropdownOptionsPanel';
 import {
   useCreateVSKitMutation,
   useCreateVSMaintenanceMutation,
@@ -628,6 +629,7 @@ export default function VSConfigurationTab() {
           <Tab label={`2. Retrofitted Vehicles (${vehicles.length})`} />
           <Tab label="3. QR Code Center" />
           <Tab label={`4. Preventive Maintenance (${maintenanceList.length})`} />
+          <Tab label="5. Complaint Categories" />
         </Tabs>
       </Box>
 
@@ -1070,6 +1072,21 @@ export default function VSConfigurationTab() {
                   </Table>
                 </TableContainer>
               )}
+            </Box>
+          )}
+
+          {/* =================================================================
+              SUB-TAB 4: COMPLAINT CATEGORIES
+          ================================================================== */}
+          {activeTab === 4 && (
+            <Box sx={{ mt: 1 }}>
+              <DropdownOptionsPanel
+                category="complaint_category"
+                title="Service Complaint Categories"
+                singularTitle="Complaint Category"
+                description="Configure service complaint categories available for customer reporting and work orders."
+                placeholder="e.g. Battery / Range Issue"
+              />
             </Box>
           )}
         </div>
