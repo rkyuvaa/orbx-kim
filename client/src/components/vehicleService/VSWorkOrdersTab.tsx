@@ -465,17 +465,17 @@ export default function VSWorkOrdersTab() {
                       type="button"
                       onClick={() => handlePillClick(stage.key)}
                       sx={{
-                        width: 124,
-                        height: 78,
+                        width: 122,
+                        height: 66,
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        gap: 0.6,
+                        gap: 0.4,
                         border: '1.5px solid',
                         borderColor: isSelected ? stage.color : stage.border,
-                        borderRadius: '12px',
-                        padding: '6px 4px',
+                        borderRadius: '11px',
+                        padding: '4px 4px',
                         cursor: 'pointer',
                         backgroundColor: isSelected ? `${stage.color}18` : stage.bg,
                         boxShadow: isSelected
@@ -495,12 +495,12 @@ export default function VSWorkOrdersTab() {
                       {/* Rounded white background badge for count */}
                       <Box
                         sx={{
-                          minWidth: 36,
-                          height: 28,
-                          padding: '0 9px',
-                          borderRadius: 14,
+                          minWidth: 34,
+                          height: 25,
+                          padding: '0 8px',
+                          borderRadius: 13,
                           backgroundColor: '#FFFFFF',
-                          boxShadow: '0 2px 5px rgba(0, 0, 0, 0.08)',
+                          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.08)',
                           border: `1px solid ${stage.color}25`,
                           display: 'flex',
                           alignItems: 'center',
@@ -510,7 +510,7 @@ export default function VSWorkOrdersTab() {
                         <Typography
                           component="span"
                           sx={{
-                            fontSize: 16,
+                            fontSize: 15,
                             fontWeight: 800,
                             color: stage.color,
                             letterSpacing: '-0.3px',
@@ -524,13 +524,13 @@ export default function VSWorkOrdersTab() {
                       {/* Stage Label */}
                       <Typography
                         sx={{
-                          fontSize: 9.5,
+                          fontSize: 9,
                           fontWeight: 700,
                           color: stage.color,
                           textAlign: 'center',
                           textTransform: 'uppercase',
                           letterSpacing: 0.3,
-                          lineHeight: 1.15,
+                          lineHeight: 1,
                           whiteSpace: 'nowrap',
                         }}
                       >
