@@ -329,6 +329,51 @@ export default function MyTasksPage() {
     }
   };
 
+  const handleKanbanStatusChange = async (task: PTTask, newColId: string) => {
+    try {
+      if (newColId === 'completed') {
+        await updateTask({ id: task.id, data: { is_completed: true } }).unwrap();
+        showToast(`Moved "${task.title}" to Completed.`, 'success');
+      } else if (newColId === 'cancelled') {
+        await cancelTask({ id: task.id, reason: 'Cancelled from Kanban' }).unwrap();
+        showToast(`Moved "${task.title}" to Cancelled.`, 'info');
+      } else if (newColId === 'onhold') {
+        await updateTask({
+          id: task.id,
+          data: {
+            status_id: 5,
+            is_completed: false,
+            blocked_reason: task.blocked_reason || 'On Hold',
+          },
+        }).unwrap();
+        showToast(`Moved "${task.title}" to On Hold.`, 'info');
+      } else if (newColId === 'inprogress') {
+        await updateTask({
+          id: task.id,
+          data: {
+            status_id: 2,
+            is_completed: false,
+            blocked_reason: null,
+          },
+        }).unwrap();
+        showToast(`Moved "${task.title}" to In Progress.`, 'success');
+      } else if (newColId === 'todo') {
+        await updateTask({
+          id: task.id,
+          data: {
+            status_id: 1,
+            is_completed: false,
+            blocked_reason: null,
+          },
+        }).unwrap();
+        showToast(`Moved "${task.title}" to To Do.`, 'info');
+      }
+      refetchTasks();
+    } catch {
+      showToast('Failed to update task status.', 'error');
+    }
+  };
+
   const triggerUndoToast = (label: string, undoFn: () => Promise<void>) => {
     if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
     setUndoAction({ label, undoFn });
@@ -560,10 +605,7 @@ export default function MyTasksPage() {
             tasks={tasks}
             activeTimerTaskId={activeTimer?.task_id}
             onOpenTask={handleOpenTask}
-            onStatusChange={async (t, statusId) => {
-              await updateTask({ id: t.id, data: { status_id: Number(statusId) } });
-              refetchTasks();
-            }}
+            onStatusChange={handleKanbanStatusChange}
             onStartTimer={handleStartTimer}
             onStopTimer={handleStopTimer}
           />
