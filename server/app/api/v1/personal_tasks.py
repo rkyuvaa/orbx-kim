@@ -146,13 +146,20 @@ def get_personal_tasks(
         )
 
     if q and q.strip():
-        term = f"%{q.strip()}%"
+        raw_q = q.strip()
+        clean_q = raw_q[1:] if raw_q.startswith("#") else raw_q
+        term = f"%{raw_q}%"
+        clean_term = f"%{clean_q}%"
         query = query.filter(
             or_(
                 Task.title.ilike(term),
                 Task.description.ilike(term),
                 Task.task_number.ilike(term),
-                Task.tags.ilike(term)
+                Task.tags.ilike(term),
+                Task.tags.ilike(clean_term),
+                Task.id.in_(
+                    db.query(TaskTagMap.task_id).join(TaskTag, TaskTagMap.tag_id == TaskTag.id).filter(TaskTag.name.ilike(clean_term))
+                )
             )
         )
 

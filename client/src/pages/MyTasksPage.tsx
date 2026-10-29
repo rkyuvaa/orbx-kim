@@ -167,15 +167,33 @@ export default function MyTasksPage() {
   const displayedTasks = useMemo(() => {
     let list = [...tasks];
 
-    // Search filter
+    // Search filter (supports titles, task IDs, descriptions, and #tags)
     if (searchQ.trim()) {
-      const q = searchQ.toLowerCase();
-      list = list.filter(
-        (t) =>
-          t.title.toLowerCase().includes(q) ||
-          t.task_number.toLowerCase().includes(q) ||
-          (t.description && t.description.toLowerCase().includes(q))
-      );
+      const rawQ = searchQ.trim().toLowerCase();
+      const q = rawQ.startsWith('#') ? rawQ.slice(1) : rawQ;
+      list = list.filter((t) => {
+        const matchesTitle = t.title ? t.title.toLowerCase().includes(rawQ) : false;
+        const matchesNumber = t.task_number ? t.task_number.toLowerCase().includes(rawQ) : false;
+        const matchesDesc = t.description ? t.description.toLowerCase().includes(rawQ) : false;
+
+        // Tags search: matches #tag or tag name in tags string, tags_list array, or tag_names
+        const matchesTagsString = t.tags ? t.tags.toLowerCase().includes(q) : false;
+        const matchesTagsList = t.tags_list
+          ? t.tags_list.some((tag) => tag.name.toLowerCase().includes(q))
+          : false;
+        const matchesTagNames = (t as any).tag_names
+          ? (t as any).tag_names.some((name: string) => name.toLowerCase().includes(q))
+          : false;
+
+        return (
+          matchesTitle ||
+          matchesNumber ||
+          matchesDesc ||
+          matchesTagsString ||
+          matchesTagsList ||
+          matchesTagNames
+        );
+      });
     }
 
     // Priority filter
@@ -437,6 +455,8 @@ export default function MyTasksPage() {
         display: 'flex',
         flexDirection: 'column',
         height: 'calc(100vh - 65px)',
+        minHeight: 0,
+        maxHeight: 'calc(100vh - 65px)',
         overflow: 'hidden',
         mx: { xs: '-24px', md: '-24px' },
         mt: { xs: '-20px', md: '-16px' },
@@ -455,15 +475,29 @@ export default function MyTasksPage() {
         onExportIcs={handleExportIcs}
       />
 
-      {/* 2. Main Content Area */}
+      {/* 2. Main Content Area (Unconstrained smooth vertical scroll container) */}
       <Box
         sx={{
           flex: 1,
+          minHeight: 0,
           overflowY: 'auto',
+          overflowX: 'hidden',
           p: { xs: 2, md: 3 },
           display: 'flex',
           flexDirection: 'column',
           gap: 2.5,
+          scrollBehavior: 'smooth',
+          '&::-webkit-scrollbar': { width: 8, height: 8 },
+          '&::-webkit-scrollbar-track': {
+            backgroundColor: 'transparent',
+          },
+          '&::-webkit-scrollbar-thumb': {
+            backgroundColor: isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.18)',
+            borderRadius: 4,
+          },
+          '&::-webkit-scrollbar-thumb:hover': {
+            backgroundColor: isDark ? 'rgba(255,255,255,0.28)' : 'rgba(0,0,0,0.28)',
+          },
         }}
       >
         {/* Sticky Quick Capture Bar */}
@@ -474,7 +508,7 @@ export default function MyTasksPage() {
           <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
             <TextField
               size="small"
-              placeholder="Search in view..."
+              placeholder="Search tasks or #tags..."
               value={searchQ}
               onChange={(e) => setSearchQ(e.target.value)}
               InputProps={{

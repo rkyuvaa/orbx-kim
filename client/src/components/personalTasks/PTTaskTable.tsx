@@ -30,8 +30,6 @@ import {
   DialogActions,
 } from '@mui/material';
 import {
-  Play,
-  Square,
   MoreVertical,
   Calendar,
   AlertCircle,
@@ -46,7 +44,8 @@ import {
   Check,
   X,
   ChevronDown,
-  Clock,
+  Play,
+  Square,
 } from 'lucide-react';
 import { PTTask, TaskPriority, PTTaskUpdate } from '@/api/personalTasksApi';
 import EmptyState from '@/components/ui/EmptyState';
@@ -64,8 +63,8 @@ interface PTTaskTableProps {
   onSelectAll?: (ids: number[]) => void;
   onOpenTask: (task: PTTask) => void;
   onToggleComplete: (task: PTTask) => void;
-  onStartTimer: (taskId: number) => void;
-  onStopTimer: (taskId: number) => void;
+  onStartTimer?: (taskId: number) => void;
+  onStopTimer?: (taskId: number) => void;
   onCancelTask: (task: PTTask) => void;
   onReopenTask: (taskId: number) => void;
   onArchiveTask: (taskId: number) => void;
@@ -122,10 +121,6 @@ export default function PTTaskTable({
   // Inline Due Date Popover
   const [dueDateAnchor, setDueDateAnchor] = useState<{ el: HTMLElement; task: PTTask } | null>(null);
   const [dueDateValue, setDueDateValue] = useState<string>('');
-
-  // Inline Est Hours Popover
-  const [estHoursAnchor, setEstHoursAnchor] = useState<{ el: HTMLElement; task: PTTask } | null>(null);
-  const [estHoursValue, setEstHoursValue] = useState<string>('');
 
   // Cancellation Reason Dialog
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
@@ -230,14 +225,6 @@ export default function PTTaskTable({
     await onUpdateTask(taskId, { due_date: dateStr || undefined });
   };
 
-  // Inline Est Hours Save
-  const handleSaveEstHours = async (hours: number) => {
-    if (!estHoursAnchor || !onUpdateTask) return;
-    const taskId = estHoursAnchor.task.id;
-    setEstHoursAnchor(null);
-    await onUpdateTask(taskId, { estimated_hours: Math.max(0, hours) });
-  };
-
   const isAllSelected = tasks.length > 0 && selectedIds.length === tasks.length;
   const isSomeSelected = selectedIds.length > 0 && selectedIds.length < tasks.length;
 
@@ -270,20 +257,23 @@ export default function PTTaskTable({
         border: '1px solid',
         borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
         backgroundColor: isDark ? '#181D22' : '#FFFFFF',
-        overflow: 'hidden',
+        overflowX: 'auto',
+        overflowY: 'visible',
       }}
     >
-      <Table size="small">
+      <Table size="small" stickyHeader>
         <TableHead
           sx={{
-            backgroundColor: isDark ? '#14181C' : '#F8FAF8',
             '& th': {
               fontWeight: 700,
               fontSize: '0.75rem',
               color: isDark ? '#94A3B8' : '#64748B',
+              backgroundColor: isDark ? '#14181C' : '#F8FAF8',
               textTransform: 'uppercase',
               letterSpacing: '0.05em',
               py: 1.5,
+              borderBottom: '1px solid',
+              borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
             },
           }}
         >
@@ -303,13 +293,11 @@ export default function PTTaskTable({
               </TableCell>
             )}
             <TableCell sx={{ width: 40 }}></TableCell>
-            <TableCell sx={{ width: 100 }}>ID</TableCell>
+            <TableCell sx={{ width: 110 }}>ID</TableCell>
             <TableCell>Task</TableCell>
-            <TableCell sx={{ width: 120 }}>Priority</TableCell>
-            <TableCell sx={{ width: 140 }}>Status</TableCell>
-            <TableCell sx={{ width: 140 }}>Due Date</TableCell>
-            <TableCell sx={{ width: 130 }}>Est / Act</TableCell>
-            <TableCell sx={{ width: 70 }} align="center">Timer</TableCell>
+            <TableCell sx={{ width: 130 }}>Priority</TableCell>
+            <TableCell sx={{ width: 150 }}>Status</TableCell>
+            <TableCell sx={{ width: 150 }}>Due Date</TableCell>
             <TableCell sx={{ width: 50 }} align="right">Actions</TableCell>
           </TableRow>
         </TableHead>
@@ -334,8 +322,6 @@ export default function PTTaskTable({
                 // Ignore parse errors
               }
             }
-
-            const isOverEstimate = (task.actual_hours || 0) > (task.estimated_hours || 0) && (task.estimated_hours || 0) > 0;
 
             return (
               <TableRow
@@ -663,89 +649,6 @@ export default function PTTaskTable({
                   </Tooltip>
                 </TableCell>
 
-                {/* Estimated vs Actual Hours (Direct Editable Popover) */}
-                <TableCell>
-                  <Tooltip title="Click to edit estimated hours">
-                    <Box
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setEstHoursAnchor({ el: e.currentTarget, task });
-                        setEstHoursValue(task.estimated_hours?.toString() || '0');
-                      }}
-                      sx={{
-                        display: 'inline-flex',
-                        flexDirection: 'column',
-                        cursor: 'pointer',
-                        px: 1,
-                        py: 0.35,
-                        borderRadius: 1.5,
-                        border: '1px dashed transparent',
-                        transition: 'all 0.15s ease',
-                        '&:hover': {
-                          border: '1px dashed',
-                          borderColor: '#16C47F',
-                          backgroundColor: isDark ? 'rgba(22, 196, 127, 0.08)' : 'rgba(22, 196, 127, 0.06)',
-                        },
-                      }}
-                    >
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          fontSize: '0.78rem',
-                          fontWeight: 600,
-                          color: isOverEstimate ? '#EF4444' : 'inherit',
-                        }}
-                      >
-                        {task.actual_hours || 0}h / {task.estimated_hours || 0}h
-                      </Typography>
-                      {isOverEstimate && (
-                        <Typography variant="caption" sx={{ fontSize: '0.65rem', color: '#EF4444', fontWeight: 600 }}>
-                          Over estimate!
-                        </Typography>
-                      )}
-                    </Box>
-                  </Tooltip>
-                </TableCell>
-
-                {/* Running Timer Toggle */}
-                <TableCell align="center">
-                  {isRunningTimer ? (
-                    <Tooltip title="Stop timer">
-                      <IconButton
-                        size="small"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onStopTimer(task.id);
-                        }}
-                        sx={{
-                          backgroundColor: '#EF444420',
-                          color: '#EF4444',
-                          '&:hover': { backgroundColor: '#EF444430' },
-                        }}
-                      >
-                        <Square size={14} />
-                      </IconButton>
-                    </Tooltip>
-                  ) : (
-                    <Tooltip title="Start timer">
-                      <IconButton
-                        size="small"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onStartTimer(task.id);
-                        }}
-                        disabled={isCompleted || isCancelled}
-                        sx={{
-                          color: isDark ? '#94A3B8' : '#64748B',
-                          '&:hover': { color: '#16C47F' },
-                        }}
-                      >
-                        <Play size={14} />
-                      </IconButton>
-                    </Tooltip>
-                  )}
-                </TableCell>
-
                 {/* Actions Menu */}
                 <TableCell align="right">
                   <IconButton size="small" onClick={(e) => handleOpenMenu(e, task)}>
@@ -929,73 +832,7 @@ export default function PTTaskTable({
         </Box>
       </Popover>
 
-      {/* 4. Estimated Hours Popover */}
-      <Popover
-        anchorEl={estHoursAnchor?.el}
-        open={Boolean(estHoursAnchor)}
-        onClose={() => setEstHoursAnchor(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-        PaperProps={{
-          sx: {
-            p: 2,
-            width: 250,
-            borderRadius: 2,
-            boxShadow: '0 8px 30px rgba(0,0,0,0.2)',
-          },
-        }}
-      >
-        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-          Estimated Effort (Hours)
-        </Typography>
-
-        <Stack direction="row" spacing={0.75} sx={{ mb: 1.5, flexWrap: 'wrap', gap: 0.5 }}>
-          {[0.5, 1, 2, 4, 8].map((h) => (
-            <Chip
-              key={h}
-              label={`${h}h`}
-              size="small"
-              clickable
-              onClick={() => handleSaveEstHours(h)}
-              sx={{ fontWeight: 600, fontSize: '0.75rem' }}
-            />
-          ))}
-        </Stack>
-
-        <TextField
-          type="number"
-          fullWidth
-          size="small"
-          value={estHoursValue}
-          onChange={(e) => setEstHoursValue(e.target.value)}
-          inputProps={{ min: 0, step: 0.25 }}
-          sx={{ mb: 2 }}
-        />
-
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-          <Button
-            size="small"
-            onClick={() => setEstHoursAnchor(null)}
-            sx={{ textTransform: 'none' }}
-          >
-            Cancel
-          </Button>
-          <Button
-            size="small"
-            variant="contained"
-            onClick={() => handleSaveEstHours(parseFloat(estHoursValue) || 0)}
-            sx={{
-              textTransform: 'none',
-              backgroundColor: '#16C47F',
-              '&:hover': { backgroundColor: '#13A86B' },
-            }}
-          >
-            Save
-          </Button>
-        </Box>
-      </Popover>
-
-      {/* 5. Cancellation Reason Dialog */}
+      {/* 4. Cancellation Reason Dialog */}
       <Dialog
         open={cancelDialogOpen}
         onClose={() => setCancelDialogOpen(false)}
@@ -1038,7 +875,7 @@ export default function PTTaskTable({
         </DialogActions>
       </Dialog>
 
-      {/* 6. Blocked / On Hold Reason Dialog */}
+      {/* 5. Blocked / On Hold Reason Dialog */}
       <Dialog
         open={holdDialogOpen}
         onClose={() => setHoldDialogOpen(false)}
@@ -1081,7 +918,7 @@ export default function PTTaskTable({
         </DialogActions>
       </Dialog>
 
-      {/* 7. Row Context Menu */}
+      {/* 6. Row Context Menu */}
       <Menu
         anchorEl={menuAnchorEl}
         open={Boolean(menuAnchorEl)}
@@ -1105,6 +942,37 @@ export default function PTTaskTable({
           </ListItemIcon>
           <ListItemText primary="Open Details" />
         </MenuItem>
+
+        {/* Timer start / stop from action menu */}
+        {menuTask && onStartTimer && onStopTimer && (
+          activeTimerTaskId === menuTask.id ? (
+            <MenuItem
+              onClick={() => {
+                onStopTimer(menuTask.id);
+                handleCloseMenu();
+              }}
+              sx={{ color: '#EF4444' }}
+            >
+              <ListItemIcon>
+                <Square size={15} color="#EF4444" />
+              </ListItemIcon>
+              <ListItemText primary="Stop Timer" />
+            </MenuItem>
+          ) : (
+            <MenuItem
+              onClick={() => {
+                onStartTimer(menuTask.id);
+                handleCloseMenu();
+              }}
+              disabled={menuTask.is_completed || !!menuTask.cancelled_at}
+            >
+              <ListItemIcon>
+                <Play size={15} color="#16C47F" />
+              </ListItemIcon>
+              <ListItemText primary="Start Timer" />
+            </MenuItem>
+          )
+        )}
 
         {menuTask?.cancelled_at || menuTask?.is_completed ? (
           <MenuItem
