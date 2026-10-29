@@ -239,7 +239,7 @@ export default function RoleManagementPage() {
       {/* Role Create / Edit Drawer with Dynamic Permission Matrix */}
       {(isCreateOpen || editingRole) && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', justifyContent: 'flex-end' }}>
-          <div style={{ width: '100%', maxWidth: 780, background: '#FFF', height: '100vh', overflowY: 'auto', padding: 24, boxShadow: '-4px 0 20px rgba(0,0,0,0.15)' }}>
+          <div style={{ width: '100%', maxWidth: 780, background: '#FFF', height: '100dvh', maxHeight: '100dvh', overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: 24, paddingBottom: 'max(24px, env(safe-area-inset-bottom, 0px))', boxShadow: '-4px 0 20px rgba(0,0,0,0.15)' }}>
             <h2 style={{ margin: '0 0 16px', fontSize: 20, fontWeight: 800, color: '#023020' }}>
               {isCreateOpen ? 'Create Role & Configure Matrix' : `Edit Role: ${editingRole?.name}`}
             </h2>

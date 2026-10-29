@@ -298,7 +298,7 @@ export default function TasksPage({ defaultView = 'list', defaultScope = 'all' }
             InputProps={{
               startAdornment: <Search size={16} style={{ marginRight: 8, opacity: 0.6 }} />,
             }}
-            sx={{ width: 280, '& .MuiOutlinedInput-root': { bgcolor: 'background.paper', height: 36 } }}
+            sx={{ width: { xs: '100%', sm: 280 }, '& .MuiOutlinedInput-root': { bgcolor: 'background.paper', height: 36 } }}
           />
 
           <Select
@@ -306,7 +306,7 @@ export default function TasksPage({ defaultView = 'list', defaultScope = 'all' }
             displayEmpty
             value={selectedProjectId}
             onChange={(e) => setSelectedProjectId(e.target.value as number)}
-            sx={{ width: 220, height: 36, bgcolor: 'background.paper', fontSize: 13 }}
+            sx={{ width: { xs: '100%', sm: 220 }, height: 36, bgcolor: 'background.paper', fontSize: 13 }}
           >
             <MenuItem value="">All Projects</MenuItem>
             {safeProjects.map((p) => (
@@ -319,7 +319,7 @@ export default function TasksPage({ defaultView = 'list', defaultScope = 'all' }
             displayEmpty
             value={selectedPriority}
             onChange={(e) => setSelectedPriority(e.target.value as string)}
-            sx={{ width: 160, height: 36, bgcolor: 'background.paper', fontSize: 13 }}
+            sx={{ width: { xs: '100%', sm: 160 }, height: 36, bgcolor: 'background.paper', fontSize: 13 }}
           >
             <MenuItem value="">All Priorities</MenuItem>
             <MenuItem value="URGENT">Urgent</MenuItem>

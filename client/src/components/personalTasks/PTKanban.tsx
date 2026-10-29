@@ -249,10 +249,11 @@ export default function PTKanban({
         display: 'flex',
         gap: 2,
         overflowX: 'auto',
+        WebkitOverflowScrolling: 'touch',
         pb: 3,
         pt: 1,
         alignItems: 'flex-start',
-        minHeight: 'calc(100vh - 280px)',
+        minHeight: { xs: 'calc(100dvh - 260px)', md: 'calc(100vh - 280px)' },
         userSelect: dragState?.isDragging ? 'none' : 'auto',
       }}
     >
@@ -372,8 +373,9 @@ export default function PTKanban({
                 flexDirection: 'column',
                 gap: 1.25,
                 minHeight: 120,
-                maxHeight: 'calc(100vh - 330px)',
+                maxHeight: { xs: 'calc(100dvh - 300px)', md: 'calc(100vh - 330px)' },
                 overflowY: 'auto',
+                WebkitOverflowScrolling: 'touch',
                 pr: 0.5,
               }}
             >

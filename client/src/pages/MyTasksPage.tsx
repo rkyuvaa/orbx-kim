@@ -458,13 +458,11 @@ export default function MyTasksPage() {
       sx={{
         display: 'flex',
         flexDirection: 'column',
-        height: 'calc(100vh - 65px)',
-        minHeight: 0,
-        maxHeight: 'calc(100vh - 65px)',
-        overflow: 'hidden',
-        mx: { xs: '-24px', md: '-24px' },
-        mt: { xs: '-20px', md: '-16px' },
-        mb: { xs: '-16px', md: '-16px' },
+        flex: 1,
+        minHeight: { xs: 'calc(100dvh - 70px)', md: 'calc(100vh - 80px)' },
+        mx: { xs: '-12px', sm: '-16px', md: '-24px' },
+        mt: { xs: '-14px', sm: '-16px', md: '-16px' },
+        mb: { xs: '-18px', sm: '-20px', md: '-24px' },
         backgroundColor: isDark ? '#0F1215' : '#F8FAF8',
       }}
     >
@@ -486,7 +484,8 @@ export default function MyTasksPage() {
           minHeight: 0,
           overflowY: 'auto',
           overflowX: 'hidden',
-          p: { xs: 2, md: 3 },
+          WebkitOverflowScrolling: 'touch',
+          p: { xs: 1.5, sm: 2, md: 3 },
           display: 'flex',
           flexDirection: 'column',
           gap: 2.5,
@@ -532,7 +531,7 @@ export default function MyTasksPage() {
                     </InputAdornment>
                   ),
                 }}
-                sx={{ width: 240 }}
+                sx={{ width: { xs: '100%', sm: 240 } }}
               />
 
               <Select
@@ -540,7 +539,7 @@ export default function MyTasksPage() {
                 displayEmpty
                 value={priorityFilter}
                 onChange={(e) => setPriorityFilter(e.target.value)}
-                sx={{ minWidth: 140 }}
+                sx={{ width: { xs: '100%', sm: 140 }, minWidth: 140 }}
               >
                 <MenuItem value="">All Priorities</MenuItem>
                 <MenuItem value="URGENT">Urgent</MenuItem>

@@ -346,7 +346,8 @@ export default function Sidebar({
         position: isMobile ? 'sticky' : 'fixed',
         top: 0,
         left: isMobile ? undefined : 0,
-        height: '100vh',
+        height: isMobile ? '100%' : '100vh',
+        maxHeight: isMobile ? '100%' : '100dvh',
         zIndex: isMobile ? undefined : 40,
         overflow: 'hidden',
         transition: 'width 0.22s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.18s ease',
@@ -573,7 +574,7 @@ export default function Sidebar({
       </div>
 
       {/* Navigation */}
-      <nav style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '4px 12px 12px' }}>
+      <nav style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '4px 12px 12px', WebkitOverflowScrolling: 'touch' }}>
         {isLoading ? (
           <div style={{ padding: '24px 8px', textAlign: 'center', color: 'rgba(255, 255, 255, 0.40)', fontSize: 12 }}>
             Loading navigation...
@@ -750,7 +751,9 @@ export default function Sidebar({
           display: 'flex',
           alignItems: 'center',
           gap: 10,
-          padding: collapsed ? '12px 0' : '12px 14px',
+          padding: collapsed
+            ? '12px 0 max(12px, env(safe-area-inset-bottom, 0px))'
+            : '12px 14px max(12px, env(safe-area-inset-bottom, 0px))',
           borderTop: '1px solid rgba(255, 255, 255, 0.07)',
           flexShrink: 0,
           justifyContent: collapsed ? 'center' : 'flex-start',

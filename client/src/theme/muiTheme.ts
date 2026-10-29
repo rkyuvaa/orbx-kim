@@ -148,7 +148,19 @@ export const getMuiTheme = (mode: 'light' | 'dark') => {
             backgroundColor: surfaces.paper,
             border: `1px solid ${surfaces.border}`,
             borderRadius: 8,
+            overflowX: 'auto',
+            WebkitOverflowScrolling: 'touch',
             transition: 'background-color 0.18s ease, border-color 0.18s ease',
+          },
+        },
+      },
+      MuiIconButton: {
+        styleOverrides: {
+          root: {
+            '@media (pointer: coarse)': {
+              minWidth: 40,
+              minHeight: 40,
+            },
           },
         },
       },
@@ -267,14 +279,27 @@ export const getMuiTheme = (mode: 'light' | 'dark') => {
         },
       },
       MuiDialog: {
+        defaultProps: {
+          scroll: 'paper',
+        },
         styleOverrides: {
           paper: {
             backgroundColor: surfaces.paper,
             borderColor: surfaces.border,
             boxShadow: isDark ? '0 16px 40px rgba(0, 0, 0, 0.6)' : '0 16px 40px rgba(32, 48, 32, 0.1)',
             borderRadius: 12,
+            maxHeight: 'calc(100dvh - 32px)',
+            maxWidth: 'calc(100vw - 32px)',
+            margin: 16,
+            overflowY: 'auto',
+            WebkitOverflowScrolling: 'touch',
             transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
           },
+        },
+      },
+      MuiPopover: {
+        defaultProps: {
+          disableScrollLock: true,
         },
       },
       MuiTooltip: {

@@ -825,7 +825,7 @@ export default function TaskDetailPanel({ open, onClose, task, initialEditingDep
       </Box>
 
       {/* Panel Body */}
-      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, height: 'calc(100vh - 65px)' }}>
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, height: { xs: 'auto', md: 'calc(100dvh - 65px)' }, minHeight: 0 }}>
         {/* Left Column (Details, Subtasks, Checklists, Comments) */}
         <Box sx={{ flex: 1, p: 3, overflowY: 'auto', bgcolor: 'background.paper' }}>
           {/* Editable Title */}

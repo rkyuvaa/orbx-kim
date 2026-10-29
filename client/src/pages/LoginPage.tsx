@@ -203,7 +203,7 @@ export default function LoginPage() {
   );
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', background: '#F8FAF8' }}>
+    <Box sx={{ display: 'flex', minHeight: '100dvh', background: '#F8FAF8' }}>
       {brandPanel}
 
       <Box

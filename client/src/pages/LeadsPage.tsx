@@ -796,8 +796,9 @@ export default function LeadsPage() {
                       borderTop: `4px solid ${col.border}`,
                       display: 'flex',
                       flexDirection: 'column',
-                      maxHeight: 'calc(100vh - 220px)',
+                      maxHeight: 'calc(100dvh - 220px)',
                       minHeight: 460,
+                      WebkitOverflowScrolling: 'touch',
                       boxShadow: '0 2px 6px rgba(0,0,0,0.02)',
                     }}
                   >

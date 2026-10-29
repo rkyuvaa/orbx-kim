@@ -62,6 +62,19 @@
   --shadow-sm: 0 1px 2px rgba(32, 48, 32, 0.04);
   --shadow-md: 0 4px 12px rgba(32, 48, 32, 0.06);
   --shadow-lg: 0 12px 28px rgba(32, 48, 32, 0.09);
+
+  /* Device Safe Area Insets & Dynamic Viewport Heights */
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --app-height: 100vh;
+}
+
+@supports (height: 100dvh) {
+  :root {
+    --app-height: 100dvh;
+  }
 }
 
 body.dark-mode {
@@ -112,7 +125,8 @@ body.dark-mode {
 html {
   -webkit-text-size-adjust: 100%;
   box-sizing: border-box;
-  overflow-x: hidden;
+  overflow-x: clip;
+  min-height: 100%;
 }
 
 *, *:before, *:after {
@@ -130,7 +144,9 @@ body {
   padding: 0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  overflow-x: hidden;
+  overflow-x: clip;
+  min-height: 100%;
+  -webkit-overflow-scrolling: touch;
   transition: background-color 0.18s ease, color 0.18s ease;
 }
 
@@ -196,7 +212,54 @@ body.dark-mode :focus-visible {
 #root {
   width: 100%;
   max-width: 100%;
-  overflow-x: hidden;
+  min-height: 100%;
+  overflow-x: clip;
+}
+
+/* Touch Momentum Scrolling for Mobile & Tablet */
+.scroll-touch {
+  -webkit-overflow-scrolling: touch;
+  overflow-x: auto;
+}
+
+.scroll-y-touch {
+  -webkit-overflow-scrolling: touch;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+}
+
+/* Safe Area Utility Classes */
+.safe-pb {
+  padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+}
+
+.safe-pt {
+  padding-top: max(8px, env(safe-area-inset-top, 0px));
+}
+
+/* 4K and Ultrawide Ergonomic Max-Width Container */
+.ultrawide-container {
+  width: 100%;
+  max-width: 1800px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Touch Targets for Touchscreens and Mobile */
+@media (pointer: coarse) {
+  button,
+  [role="button"],
+  input:not([type="checkbox"]):not([type="radio"]),
+  select {
+    min-height: 40px;
+  }
+  .touch-target {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
 }
 
 .app-main {

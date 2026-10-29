@@ -874,7 +874,7 @@ export default function HierarchicalGanttView({
       </Box>
 
       {/* ── SPLIT-PANE GANTT ─────────────────────────────────────────────── */}
-      <Box sx={{ display: 'flex', position: 'relative', height: 'calc(100vh - 320px)', minHeight: 480 }}>
+      <Box sx={{ display: 'flex', position: 'relative', height: { xs: 'calc(100dvh - 260px)', md: 'calc(100vh - 320px)' }, minHeight: 400, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
 
         {/* LEFT PANE: Task Tree */}
         <Box

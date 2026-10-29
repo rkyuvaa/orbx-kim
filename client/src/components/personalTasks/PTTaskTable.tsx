@@ -679,6 +679,12 @@ export default function PTTaskTable({
           borderTop: '1px solid',
           borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
           color: isDark ? '#94A3B8' : '#64748B',
+          '.MuiTablePagination-toolbar': {
+            flexWrap: 'wrap',
+            justifyContent: 'flex-end',
+            px: { xs: 1, sm: 2 },
+            gap: { xs: 0.5, sm: 1 },
+          },
           '.MuiTablePagination-select': {
             fontSize: '0.8rem',
           },

@@ -653,7 +653,7 @@ export default function UserManagementPage() {
       {/* Create User Drawer Modal */}
       {isCreateOpen && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', justifyContent: 'flex-end' }}>
-          <div style={{ width: '100%', maxWidth: 540, background: '#FFF', height: '100vh', overflowY: 'auto', padding: 24, boxShadow: '-4px 0 20px rgba(0,0,0,0.1)' }}>
+          <div style={{ width: '100%', maxWidth: 540, background: '#FFF', height: '100dvh', maxHeight: '100dvh', overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: 24, paddingBottom: 'max(24px, env(safe-area-inset-bottom, 0px))', boxShadow: '-4px 0 20px rgba(0,0,0,0.1)' }}>
             <h2 style={{ margin: '0 0 16px', fontSize: 20, fontWeight: 800, color: '#023020' }}>Create New User</h2>
             <form onSubmit={handleCreateSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
@@ -743,7 +743,7 @@ export default function UserManagementPage() {
       {/* Edit User 6-Tab Drawer Modal */}
       {selectedUser && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', justifyContent: 'flex-end' }}>
-          <div style={{ width: '100%', maxWidth: 650, background: '#FFF', height: '100vh', overflowY: 'auto', padding: 24, boxShadow: '-4px 0 20px rgba(0,0,0,0.1)' }}>
+          <div style={{ width: '100%', maxWidth: 650, background: '#FFF', height: '100dvh', maxHeight: '100dvh', overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: 24, paddingBottom: 'max(24px, env(safe-area-inset-bottom, 0px))', boxShadow: '-4px 0 20px rgba(0,0,0,0.1)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <div>
                 <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#023020' }}>Edit User: {selectedUser.full_name}</h2>

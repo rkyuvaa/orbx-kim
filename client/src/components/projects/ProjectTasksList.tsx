@@ -2150,7 +2150,8 @@ export default function ProjectTasksList({ projectId }: ProjectTasksListProps) {
                   p: 1.5,
                   display: 'flex',
                   flexDirection: 'column',
-                  maxHeight: 'calc(100vh - 280px)',
+                  maxHeight: { xs: 'calc(100dvh - 240px)', md: 'calc(100vh - 280px)' },
+                  WebkitOverflowScrolling: 'touch',
                   border: '1px solid',
                   borderColor: 'divider',
                 }}

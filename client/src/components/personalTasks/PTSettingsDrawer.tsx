@@ -108,6 +108,9 @@ export default function PTSettingsDrawer({
       PaperProps={{
         sx: {
           width: { xs: '100%', sm: 440 },
+          maxWidth: '100vw',
+          height: '100%',
+          maxHeight: '100dvh',
           backgroundColor: isDark ? '#14181C' : '#FFFFFF',
           p: 0,
           display: 'flex',
@@ -270,6 +273,7 @@ export default function PTSettingsDrawer({
       <Box
         sx={{
           p: 2,
+          pb: 'max(16px, env(safe-area-inset-bottom, 0px))',
           borderTop: '1px solid',
           borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
           display: 'flex',

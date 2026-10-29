@@ -153,7 +153,7 @@ export default function AccessAuditLogPage() {
       {/* JSON Diff Drawer */}
       {selectedLog && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', justifyContent: 'flex-end' }}>
-          <div style={{ width: '100%', maxWidth: 540, background: '#FFF', height: '100vh', overflowY: 'auto', padding: 24 }}>
+          <div style={{ width: '100%', maxWidth: 540, background: '#FFF', height: '100dvh', maxHeight: '100dvh', overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: 24, paddingBottom: 'max(24px, env(safe-area-inset-bottom, 0px))' }}>
             <h3 style={{ margin: '0 0 16px', fontSize: 18, fontWeight: 800, color: '#023020' }}>Audit Event Details</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>

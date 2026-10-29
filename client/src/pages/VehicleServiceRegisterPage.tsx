@@ -270,7 +270,7 @@ export default function VehicleServiceRegisterPage() {
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f8fafc', py: { xs: 2, sm: 6 } }}>
+    <Box sx={{ minHeight: '100dvh', bgcolor: '#f8fafc', py: { xs: 2, sm: 6 }, pb: 'max(24px, env(safe-area-inset-bottom, 0px))' }}>
       <Container maxWidth="sm">
         {/* Header */}
         <Box sx={{ textAlign: 'center', mb: 3 }}>

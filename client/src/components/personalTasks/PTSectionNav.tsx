@@ -116,6 +116,7 @@ export default function PTSectionNav({
           alignItems: 'stretch',
           flex: 1,
           overflowX: 'auto',
+          WebkitOverflowScrolling: 'touch',
           scrollbarWidth: 'none',
           '&::-webkit-scrollbar': { display: 'none' },
         }}

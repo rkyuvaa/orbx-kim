@@ -31,7 +31,13 @@ const BREADCRUMBS: Record<string, [string, string]> = {
   '/settings': ['Settings', 'System Settings'],
 };
 
-export default function Topbar({ onToggleSidebar }: { onToggleSidebar: () => void }) {
+interface TopbarProps {
+  onToggleSidebar: () => void;
+  isMobile?: boolean;
+  isSidebarCollapsed?: boolean;
+}
+
+export default function Topbar({ onToggleSidebar, isMobile, isSidebarCollapsed }: TopbarProps) {
   const { mode, toggleThemeMode } = useThemeMode();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const location = useLocation();
@@ -41,6 +47,8 @@ export default function Topbar({ onToggleSidebar }: { onToggleSidebar: () => voi
   const { data: dashboard } = useDashboardQuery();
   const [doLogout] = useLogoutMutation();
 
+  const isScreenMobile = useMediaQuery('(max-width:1024px)');
+  const isEffectiveMobile = isMobile !== undefined ? isMobile : isScreenMobile;
   const isSmallMobile = useMediaQuery('(max-width:600px)');
   const isTablet = useMediaQuery('(max-width:900px)');
 
@@ -57,6 +65,11 @@ export default function Topbar({ onToggleSidebar }: { onToggleSidebar: () => voi
     } catch {
       // cookie may already be gone
     }
+    try {
+      localStorage.setItem('kim_erp_logout_event', Date.now().toString());
+    } catch {
+      // storage unavailable
+    }
     dispatch(logout());
     navigate('/login', { replace: true });
   };
@@ -68,6 +81,7 @@ export default function Topbar({ onToggleSidebar }: { onToggleSidebar: () => voi
         top: 0,
         zIndex: 30,
         height: isSmallMobile ? 52 : 58,
+        paddingTop: 'env(safe-area-inset-top, 0px)',
         background: mode === 'dark' ? '#15191E' : 'rgba(255, 255, 255, 0.95)',
         backdropFilter: 'blur(8px)',
         borderBottom: mode === 'dark' ? '1px solid #262E36' : '1px solid #E2E8E2',
@@ -75,36 +89,52 @@ export default function Topbar({ onToggleSidebar }: { onToggleSidebar: () => voi
         alignItems: 'center',
         justifyContent: 'space-between',
         gap: isSmallMobile ? 8 : 14,
-        padding: isSmallMobile ? '0 10px' : '0 20px',
+        paddingLeft: isSmallMobile ? 'max(10px, env(safe-area-inset-left, 0px))' : 'max(20px, env(safe-area-inset-left, 0px))',
+        paddingRight: isSmallMobile ? 'max(10px, env(safe-area-inset-right, 0px))' : 'max(20px, env(safe-area-inset-right, 0px))',
         flexShrink: 0,
         transition: 'background-color 0.18s ease, border-color 0.18s ease',
       }}
     >
-      {/* Mobile-only drawer opener */}
-      {isSmallMobile && (
+      {/* Navigation toggle button: Drawer toggle on mobile/tablet, collapse toggle on desktop */}
+      <Tooltip title={isEffectiveMobile ? "Toggle Navigation Menu" : (isSidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar")} arrow>
         <IconButton
           onClick={onToggleSidebar}
-          aria-label="Toggle sidebar"
+          aria-label={isEffectiveMobile ? "Toggle navigation drawer" : "Toggle sidebar"}
           sx={{
             border: mode === 'dark' ? '1px solid #262E36' : '1px solid #E2E8E2',
             borderRadius: 2,
             p: 1,
             color: mode === 'dark' ? '#F3F5F7' : '#16231B',
             transition: 'all 0.15s ease',
+            display: 'inline-flex',
+            flexShrink: 0,
             '&:hover': { background: mode === 'dark' ? 'rgba(255, 255, 255, 0.06)' : 'rgba(32, 48, 32, 0.04)' },
           }}
         >
           <MenuIcon size={19} />
         </IconButton>
-      )}
+      </Tooltip>
 
-      {!isSmallMobile && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', minWidth: 0 }}>
-          {!isTablet && <span style={{ fontSize: 13, color: mode === 'dark' ? '#94A3B8' : '#7A8B80', fontWeight: 500 }}>{crumb[0]}</span>}
-          {!isTablet && <ChevronRight size={14} color={mode === 'dark' ? '#64748B' : '#9BA99F'} />}
-          <span style={{ fontSize: 13.5, fontWeight: 700, color: mode === 'dark' ? '#F3F5F7' : '#16231B' }}>{crumb[1]}</span>
-        </div>
-      )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden' }}>
+        {!isTablet && (
+          <span style={{ fontSize: 13, color: mode === 'dark' ? '#94A3B8' : '#7A8B80', fontWeight: 500, whiteSpace: 'nowrap' }}>
+            {crumb[0]}
+          </span>
+        )}
+        {!isTablet && <ChevronRight size={14} color={mode === 'dark' ? '#64748B' : '#9BA99F'} style={{ flexShrink: 0 }} />}
+        <span
+          style={{
+            fontSize: isSmallMobile ? 12.5 : 13.5,
+            fontWeight: 700,
+            color: mode === 'dark' ? '#F3F5F7' : '#16231B',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}
+        >
+          {crumb[1]}
+        </span>
+      </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: isSmallMobile ? 6 : 10, flexShrink: 0, marginLeft: 'auto' }}>
         <Tooltip title={mode === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode"} arrow>
