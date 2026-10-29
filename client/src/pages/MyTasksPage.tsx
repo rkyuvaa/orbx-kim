@@ -258,20 +258,38 @@ export default function MyTasksPage() {
   const handleToggleComplete = async (task: PTTask) => {
     const nextCompleted = !task.is_completed;
     try {
-      await updateTask({ id: task.id, data: { is_completed: nextCompleted } }).unwrap();
+      await updateTask({
+        id: task.id,
+        data: {
+          is_completed: nextCompleted,
+          status_id: nextCompleted ? 4 : 1,
+        },
+      }).unwrap();
       showToast(nextCompleted ? `Completed "${task.title}".` : `Reopened "${task.title}".`, 'success');
 
       // 10s Undo pattern
       triggerUndoToast(
         nextCompleted ? `Task completed.` : `Task reopened.`,
         async () => {
-          await updateTask({ id: task.id, data: { is_completed: !nextCompleted } }).unwrap();
+          await updateTask({
+            id: task.id,
+            data: {
+              is_completed: !nextCompleted,
+              status_id: !nextCompleted ? 4 : 1,
+            },
+          }).unwrap();
           refetchTasks();
         }
       );
 
       if (selectedTask?.id === task.id) {
-        setSelectedTask({ ...selectedTask, is_completed: nextCompleted });
+        setSelectedTask({
+          ...selectedTask,
+          is_completed: nextCompleted,
+          status_id: nextCompleted ? 4 : 1,
+          status_name: nextCompleted ? 'Completed' : 'To Do',
+          status_color: nextCompleted ? '#16C47F' : '#64748B',
+        });
       }
       refetchTasks();
     } catch {

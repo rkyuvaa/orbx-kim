@@ -554,9 +554,22 @@ def _format_task_out(
     out.task_list_name = t.task_list.name if t.task_list else None
     out.assignee_name = t.assignee.full_name if t.assignee else None
     out.created_by_name = t.creator.full_name if t.creator else None
-    out.status_name = t.status_def.name if t.status_def else None
-    out.status_color = t.status_def.color if t.status_def else "#E2E8F0"
-    out.status_category = t.status_def.category.value if t.status_def and t.status_def.category else "ACTIVE"
+    if t.is_completed:
+        out.status_name = "Completed"
+        out.status_color = "#16C47F"
+        out.status_category = "DONE"
+    elif t.cancelled_at:
+        out.status_name = "Cancelled"
+        out.status_color = "#EF4444"
+        out.status_category = "CLOSED"
+    elif t.blocked_reason:
+        out.status_name = "On Hold"
+        out.status_color = "#D97706"
+        out.status_category = "ACTIVE"
+    else:
+        out.status_name = t.status_def.name if t.status_def else "To Do"
+        out.status_color = t.status_def.color if t.status_def else "#64748B"
+        out.status_category = t.status_def.category.value if t.status_def and t.status_def.category else "ACTIVE"
 
     out.cost_center_code = t.cost_center.code if t.cost_center else None
     out.cost_center_name = t.cost_center.name if t.cost_center else None

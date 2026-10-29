@@ -174,7 +174,9 @@ export default function PTTaskTable({
     setStatusAnchor(null);
 
     if (statusType === 'completed') {
-      onToggleComplete(task);
+      if (!task.is_completed) {
+        onToggleComplete(task);
+      }
       return;
     }
 
@@ -195,11 +197,15 @@ export default function PTTaskTable({
     if (!onUpdateTask) return;
 
     if (statusType === 'todo') {
-      await onUpdateTask(task.id, {
-        status_id: 1,
-        is_completed: false,
-        blocked_reason: null,
-      });
+      if (task.is_completed) {
+        onToggleComplete(task);
+      } else {
+        await onUpdateTask(task.id, {
+          status_id: 1,
+          is_completed: false,
+          blocked_reason: null,
+        });
+      }
     } else if (statusType === 'in_progress') {
       await onUpdateTask(task.id, {
         status_id: 2,
@@ -307,6 +313,19 @@ export default function PTTaskTable({
             const isCompleted = task.is_completed;
             const isCancelled = !!task.cancelled_at;
             const isRunningTimer = activeTimerTaskId === task.id;
+
+            const displayStatus = isCompleted
+              ? { name: 'Completed', color: '#16C47F' }
+              : isCancelled
+                ? { name: 'Cancelled', color: '#EF4444' }
+                : task.blocked_reason
+                  ? { name: 'On Hold', color: '#D97706' }
+                  : {
+                      name: task.status_name && task.status_name.toLowerCase() !== 'done'
+                        ? task.status_name
+                        : (task.status_name?.toLowerCase() === 'done' ? 'Completed' : 'To Do'),
+                      color: task.status_color || '#64748B',
+                    };
             const isSelected = selectedIds.includes(task.id);
             const isEditingTitle = editingTitleTaskId === task.id;
 
@@ -576,7 +595,7 @@ export default function PTTaskTable({
                     <Chip
                       label={
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <span>{task.status_name || (isCompleted ? 'Completed' : 'To Do')}</span>
+                          <span>{displayStatus.name}</span>
                           <ChevronDown size={11} />
                         </Box>
                       }
@@ -590,13 +609,13 @@ export default function PTTaskTable({
                         height: 24,
                         fontSize: '0.72rem',
                         fontWeight: 600,
-                        backgroundColor: task.status_color ? `${task.status_color}20` : '#E2E8F0',
-                        color: isDark ? '#FFFFFF' : '#1E293B',
-                        border: '1px solid transparent',
+                        backgroundColor: `${displayStatus.color}20`,
+                        color: displayStatus.color,
+                        border: `1px solid ${displayStatus.color}40`,
                         transition: 'all 0.15s ease',
                         '&:hover': {
-                          border: '1px solid',
-                          borderColor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.25)',
+                          border: `1px solid ${displayStatus.color}`,
+                          backgroundColor: `${displayStatus.color}30`,
                         },
                       }}
                     />

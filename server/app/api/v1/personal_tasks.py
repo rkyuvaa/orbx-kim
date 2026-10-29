@@ -345,6 +345,16 @@ def update_personal_task(
             task.progress_percentage = 100.0
             task.cancelled_at = None
             task.cancellation_reason = None
+            # Automatically synchronize status_id to Completed/Done status
+            done_status = db.query(TaskStatusDef).filter(
+                or_(
+                    TaskStatusDef.name.ilike("Done"),
+                    TaskStatusDef.name.ilike("Completed"),
+                    TaskStatusDef.is_terminal.is_(True)
+                )
+            ).first()
+            if done_status:
+                task.status_id = done_status.id
             _log_pt_activity(db, task.id, current_user.id, "COMPLETED", source="user")
             # Cancel pending routine reminders
             db.query(PersonalReminder).filter(
@@ -357,6 +367,12 @@ def update_personal_task(
             task.completed_at = None
             task.completed_by = None
             task.cancelled_at = None
+            # Automatically revert status_id to To Do
+            todo_status = db.query(TaskStatusDef).filter(
+                TaskStatusDef.name.ilike("To Do")
+            ).first()
+            if todo_status:
+                task.status_id = todo_status.id
             _log_pt_activity(db, task.id, current_user.id, "REOPENED", source="user")
 
     # Tags handling
@@ -521,6 +537,11 @@ def reopen_personal_task(
     task.completed_by = None
     task.cancelled_at = None
     task.cancellation_reason = None
+    todo_status = db.query(TaskStatusDef).filter(
+        TaskStatusDef.name.ilike("To Do")
+    ).first()
+    if todo_status:
+        task.status_id = todo_status.id
 
     _log_pt_activity(db, task.id, current_user.id, "REOPENED", source="user")
     db.add(task)
