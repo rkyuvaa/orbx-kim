@@ -383,6 +383,9 @@ export default function MyTasksPage() {
         flexDirection: 'column',
         height: 'calc(100vh - 65px)',
         overflow: 'hidden',
+        mx: { xs: '-24px', md: '-24px' },
+        mt: { xs: '-20px', md: '-16px' },
+        mb: { xs: '-16px', md: '-16px' },
         backgroundColor: isDark ? '#0F1215' : '#F8FAF8',
       }}
     >

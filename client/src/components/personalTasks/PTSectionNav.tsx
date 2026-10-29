@@ -104,7 +104,7 @@ export default function PTSectionNav({
         display: 'flex',
         alignItems: 'stretch',
         justifyContent: 'space-between',
-        px: { xs: 1, sm: 2 },
+        px: 0,
         boxShadow: isDark ? '0 1px 3px rgba(0,0,0,0.2)' : '0 1px 3px rgba(0,0,0,0.03)',
         zIndex: 5,
       }}
@@ -131,10 +131,10 @@ export default function PTSectionNav({
               aria-selected={isActive}
               tabIndex={0}
               sx={{
-                flex: { xs: '0 0 auto', lg: 1 },
-                minWidth: { xs: 68, sm: 76 },
-                py: 1.2,
-                px: { xs: 1, sm: 1.5 },
+                flex: '1 1 0px',
+                minWidth: { xs: 68, sm: 72 },
+                py: 1.25,
+                px: { xs: 0.5, sm: 1 },
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
