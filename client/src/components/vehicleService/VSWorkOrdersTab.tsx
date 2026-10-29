@@ -1150,7 +1150,7 @@ export default function VSWorkOrdersTab() {
             {/* Selected Kit Master Info Card */}
             {selectedKit && (
               <Box sx={{ p: 1.5, bgcolor: '#F0FDF4', borderRadius: '8px', border: '1px solid #BBF7D0' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5, flexWrap: 'gap', gap: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5, flexWrap: 'wrap', gap: 1 }}>
                   <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#166534' }}>
                     {selectedKit.vehicle_number || selectedKit.kit_name}
                   </Typography>
@@ -1160,19 +1160,25 @@ export default function VSWorkOrdersTab() {
                     sx={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 11, backgroundColor: '#DCFCE7', color: '#15803D' }}
                   />
                 </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-                  {selectedKit.customer_name && (
-                    <Typography variant="caption" sx={{ color: '#334155' }}>
-                      Customer: <strong>{selectedKit.customer_name}</strong>
-                    </Typography>
-                  )}
-                  {selectedKit.installed_on && (
-                    <Typography variant="caption" sx={{ color: '#166534' }}>
-                      Installation Done On: <strong>{formatDate(selectedKit.installed_on)}</strong>
-                    </Typography>
-                  )}
-                  <Typography variant="caption" sx={{ color: '#64748B' }}>
-                    {availableComponents.length} component(s) tracked
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5, flexWrap: 'wrap' }}>
+                  <Typography variant="caption" sx={{ color: '#334155' }}>
+                    Customer: <strong>{selectedKit.customer_name || '—'}</strong>
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: '#334155' }}>
+                    Installed on: <strong>{
+                      (() => {
+                        const kitDate =
+                          selectedKit.installed_on ||
+                          selectedVehicleObj?.retrofit_date ||
+                          vehicles.find(
+                            (v) =>
+                              v.kit_id === selectedKit.id ||
+                              (selectedKit.vehicle_number &&
+                                v.vehicle_number.toUpperCase() === selectedKit.vehicle_number.toUpperCase())
+                          )?.retrofit_date;
+                        return kitDate ? formatDate(kitDate) : '—';
+                      })()
+                    }</strong>
                   </Typography>
                 </Box>
               </Box>
