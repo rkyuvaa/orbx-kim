@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Alert,
   Box,
@@ -49,31 +49,49 @@ import {
 } from 'lucide-react';
 
 import {
+  useCreateVSVehicleMutation,
   useGetVSComplaintsQuery,
+  useGetVSKitsQuery,
   useGetVSMaintenanceQuery,
   useGetVSVehiclesQuery,
   useReplaceVSComponentMutation,
 } from '@/api/vehicleServiceApi';
-import type { VSVehicle, VSVehicleComponent } from '@/types/vehicleService';
+import type { VSKit, VSVehicle, VSVehicleComponent } from '@/types/vehicleService';
+import { AppDropdown } from '@/components/ui/AppDropdown';
+import { useToast } from '@/components/ui/ToastHost';
 import { formatDate, formatDateTime } from '@/utils/format';
 
 export default function VSServiceHistoryTab() {
+  const { showToast } = useToast();
+  const { data: kits = [], isLoading: isKitsLoading } = useGetVSKitsQuery();
   const { data: vehicles = [], isLoading: isVehiclesLoading, refetch: refetchVehicles } = useGetVSVehiclesQuery();
+  const [createVehicle] = useCreateVSVehicleMutation();
 
+  const [selectedKitId, setSelectedKitId] = useState<number | ''>('');
   const [selectedVehicleId, setSelectedVehicleId] = useState<number | ''>('');
   const [activeSubTab, setActiveSubTab] = useState<number>(0);
 
-  const selectedVehicle: VSVehicle | undefined = vehicles.find((v) => v.id === selectedVehicleId);
+  const selectedKit: VSKit | undefined = kits.find((k) => k.id === selectedKitId);
+  const matchingVehicle: VSVehicle | undefined = vehicles.find(
+    (v) =>
+      selectedKit &&
+      (v.kit_id === selectedKit.id ||
+        (selectedKit.vehicle_number &&
+          v.vehicle_number.toUpperCase() === selectedKit.vehicle_number.toUpperCase()))
+  );
+  const effectiveVehicle: VSVehicle | undefined =
+    matchingVehicle || (selectedVehicleId ? vehicles.find((v) => v.id === selectedVehicleId) : undefined);
 
-  // Queries for selected vehicle
+  // Queries for selected vehicle / kit
+  const vehicleIdForQuery = effectiveVehicle?.id;
   const { data: vehicleComplaints = [] } = useGetVSComplaintsQuery(
-    { vehicle_id: selectedVehicle ? selectedVehicle.id : undefined },
-    { skip: !selectedVehicle },
+    { vehicle_id: vehicleIdForQuery },
+    { skip: !vehicleIdForQuery },
   );
 
   const { data: vehicleMaintenance = [] } = useGetVSMaintenanceQuery(
-    { vehicle_id: selectedVehicle ? selectedVehicle.id : undefined },
-    { skip: !selectedVehicle },
+    { vehicle_id: vehicleIdForQuery },
+    { skip: !vehicleIdForQuery },
   );
 
   const [replaceComponent, { isLoading: isReplacing }] = useReplaceVSComponentMutation();
@@ -90,31 +108,77 @@ export default function VSServiceHistoryTab() {
   };
 
   const handleConfirmReplace = async () => {
-    if (!selectedVehicle || !selectedCompForReplace || !newSerial.trim()) {
-      alert('Please specify the new serial number.');
+    if ((!effectiveVehicle && !selectedKit) || !selectedCompForReplace || !newSerial.trim()) {
+      showToast('Please specify the new serial number.', 'error');
       return;
     }
 
     try {
-      await replaceComponent({
-        vehicleId: selectedVehicle.id,
-        componentId: selectedCompForReplace.id,
-        body: {
-          new_serial_number: newSerial.trim(),
-          replaced_date: new Date().toISOString().slice(0, 10),
-          reason: replaceReason.trim() || 'Manual service replacement',
-        },
-      }).unwrap();
+      let targetVehicleId = effectiveVehicle?.id;
+      if (!targetVehicleId && selectedKit) {
+        // Auto-create vehicle in registry for this kit
+        const newVeh = await createVehicle({
+          vehicle_number: (selectedKit.vehicle_number || selectedKit.kit_number).trim().toUpperCase(),
+          kit_id: selectedKit.id,
+          owner_name: selectedKit.customer_name || 'Customer',
+          owner_phone: '0000000000',
+          retrofit_date: selectedKit.installed_on || undefined,
+          components: selectedKit.component_types.map((ct) => ({
+            component_type_id: ct.id,
+            component_type: ct.component_type,
+            component_label: ct.label,
+            serial_number: ct.serial_number || `${ct.component_type}-SN`,
+            installed_date: selectedKit.installed_on || undefined,
+          })),
+        }).unwrap();
+        targetVehicleId = newVeh.id;
+        refetchVehicles();
+      }
 
+      if (targetVehicleId) {
+        await replaceComponent({
+          vehicleId: targetVehicleId,
+          componentId: selectedCompForReplace.id,
+          body: {
+            new_serial_number: newSerial.trim().toUpperCase(),
+            replaced_date: new Date().toISOString().slice(0, 10),
+            reason: replaceReason.trim() || 'Manual service replacement',
+          },
+        }).unwrap();
+      }
+
+      showToast('Component serial replaced successfully', 'success');
       setSelectedCompForReplace(null);
       refetchVehicles();
     } catch (err: any) {
-      alert(err?.data?.detail || 'Failed to replace component serial.');
+      showToast(err?.data?.detail || 'Failed to replace component serial.', 'error');
     }
   };
 
+  const activeComponents = useMemo(() => {
+    if (effectiveVehicle?.components && effectiveVehicle.components.length > 0) {
+      return effectiveVehicle.components;
+    }
+    if (selectedKit?.component_types && selectedKit.component_types.length > 0) {
+      return selectedKit.component_types.map((ct) => ({
+        id: ct.id,
+        vehicle_id: effectiveVehicle?.id || 0,
+        component_type_id: ct.id,
+        component_type: ct.component_type,
+        component_label: ct.label,
+        serial_number: ct.serial_number || '—',
+        installed_date: selectedKit.installed_on,
+        is_active: true,
+        created_at: ct.created_at,
+        updated_at: ct.created_at,
+        history: [],
+      })) as VSVehicleComponent[];
+    }
+    return [];
+  }, [effectiveVehicle, selectedKit]);
+
   // Compile full replacement history across all components in this vehicle
-  const allHistory = (selectedVehicle?.components || []).flatMap((c) =>
+  const allHistory = (effectiveVehicle?.components || []).flatMap((c) =>
     (c.history || []).map((h) => ({
       ...h,
       component_label: c.component_label,
@@ -135,32 +199,42 @@ export default function VSServiceHistoryTab() {
           </div>
         </div>
 
-        <div style={{ minWidth: 280 }}>
-          <FormControl fullWidth size="small">
-            <InputLabel>Select Retrofitted Vehicle</InputLabel>
-            <Select
-              value={selectedVehicleId}
-              label="Select Retrofitted Vehicle"
-              onChange={(e) => setSelectedVehicleId(Number(e.target.value))}
-            >
-              {vehicles.map((v) => (
-                <MenuItem key={v.id} value={v.id}>
-                  {v.vehicle_number} — {v.owner_name} ({v.kit_number || 'Default Kit'})
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+        <div style={{ minWidth: 320 }}>
+          <AppDropdown
+            label="Select from KIT Master"
+            value={selectedKitId}
+            placeholder="Choose vehicle / kit from KIT Master"
+            allowEmpty
+            emptyLabel="Choose vehicle / kit from KIT Master..."
+            options={kits.map((k) => ({
+              value: k.id,
+              label: `${k.vehicle_number ? `${k.vehicle_number} — ` : ''}${k.kit_name} (${k.kit_number})${k.customer_name ? ` — ${k.customer_name}` : ''}`,
+            }))}
+            onChange={(val) => {
+              const kid = val ? Number(val) : '';
+              setSelectedKitId(kid);
+              const matchedVeh = vehicles.find(
+                (v) =>
+                  kid &&
+                  (v.kit_id === kid ||
+                    (kits.find((k) => k.id === kid)?.vehicle_number &&
+                      v.vehicle_number.toUpperCase() ===
+                        kits.find((k) => k.id === kid)?.vehicle_number?.toUpperCase()))
+              );
+              setSelectedVehicleId(matchedVeh ? matchedVeh.id : '');
+            }}
+          />
         </div>
       </div>
 
-      {!selectedVehicle ? (
+      {!selectedKit && !effectiveVehicle ? (
         <Paper sx={{ py: 12, textAlign: 'center', borderRadius: 3, border: '1px solid #e2e8f0', color: 'text.secondary' }}>
           <History size={56} strokeWidth={1} style={{ margin: '0 auto 16px', color: '#94a3b8' }} />
           <Typography variant="h6" fontWeight={700}>
-            Select a Vehicle to View History
+            Select a Vehicle / Kit to View History
           </Typography>
           <Typography variant="body2" sx={{ maxWidth: 460, mx: 'auto', mt: 1 }}>
-            Choose an EV retrofitted 3-wheeler from the dropdown above to inspect its active kit components, serial number audit logs, and past work orders.
+            Choose an EV retrofitted kit from the KIT Master dropdown above to inspect its tracked component serial numbers, replacement audit trail, and service history.
           </Typography>
         </Paper>
       ) : (
@@ -169,29 +243,29 @@ export default function VSServiceHistoryTab() {
           <Paper sx={{ p: 3, mb: 3, borderRadius: 3, border: '1px solid #e2e8f0' }}>
             <Grid container spacing={3} alignItems="center">
               <Grid item xs={12} md={7}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1.5 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1.5, flexWrap: 'wrap' }}>
                   <Typography variant="h5" fontWeight={900} color="#0f172a">
-                    {selectedVehicle.vehicle_number}
+                    {selectedKit?.vehicle_number || effectiveVehicle?.vehicle_number || selectedKit?.kit_name || 'Vehicle'}
                   </Typography>
                   <Chip
-                    label={`Kit: ${selectedVehicle.kit_number || 'Standard'}`}
+                    label={`Kit: ${selectedKit?.kit_number || effectiveVehicle?.kit_number || 'Standard'}`}
                     color="primary"
                     size="small"
                     sx={{ fontWeight: 700 }}
                   />
                   <Chip
-                    label={selectedVehicle.is_active ? 'Active Fleet' : 'Inactive'}
-                    color={selectedVehicle.is_active ? 'success' : 'default'}
+                    label={selectedKit ? (selectedKit.is_active ? 'Active Kit' : 'Archived') : (effectiveVehicle?.is_active ? 'Active Fleet' : 'Inactive')}
+                    color={(selectedKit ? selectedKit.is_active : effectiveVehicle?.is_active) ? 'success' : 'default'}
                     size="small"
                   />
                 </Box>
                 <Grid container spacing={2}>
                   <Grid item xs={6} sm={4}>
                     <Typography variant="caption" color="text.secondary" display="block">
-                      Owner Name
+                      Customer / Owner
                     </Typography>
                     <Typography variant="body2" fontWeight={600}>
-                      {selectedVehicle.owner_name}
+                      {selectedKit?.customer_name || effectiveVehicle?.owner_name || '—'}
                     </Typography>
                   </Grid>
                   <Grid item xs={6} sm={4}>
@@ -199,7 +273,7 @@ export default function VSServiceHistoryTab() {
                       Contact Phone
                     </Typography>
                     <Typography variant="body2" fontWeight={600}>
-                      {selectedVehicle.owner_phone}
+                      {effectiveVehicle?.owner_phone || '—'}
                     </Typography>
                   </Grid>
                   <Grid item xs={6} sm={4}>
@@ -207,7 +281,7 @@ export default function VSServiceHistoryTab() {
                       Chassis / Frame No
                     </Typography>
                     <Typography variant="body2" fontWeight={600}>
-                      {selectedVehicle.chassis_number || '—'}
+                      {effectiveVehicle?.chassis_number || '—'}
                     </Typography>
                   </Grid>
                   <Grid item xs={6} sm={4}>
@@ -215,7 +289,7 @@ export default function VSServiceHistoryTab() {
                       Installation Done On
                     </Typography>
                     <Typography variant="body2" fontWeight={600}>
-                      {selectedVehicle.retrofit_date ? formatDate(selectedVehicle.retrofit_date) : '—'}
+                      {selectedKit?.installed_on ? formatDate(selectedKit.installed_on) : effectiveVehicle?.retrofit_date ? formatDate(effectiveVehicle.retrofit_date) : '—'}
                     </Typography>
                   </Grid>
                   <Grid item xs={6} sm={4}>
@@ -223,7 +297,7 @@ export default function VSServiceHistoryTab() {
                       Warranty Expiry
                     </Typography>
                     <Typography variant="body2" fontWeight={600}>
-                      {selectedVehicle.warranty_expiry ? formatDate(selectedVehicle.warranty_expiry) : '—'}
+                      {effectiveVehicle?.warranty_expiry ? formatDate(effectiveVehicle.warranty_expiry) : '—'}
                     </Typography>
                   </Grid>
                   <Grid item xs={6} sm={4}>
@@ -231,7 +305,7 @@ export default function VSServiceHistoryTab() {
                       Recorded Mileage
                     </Typography>
                     <Typography variant="body2" fontWeight={600}>
-                      {selectedVehicle.total_mileage_km} KM
+                      {effectiveVehicle?.total_mileage_km || 0} KM
                     </Typography>
                   </Grid>
                 </Grid>
@@ -253,22 +327,26 @@ export default function VSServiceHistoryTab() {
                     <Typography variant="caption" fontWeight={700} color="text.secondary">
                       QR REGISTRATION TOKEN
                     </Typography>
-                    <Button
-                      size="small"
-                      href={`/vs/register/${selectedVehicle.qr_token}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      sx={{ textTransform: 'none', fontSize: 11 }}
-                    >
-                      Open Form
-                    </Button>
+                    {effectiveVehicle?.qr_token && (
+                      <Button
+                        size="small"
+                        href={`/vs/register/${effectiveVehicle.qr_token}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        sx={{ textTransform: 'none', fontSize: 11 }}
+                      >
+                        Open Form
+                      </Button>
+                    )}
                   </Box>
                   <Typography variant="caption" sx={{ fontFamily: 'monospace', bgcolor: '#ffffff', p: 1, borderRadius: 1, border: '1px solid #cbd5e1' }}>
-                    {selectedVehicle.qr_token}
+                    {effectiveVehicle?.qr_token || 'Available once vehicle is assigned'}
                   </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    URL: {window.location.origin}/vs/register/{selectedVehicle.qr_token}
-                  </Typography>
+                  {effectiveVehicle?.qr_token && (
+                    <Typography variant="caption" color="text.secondary">
+                      URL: {window.location.origin}/vs/register/{effectiveVehicle.qr_token}
+                    </Typography>
+                  )}
                 </Box>
               </Grid>
             </Grid>
@@ -281,7 +359,7 @@ export default function VSServiceHistoryTab() {
               onChange={(_, val) => setActiveSubTab(val)}
               sx={{ px: 2, borderBottom: '1px solid #e2e8f0' }}
             >
-              <Tab label={`Active Kit Components (${selectedVehicle.components?.length || 0})`} sx={{ textTransform: 'none', fontWeight: 700 }} />
+              <Tab label={`Active Kit Components (${activeComponents.length})`} sx={{ textTransform: 'none', fontWeight: 700 }} />
               <Tab label={`Component Replacement History (${allHistory.length})`} sx={{ textTransform: 'none', fontWeight: 700 }} />
               <Tab label={`Work Orders & Maintenance (${vehicleComplaints.length + vehicleMaintenance.length})`} sx={{ textTransform: 'none', fontWeight: 700 }} />
             </Tabs>
@@ -292,16 +370,16 @@ export default function VSServiceHistoryTab() {
                 <Box>
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                     <Typography variant="subtitle2" fontWeight={800}>
-                      Currently Fitted Components (Kit: {selectedVehicle.kit_number || 'Default'})
+                      Currently Fitted Components (Kit: {selectedKit?.kit_number || effectiveVehicle?.kit_number || 'Default'})
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
                       Each component is tracked with its unique serial number for warranty and failure analysis
                     </Typography>
                   </Box>
 
-                  {!selectedVehicle.components || selectedVehicle.components.length === 0 ? (
+                  {activeComponents.length === 0 ? (
                     <Box sx={{ py: 6, textAlign: 'center', color: 'text.secondary' }}>
-                      <Typography variant="body2">No components registered for this vehicle.</Typography>
+                      <Typography variant="body2">No components registered for this kit / vehicle.</Typography>
                     </Box>
                   ) : (
                     <TableContainer>
@@ -317,7 +395,7 @@ export default function VSServiceHistoryTab() {
                           </TableRow>
                         </TableHead>
                         <TableBody>
-                          {selectedVehicle.components.map((comp) => (
+                          {activeComponents.map((comp) => (
                             <TableRow key={comp.id} hover>
                               <TableCell sx={{ fontWeight: 700 }}>{comp.component_label}</TableCell>
                               <TableCell>
@@ -326,7 +404,7 @@ export default function VSServiceHistoryTab() {
                               <TableCell sx={{ fontFamily: 'monospace', fontWeight: 700, color: '#2563eb' }}>
                                 {comp.serial_number}
                               </TableCell>
-                              <TableCell>{comp.installed_date || '—'}</TableCell>
+                              <TableCell>{comp.installed_date ? formatDate(comp.installed_date) : '—'}</TableCell>
                               <TableCell>
                                 <Chip
                                   label={`${comp.history?.length || 0} replaced`}
