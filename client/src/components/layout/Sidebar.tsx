@@ -465,11 +465,11 @@ export default function Sidebar({
           {!collapsed ? (
             <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
               <img
-                src="/logo.svg"
-                alt="KIM-One"
+                src="/logo-white.svg"
+                alt="Konwert India Motors"
                 style={{
                   height: 38,
-                  maxWidth: 140,
+                  maxWidth: 175,
                   objectFit: 'contain',
                 }}
               />
@@ -477,11 +477,11 @@ export default function Sidebar({
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <img
-                src="/logo.svg"
-                alt="KIM-One"
+                src="/leaf-white.svg"
+                alt="Konwert India Motors"
                 style={{
-                  height: 28,
-                  maxWidth: 32,
+                  height: 30,
+                  width: 30,
                   objectFit: 'contain',
                 }}
               />
