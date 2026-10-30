@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Card,
@@ -57,7 +58,6 @@ import {
   useReplaceVSComponentMutation,
 } from '@/api/vehicleServiceApi';
 import type { VSKit, VSVehicle, VSVehicleComponent } from '@/types/vehicleService';
-import { AppDropdown } from '@/components/ui/AppDropdown';
 import { useToast } from '@/components/ui/ToastHost';
 import { formatDate, formatDateTime } from '@/utils/format';
 
@@ -70,6 +70,7 @@ export default function VSServiceHistoryTab() {
   const [selectedKitId, setSelectedKitId] = useState<number | ''>('');
   const [selectedVehicleId, setSelectedVehicleId] = useState<number | ''>('');
   const [activeSubTab, setActiveSubTab] = useState<number>(0);
+  const [kitSearchInput, setKitSearchInput] = useState('');
 
   const selectedKit: VSKit | undefined = kits.find((k) => k.id === selectedKitId);
   const matchingVehicle: VSVehicle | undefined = vehicles.find(
@@ -186,6 +187,57 @@ export default function VSServiceHistoryTab() {
     })),
   ).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
+  // Build Autocomplete options — only shown when input has ≥4 characters
+  type KitOption = { id: number; label: string };
+  const kitOptions = useMemo<KitOption[]>(() => {
+    const q = kitSearchInput.trim().toLowerCase();
+    if (q.length < 4) return [];
+    return kits
+      .filter((k) => {
+        const vehicleNum = (k.vehicle_number || '').toLowerCase();
+        const customerName = (k.customer_name || '').toLowerCase();
+        const kitName = (k.kit_name || '').toLowerCase();
+        const kitNumber = (k.kit_number || '').toLowerCase();
+        return (
+          vehicleNum.includes(q) ||
+          customerName.includes(q) ||
+          kitName.includes(q) ||
+          kitNumber.includes(q)
+        );
+      })
+      .map((k) => ({
+        id: k.id,
+        label: `${k.vehicle_number ? `${k.vehicle_number} — ` : ''}${k.kit_name} (${k.kit_number})${k.customer_name ? ` — ${k.customer_name}` : ''}`,
+      }));
+  }, [kits, kitSearchInput]);
+
+  const selectedKitOption = useMemo<KitOption | null>(() => {
+    if (!selectedKitId) return null;
+    const fromOptions = kitOptions.find((o) => o.id === selectedKitId);
+    if (fromOptions) return fromOptions;
+    // Fall back to building from kits list so the value persists after selection
+    const k = kits.find((k) => k.id === selectedKitId);
+    if (!k) return null;
+    return {
+      id: k.id,
+      label: `${k.vehicle_number ? `${k.vehicle_number} — ` : ''}${k.kit_name} (${k.kit_number})${k.customer_name ? ` — ${k.customer_name}` : ''}`,
+    };
+  }, [selectedKitId, kitOptions, kits]);
+
+  const handleKitSelect = (option: KitOption | null) => {
+    const kid = option ? option.id : '';
+    setSelectedKitId(kid);
+    const matchedVeh = vehicles.find(
+      (v) =>
+        kid &&
+        (v.kit_id === kid ||
+          (kits.find((k) => k.id === kid)?.vehicle_number &&
+            v.vehicle_number.toUpperCase() ===
+              kits.find((k) => k.id === kid)?.vehicle_number?.toUpperCase()))
+    );
+    setSelectedVehicleId(matchedVeh ? matchedVeh.id : '');
+  };
+
   return (
     <div>
       {/* Header matching CRM */}
@@ -200,28 +252,73 @@ export default function VSServiceHistoryTab() {
         </div>
 
         <div style={{ minWidth: 320 }}>
-          <AppDropdown
-            label="Select from KIT Master"
-            value={selectedKitId}
-            placeholder="Choose vehicle / kit from KIT Master"
-            allowEmpty
-            emptyLabel="Choose vehicle / kit from KIT Master..."
-            options={kits.map((k) => ({
-              value: k.id,
-              label: `${k.vehicle_number ? `${k.vehicle_number} — ` : ''}${k.kit_name} (${k.kit_number})${k.customer_name ? ` — ${k.customer_name}` : ''}`,
-            }))}
-            onChange={(val) => {
-              const kid = val ? Number(val) : '';
-              setSelectedKitId(kid);
-              const matchedVeh = vehicles.find(
-                (v) =>
-                  kid &&
-                  (v.kit_id === kid ||
-                    (kits.find((k) => k.id === kid)?.vehicle_number &&
-                      v.vehicle_number.toUpperCase() ===
-                        kits.find((k) => k.id === kid)?.vehicle_number?.toUpperCase()))
-              );
-              setSelectedVehicleId(matchedVeh ? matchedVeh.id : '');
+          <Autocomplete<KitOption>
+            options={kitOptions}
+            getOptionLabel={(opt) => opt.label}
+            isOptionEqualToValue={(opt, val) => opt.id === val.id}
+            value={selectedKitOption}
+            inputValue={kitSearchInput}
+            onInputChange={(_e, val, reason) => {
+              if (reason !== 'reset') setKitSearchInput(val);
+            }}
+            onChange={(_e, val) => {
+              handleKitSelect(val);
+              if (val) setKitSearchInput(val.label);
+            }}
+            filterOptions={(opts) => opts}
+            noOptionsText={
+              kitSearchInput.trim().length < 4
+                ? 'Type at least 4 characters to search'
+                : 'No matching vehicle / kit found'
+            }
+            loading={isKitsLoading}
+            clearOnBlur={false}
+            blurOnSelect
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                size="small"
+                label="Search Vehicle / Kit"
+                placeholder="Type vehicle number or name (min. 4 chars)"
+                InputProps={{
+                  ...params.InputProps,
+                  endAdornment: (
+                    <>
+                      {isKitsLoading ? <CircularProgress size={16} /> : null}
+                      {params.InputProps.endAdornment}
+                    </>
+                  ),
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '8px',
+                    backgroundColor: '#FFFFFF',
+                    fontSize: 13,
+                    '& fieldset': { borderColor: '#E2E8E2' },
+                    '&:hover fieldset': { borderColor: '#023020' },
+                    '&.Mui-focused fieldset': { borderColor: '#023020', borderWidth: '1.5px' },
+                  },
+                  '& .MuiInputLabel-root': { fontSize: 13, fontWeight: 600, color: '#526356' },
+                  '& .MuiInputLabel-root.Mui-focused': { color: '#023020' },
+                }}
+              />
+            )}
+            renderOption={(props, opt) => (
+              <li {...props} key={opt.id}>
+                <Typography sx={{ fontSize: 13 }}>{opt.label}</Typography>
+              </li>
+            )}
+            slotProps={{
+              paper: {
+                sx: {
+                  borderRadius: '8px',
+                  border: '1px solid #E2E8E2',
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                  mt: 0.5,
+                  '& .MuiAutocomplete-listbox': { py: 0.5 },
+                  '& .MuiAutocomplete-option': { fontSize: 13, py: 1, px: 1.5 },
+                },
+              },
             }}
           />
         </div>
@@ -234,7 +331,7 @@ export default function VSServiceHistoryTab() {
             Select a Vehicle / Kit to View History
           </Typography>
           <Typography variant="body2" sx={{ maxWidth: 460, mx: 'auto', mt: 1 }}>
-            Choose an EV retrofitted kit from the KIT Master dropdown above to inspect its tracked component serial numbers, replacement audit trail, and service history.
+            Search by vehicle number or customer name (minimum 4 characters) to inspect its tracked component serial numbers, replacement audit trail, and service history.
           </Typography>
         </Paper>
       ) : (
