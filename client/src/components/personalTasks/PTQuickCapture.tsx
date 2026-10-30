@@ -17,10 +17,9 @@ import {
   AlertCircle,
   Tag as TagIcon,
   Plus,
-  Pin,
 } from 'lucide-react';
 import { format, addDays, nextDay } from 'date-fns';
-import { PTTaskCreate, useGetPersonalTagsQuery } from '@/api/personalTasksApi';
+import { PTTaskCreate, useGetPersonalTagsQuery, useDeletePersonalTagMutation } from '@/api/personalTasksApi';
 
 interface PTQuickCaptureProps {
   onQuickAdd: (task: PTTaskCreate) => Promise<void>;
@@ -43,24 +42,14 @@ export default function PTQuickCapture({ onQuickAdd, isLoading }: PTQuickCapture
 
   // Fetch all existing personal tags previously typed by user
   const { data: existingTags = [] } = useGetPersonalTagsQuery();
+  const [deleteTag] = useDeletePersonalTagMutation();
 
-  // Sticky tag pin state: whether to preserve tags for consecutive entries
-  const [keepTags, setKeepTags] = useState<boolean>(() => {
+  const handleDeleteTag = async (tagToDelete: string) => {
     try {
-      return localStorage.getItem('kim_pt_keep_tags') === 'true';
-    } catch {
-      return false;
+      await deleteTag(tagToDelete).unwrap();
+    } catch (err) {
+      console.error('Failed to delete tag', err);
     }
-  });
-
-  const handleToggleKeepTags = () => {
-    setKeepTags((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem('kim_pt_keep_tags', String(next));
-      } catch {}
-      return next;
-    });
   };
 
   // Natural Language Parser
@@ -210,13 +199,7 @@ export default function PTQuickCapture({ onQuickAdd, isLoading }: PTQuickCapture
       tag_names: submittedTags.length > 0 ? submittedTags : undefined,
     });
 
-    if (keepTags && submittedTags.length > 0) {
-      // Auto-retain the tags for the next task entry!
-      const tagSuffix = submittedTags.map((t) => `#${t}`).join(' ');
-      setInputVal(`${tagSuffix} `);
-    } else {
-      setInputVal('');
-    }
+    setInputVal('');
   };
 
   const getPriorityColor = (p: string) => {
@@ -284,57 +267,6 @@ export default function PTQuickCapture({ onQuickAdd, isLoading }: PTQuickCapture
               },
             }}
           />
-
-          {/* Sticky Tag Mode Pin Toggle */}
-          <Tooltip
-            title={
-              keepTags
-                ? 'Keep Tags: ON (Tags stay active for next task entry)'
-                : 'Keep Tags: OFF (Click to retain tags on next entry)'
-            }
-            arrow
-          >
-            <Button
-              type="button"
-              variant="outlined"
-              onClick={handleToggleKeepTags}
-              size="small"
-              startIcon={
-                <Pin
-                  size={14}
-                  style={{
-                    transform: keepTags ? 'rotate(45deg)' : 'none',
-                    transition: 'transform 0.15s ease',
-                  }}
-                />
-              }
-              sx={{
-                height: 38,
-                whiteSpace: 'nowrap',
-                px: 1.5,
-                borderRadius: 2,
-                textTransform: 'none',
-                fontWeight: 600,
-                fontSize: '0.8rem',
-                border: '1px solid',
-                borderColor: keepTags
-                  ? isDark ? '#16C47F' : '#16C47F'
-                  : isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)',
-                backgroundColor: keepTags
-                  ? isDark ? 'rgba(22, 196, 127, 0.15)' : 'rgba(22, 196, 127, 0.1)'
-                  : 'transparent',
-                color: keepTags
-                  ? isDark ? '#16C47F' : '#148C5B'
-                  : isDark ? '#94A3B8' : '#64748B',
-                '&:hover': {
-                  borderColor: isDark ? '#16C47F' : '#16C47F',
-                  backgroundColor: isDark ? 'rgba(22, 196, 127, 0.2)' : 'rgba(22, 196, 127, 0.15)',
-                },
-              }}
-            >
-              {keepTags ? 'Keep Tags: ON' : 'Keep Tags'}
-            </Button>
-          </Tooltip>
 
           <Button
             type="submit"
@@ -438,15 +370,26 @@ export default function PTQuickCapture({ onQuickAdd, isLoading }: PTQuickCapture
                   size="small"
                   label={`#${tag}`}
                   onClick={() => handleToggleTag(tag)}
+                  onDelete={(e) => {
+                    e.stopPropagation();
+                    handleDeleteTag(tag);
+                  }}
                   clickable
                   variant={isSelected ? 'filled' : 'outlined'}
                   sx={{
-                    height: 22,
+                    height: 24,
                     fontSize: '0.7rem',
                     fontWeight: 600,
                     borderRadius: 1.5,
                     cursor: 'pointer',
                     transition: 'all 0.15s ease',
+                    '& .MuiChip-deleteIcon': {
+                      fontSize: 14,
+                      color: isDark ? '#94A3B8' : '#64748B',
+                      '&:hover': {
+                        color: '#EF4444',
+                      },
+                    },
                     ...(isSelected
                       ? {
                           backgroundColor: isDark ? 'rgba(22, 196, 127, 0.22)' : 'rgba(22, 196, 127, 0.15)',

@@ -428,6 +428,14 @@ export const personalTasksApi = baseApi.injectEndpoints({
       invalidatesTags: ['PersonalTasks'],
     }),
 
+    deletePersonalReminder: build.mutation<{ success: boolean }, number>({
+      query: (reminderId) => ({
+        url: `/tasks/personal/reminders/${reminderId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['PersonalTasks'],
+    }),
+
     // Templates
     getPersonalTemplates: build.query<PersonalTemplate[], void>({
       query: () => '/tasks/personal/templates',
@@ -455,6 +463,14 @@ export const personalTasksApi = baseApi.injectEndpoints({
     getPersonalTags: build.query<string[], void>({
       query: () => '/tasks/personal/tags',
       providesTags: [{ type: 'PersonalTasks', id: 'TAGS' }],
+    }),
+
+    deletePersonalTag: build.mutation<{ success: boolean }, string>({
+      query: (tagName) => ({
+        url: `/tasks/personal/tags/${encodeURIComponent(tagName)}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['PersonalTasks', { type: 'PersonalTasks', id: 'TAGS' }],
     }),
 
     searchPersonalTasks: build.query<PTTask[], string>({
@@ -495,9 +511,11 @@ export const {
   useGetPersonalRemindersQuery,
   useCreatePersonalReminderMutation,
   useSnoozePersonalReminderMutation,
+  useDeletePersonalReminderMutation,
   useGetPersonalTemplatesQuery,
   useCreatePersonalTemplateMutation,
   useInstantiatePersonalTemplateMutation,
   useGetPersonalTagsQuery,
+  useDeletePersonalTagMutation,
   useSearchPersonalTasksQuery,
 } = personalTasksApi;

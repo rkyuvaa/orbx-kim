@@ -1311,10 +1311,53 @@ def create_personal_reminder(
         idempotency_key=idemp_key
     )
     db.add(reminder)
+
+    task = db.get(Task, task_id)
+    if task:
+        task.reminder_at = data.scheduled_at
+        task.reminder_status = "PENDING"
+
     _log_pt_activity(db, task_id, current_user.id, "REMINDER_SCHEDULED", new_val=data.scheduled_at.isoformat(), source="reminder-engine")
     db.commit()
     db.refresh(reminder)
     return reminder
+
+
+@router.delete("/reminders/{reminder_id}")
+def delete_personal_reminder(
+    reminder_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Delete a scheduled reminder"""
+    reminder = db.query(PersonalReminder).filter(
+        PersonalReminder.id == reminder_id,
+        PersonalReminder.user_id == current_user.id
+    ).first()
+    if not reminder:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reminder not found")
+
+    task_id = reminder.task_id
+    db.delete(reminder)
+
+    next_reminder = db.query(PersonalReminder).filter(
+        PersonalReminder.task_id == task_id,
+        PersonalReminder.status.in_(["pending", "snoozed"]),
+        PersonalReminder.id != reminder_id
+    ).order_by(PersonalReminder.scheduled_at.asc()).first()
+
+    task = db.get(Task, task_id)
+    if task:
+        if next_reminder:
+            task.reminder_at = next_reminder.scheduled_at
+            task.reminder_status = "PENDING"
+        else:
+            task.reminder_at = None
+            task.reminder_status = None
+
+    _log_pt_activity(db, task_id, current_user.id, "REMINDER_DELETED", source="reminder-engine")
+    db.commit()
+    return {"success": True}
 
 
 @router.post("/reminders/{reminder_id}/snooze", response_model=PersonalReminderOut)
@@ -1336,6 +1379,11 @@ def snooze_personal_reminder(
     reminder.scheduled_at = new_time
     reminder.status = "snoozed"
     reminder.idempotency_key = f"{reminder.task_id}_{reminder.reminder_type}_{new_time.isoformat()}"
+
+    task = db.get(Task, reminder.task_id)
+    if task:
+        task.reminder_at = new_time
+        task.reminder_status = "PENDING"
 
     _log_pt_activity(db, reminder.task_id, current_user.id, "REMINDER_SNOOZED", new_val=f"{minutes} mins", source="reminder-engine")
     db.add(reminder)
@@ -1550,6 +1598,48 @@ def get_personal_tags(
     ).distinct().all()
 
     return [t[0] for t in tags]
+
+
+@router.delete("/tags/{tag_name}")
+def delete_personal_tag(
+    tag_name: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Delete a personal tag from user's tasks and mappings"""
+    clean_target = tag_name.strip().lstrip("#")
+    if not clean_target:
+        return {"success": True}
+
+    user_tasks = db.query(Task).filter(
+        Task.is_personal.is_(True),
+        Task.created_by == current_user.id
+    ).all()
+    user_task_ids = [t.id for t in user_tasks]
+
+    # Find tag object
+    tag_obj = db.query(TaskTag).filter(TaskTag.name.ilike(clean_target)).first()
+    if tag_obj and user_task_ids:
+        # Delete mappings for this user's personal tasks
+        db.query(TaskTagMap).filter(
+            TaskTagMap.tag_id == tag_obj.id,
+            TaskTagMap.task_id.in_(user_task_ids)
+        ).delete(synchronize_session=False)
+
+        # If no tasks anywhere reference this tag, remove it
+        remaining_maps = db.query(TaskTagMap).filter(TaskTagMap.tag_id == tag_obj.id).count()
+        if remaining_maps == 0:
+            db.delete(tag_obj)
+
+    # Clean up comma-separated tags string on user's tasks
+    for t in user_tasks:
+        if t.tags:
+            parts = [p.strip() for p in t.tags.replace("#", "").split(",") if p.strip()]
+            new_parts = [p for p in parts if p.lower() != clean_target.lower()]
+            t.tags = ",".join(new_parts) if new_parts else None
+
+    db.commit()
+    return {"success": True}
 
 
 @router.get("/search", response_model=List[TaskOut])

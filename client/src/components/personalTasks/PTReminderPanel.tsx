@@ -10,7 +10,7 @@ import {
   Tooltip,
   useTheme,
 } from '@mui/material';
-import { Bell, Clock, AlertCircle, Plus, Check } from 'lucide-react';
+import { Bell, Clock, AlertCircle, Plus, Check, Trash2 } from 'lucide-react';
 import { PersonalReminder } from '@/api/personalTasksApi';
 import { formatStandardDateTime } from '@/utils/format';
 
@@ -20,6 +20,7 @@ interface PTReminderPanelProps {
   reminders: PersonalReminder[];
   onCreateReminder: (reminderType: string, scheduledAt: string) => Promise<void>;
   onSnoozeReminder: (reminderId: number, minutes: number) => Promise<void>;
+  onDeleteReminder?: (reminderId: number) => Promise<void>;
 }
 
 export default function PTReminderPanel({
@@ -28,6 +29,7 @@ export default function PTReminderPanel({
   reminders,
   onCreateReminder,
   onSnoozeReminder,
+  onDeleteReminder,
 }: PTReminderPanelProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
@@ -36,7 +38,11 @@ export default function PTReminderPanel({
 
   const handlePreset = async (preset: '1d' | '1h' | 'due') => {
     if (!dueDate) return;
-    const due = new Date(`${dueDate}T09:00:00Z`);
+    const cleanDate = typeof dueDate === 'string' ? dueDate.split('T')[0] : '';
+    if (!cleanDate) return;
+    const parts = cleanDate.split('-').map(Number);
+    if (parts.length < 3 || isNaN(parts[0])) return;
+    const due = new Date(parts[0], parts[1] - 1, parts[2], 9, 0, 0);
     let scheduled: Date;
 
     if (preset === '1d') {
@@ -172,7 +178,7 @@ export default function PTReminderPanel({
                 </Typography>
               </Box>
 
-              <Box sx={{ display: 'flex', gap: 0.5 }}>
+              <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
                 <Tooltip title="Snooze 15 minutes">
                   <Button
                     size="small"
@@ -193,6 +199,21 @@ export default function PTReminderPanel({
                     +1h
                   </Button>
                 </Tooltip>
+                {onDeleteReminder && (
+                  <Tooltip title="Delete reminder">
+                    <IconButton
+                      size="small"
+                      onClick={() => onDeleteReminder(r.id)}
+                      sx={{
+                        color: isDark ? '#94A3B8' : '#64748B',
+                        '&:hover': { color: '#EF4444' },
+                        p: 0.5,
+                      }}
+                    >
+                      <Trash2 size={14} />
+                    </IconButton>
+                  </Tooltip>
+                )}
               </Box>
             </Paper>
           ))

@@ -83,12 +83,6 @@ export default function PTSectionNav({
     { id: 'all-tasks', label: 'All Tasks', icon: ListTodo },
     { id: 'overdue', label: 'Overdue', icon: AlertTriangle, badge: overdueCount, badgeColor: 'error' },
     { id: 'completed', label: 'Completed', icon: CheckCircle2 },
-    { id: 'kanban', label: 'Kanban Board', icon: LayoutGrid },
-    { id: 'calendar', label: 'Calendar View', icon: Calendar },
-    { id: 'workload', label: 'Workload Overview', icon: BarChart3 },
-    { id: 'weekly-workload', label: 'Weekly Workload', icon: BarChart2 },
-    { id: 'weekly-review', label: 'Weekly Review', icon: CalendarCheck },
-    { id: 'time-reports', label: 'Time Reports', icon: Clock },
     { id: 'activity', label: 'Activity Timeline', icon: Activity },
     { id: 'archive', label: 'Archive', icon: Archive },
   ];

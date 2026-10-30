@@ -112,6 +112,7 @@ interface PTDetailDrawerProps {
   onDeleteTimeEntry: (entryId: number) => Promise<void>;
   onCreateReminder: (reminderType: string, scheduledAt: string) => Promise<void>;
   onSnoozeReminder: (reminderId: number, minutes: number) => Promise<void>;
+  onDeleteReminder?: (reminderId: number) => Promise<void>;
 }
 
 export default function PTDetailDrawer({
@@ -137,6 +138,7 @@ export default function PTDetailDrawer({
   onDeleteTimeEntry,
   onCreateReminder,
   onSnoozeReminder,
+  onDeleteReminder,
 }: PTDetailDrawerProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
@@ -258,9 +260,9 @@ export default function PTDetailDrawer({
       onClose={handleClose}
       PaperProps={{
         sx: {
-          width: { xs: '100%', md: '82vw', lg: '74vw', xl: '68vw' },
-          minWidth: { md: 840 },
-          maxWidth: { xs: '100vw', xl: 1280 },
+          width: { xs: '100%', md: '72vw', lg: '62vw', xl: '56vw' },
+          minWidth: { md: 740 },
+          maxWidth: { xs: '100vw', xl: 1100 },
           height: '100%',
           maxHeight: '100dvh',
           backgroundColor: isDark ? '#14181C' : '#FFFFFF',
@@ -361,11 +363,11 @@ export default function PTDetailDrawer({
           flexDirection: { xs: 'column', md: 'row' },
         }}
       >
-        {/* Left Column (50%): Task Details, Subtasks, Time, Audit Tabs */}
+        {/* Left Column (65%): Task Details, Subtasks, Time, Audit Tabs */}
         <Box
           sx={{
-            flex: 1,
-            width: { xs: '100%', md: '50%' },
+            flex: { md: '1 1 65%' },
+            width: { xs: '100%', md: '65%' },
             borderRight: { md: '1px solid' },
             borderColor: { md: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' },
             display: 'flex',
@@ -642,6 +644,7 @@ export default function PTDetailDrawer({
                   reminders={reminders}
                   onCreateReminder={onCreateReminder}
                   onSnoozeReminder={onSnoozeReminder}
+                  onDeleteReminder={onDeleteReminder}
                 />
               </>
             )}
@@ -679,11 +682,11 @@ export default function PTDetailDrawer({
           </Box>
         </Box>
 
-        {/* Right Column (50%): Task Log Notes & Chronological Timeline */}
+        {/* Right Column (35%): Task Log Notes & Chronological Timeline (reduced horizontally by 30%) */}
         <Box
           sx={{
-            flex: 1,
-            width: { xs: '100%', md: '50%' },
+            flex: { md: '0 0 35%' },
+            width: { xs: '100%', md: '35%' },
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
@@ -720,9 +723,6 @@ export default function PTDetailDrawer({
                 }}
               />
             </Box>
-            <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 500 }}>
-              Chronological Timeline
-            </Typography>
           </Box>
 
           {/* Scrollable Container with Capture Box + Timeline */}
