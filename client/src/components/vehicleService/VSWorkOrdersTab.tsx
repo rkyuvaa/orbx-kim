@@ -41,15 +41,17 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock,
-  Cpu,
-  Download,
-  ExternalLink,
-  Filter,
-  History,
-  MapPin,
-  MessageSquare,
-  MoreVertical,
-  Plus,
+    Cpu,
+    Download,
+    ExternalLink,
+    FileText,
+    Filter,
+    History,
+    Image,
+    MapPin,
+    MessageSquare,
+    MoreVertical,
+    Plus,
   RefreshCw,
   Search,
   Send,
@@ -118,7 +120,7 @@ interface CustomFieldRendererProps {
 }
 
 function CustomFieldRenderer({ field, value, onChange, users, uploadFile, disabled = false }: CustomFieldRendererProps) {
-  const [filePreview, setFilePreview] = useState<string | null>(null);
+  const [filePreview, setFilePreview] = useState<{ previewUrl: string | null; originalName: string; mimeType: string | null } | null>(null);
   const [uploading, setUploading] = useState(false);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -129,13 +131,37 @@ function CustomFieldRenderer({ field, value, onChange, users, uploadFile, disabl
     try {
       const result = await uploadFile(file);
       onChange(field.id, result.filename); // Store filename as value
-      setFilePreview(result.preview_url || result.url);
+      setFilePreview({
+        previewUrl: result.preview_url || result.url,
+        originalName: result.original_name,
+        mimeType: result.mime_type,
+      });
     } catch (err) {
       console.error('File upload failed:', err);
     } finally {
       setUploading(false);
     }
   };
+
+  const handleDownload = () => {
+    if (filePreview?.previewUrl) {
+      const link = document.createElement('a');
+      link.href = filePreview.previewUrl;
+      link.download = filePreview.originalName || 'file';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
+  const handlePreview = () => {
+    if (filePreview?.previewUrl) {
+      window.open(filePreview.previewUrl, '_blank');
+    }
+  };
+
+  const isImage = filePreview?.mimeType?.startsWith('image/') || false;
+  const isPdf = filePreview?.mimeType === 'application/pdf' || filePreview?.originalName?.toLowerCase().endsWith('.pdf');
 
   const handleValueChange = (newValue: any) => {
     onChange(field.id, newValue);
@@ -261,20 +287,49 @@ function CustomFieldRenderer({ field, value, onChange, users, uploadFile, disabl
           {uploading ? 'Uploading...' : 'Select File'}
         </Button>
         {filePreview && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1, bgcolor: '#f5f5f5', borderRadius: 1 }}>
-            <Download size={16} color="primary" />
-            <Typography variant="body2" color="primary" sx={{ flex: 1, cursor: 'pointer' }} onClick={() => window.open(filePreview, '_blank')}>
-              {field.options?.[0]?.label || 'Uploaded File'}
-            </Typography>
-            <IconButton size="small" onClick={() => { setFilePreview(null); onChange(field.id, ''); }}>
-              <X size={14} />
-            </IconButton>
-          </Box>
-        )}
-        {field.help_text && <Typography variant="caption" color="text.secondary">{field.help_text}</Typography>}
-      </Box>
-    );
-  }
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              {/* Image Preview */}
+              {isImage && (
+                <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, overflow: 'hidden', maxWidth: 300 }}>
+                  <img 
+                    src={filePreview.previewUrl} 
+                    alt={filePreview.originalName} 
+                    style={{ maxWidth: '100%', height: 'auto', display: 'block' }}
+                    onClick={handlePreview}
+                  />
+                </Box>
+              )}
+            
+              {/* PDF Preview */}
+              {isPdf && (
+                <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, overflow: 'hidden', maxWidth: 500 }}>
+                  <iframe 
+                    src={`${filePreview.previewUrl}#toolbar=0&navpanes=0&scrollbar=0`}
+                    style={{ width: '100%', height: '400px', border: 'none', display: 'block' }}
+                    title={filePreview.originalName}
+                  />
+                </Box>
+              )}
+            
+              {/* File info and actions */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1, bgcolor: '#f5f5f5', borderRadius: 1, flexWrap: 'wrap' }}>
+                {isImage ? <Image size={16} color="primary" /> : isPdf ? <FileText size={16} color="primary" /> : <FileText size={16} color="primary" />}
+                <Typography variant="body2" color="primary" sx={{ flex: 1, cursor: 'pointer', minWidth: 0 }} onClick={handlePreview} noWrap>
+                  {filePreview.originalName}
+                </Typography>
+                <IconButton size="small" onClick={handleDownload} aria-label="Download" disabled={disabled || field.is_readonly}>
+                  <Download size={16} />
+                </IconButton>
+                <IconButton size="small" onClick={() => { setFilePreview(null); onChange(field.id, ''); }} aria-label="Remove" disabled={disabled || field.is_readonly}>
+                  <X size={14} />
+                </IconButton>
+              </Box>
+            </Box>
+          )}
+          {field.help_text && <Typography variant="caption" color="text.secondary">{field.help_text}</Typography>}
+        </Box>
+      );
+    }
 
   // Default text field
   return (
