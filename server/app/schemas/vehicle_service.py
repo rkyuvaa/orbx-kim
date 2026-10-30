@@ -296,6 +296,43 @@ class VSComplaintCloseRequest(BaseModel):
     feedback_comment: Optional[str] = None
 
 
+class VSCustomFieldDefinitionOut(BaseModel):
+    id: int
+    tab_id: int
+    key: str
+    label: str
+    field_type: str
+    is_required: bool
+    is_visible: bool
+    is_readonly: bool
+    display_order: int
+    department_id: Optional[str] = None
+    placeholder: Optional[str] = None
+    help_text: Optional[str] = None
+    default_value: Optional[str] = None
+    options: Optional[List[dict[str, Any]]] = None
+    file_config: Optional[dict[str, Any]] = None
+    user_config: Optional[dict[str, Any]] = None
+    required_by_status: Optional[dict[str, bool]] = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class VSComplaintCustomFieldValueOut(BaseModel):
+    id: int
+    complaint_id: int
+    field_id: int
+    value: Optional[str] = None
+    file_metadata: Optional[dict[str, Any]] = None
+    field: Optional[VSCustomFieldDefinitionOut] = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class VSComplaintOut(BaseModel):
     id: int
     complaint_no: str
@@ -503,30 +540,6 @@ class VSCustomFieldDefinitionUpdate(BaseModel):
     required_by_status: Optional[dict[str, bool]] = None
 
 
-class VSCustomFieldDefinitionOut(BaseModel):
-    id: int
-    tab_id: int
-    key: str
-    label: str
-    field_type: str
-    is_required: bool
-    is_visible: bool
-    is_readonly: bool
-    display_order: int
-    department_id: Optional[str] = None
-    placeholder: Optional[str] = None
-    help_text: Optional[str] = None
-    default_value: Optional[str] = None
-    options: Optional[List[dict[str, Any]]] = None
-    file_config: Optional[dict[str, Any]] = None
-    user_config: Optional[dict[str, Any]] = None
-    required_by_status: Optional[dict[str, bool]] = None
-    created_at: datetime
-    updated_at: datetime
-
-    model_config = ConfigDict(from_attributes=True)
-
-
 class VSComplaintCustomFieldValueCreate(BaseModel):
     field_id: int
     value: Optional[str] = None
@@ -536,19 +549,6 @@ class VSComplaintCustomFieldValueCreate(BaseModel):
 class VSComplaintCustomFieldValueUpdate(BaseModel):
     value: Optional[str] = None
     file_metadata: Optional[dict[str, Any]] = None
-
-
-class VSComplaintCustomFieldValueOut(BaseModel):
-    id: int
-    complaint_id: int
-    field_id: int
-    value: Optional[str] = None
-    file_metadata: Optional[dict[str, Any]] = None
-    field: Optional[VSCustomFieldDefinitionOut] = None
-    created_at: datetime
-    updated_at: datetime
-
-    model_config = ConfigDict(from_attributes=True)
 
 
 class VSComplaintCustomFieldValueBulkSave(BaseModel):
