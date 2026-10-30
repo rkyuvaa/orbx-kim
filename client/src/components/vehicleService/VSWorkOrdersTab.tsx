@@ -1595,15 +1595,13 @@ export default function VSWorkOrdersTab() {
                         </Button>
                       </Box>
                     ) : (
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                        No component found for this issue.
-                      </Typography>
+                      <Box sx={{ mb: 2 }} />
                     )}
 
                     {/* Workflow Actions */}
                     <Box sx={{ mb: 1.5, p: 1.5, bgcolor: '#f8fafc', borderRadius: 1.5 }}>
                       <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" gutterBottom>
-                        ###### Workflow Actions
+                        Actions
                       </Typography>
                       <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                         {selectedComplaint.status === 'OPEN' && (
