@@ -1521,6 +1521,65 @@ export default function VSWorkOrdersTab() {
                 gap: 2.5,
               }}
             >
+              {/* Action Bar (Workflow status transitions) */}
+              <Box sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 2.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5 }}>
+                <Typography variant="subtitle2" fontWeight={700}>
+                  Workflow Actions:
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                  {selectedComplaint.status === 'OPEN' && (
+                    <Button
+                      size="small"
+                      variant="contained"
+                      color="warning"
+                      onClick={() => handleUpdateStatus(selectedComplaint.id, 'ACKNOWLEDGED')}
+                      sx={{ textTransform: 'none', fontWeight: 700 }}
+                    >
+                      Acknowledge
+                    </Button>
+                  )}
+
+                  {(selectedComplaint.status === 'OPEN' || selectedComplaint.status === 'ACKNOWLEDGED') && (
+                    <Button
+                      size="small"
+                      variant="contained"
+                      color="primary"
+                      onClick={() => handleUpdateStatus(selectedComplaint.id, 'IN_PROGRESS')}
+                      sx={{ textTransform: 'none', fontWeight: 700 }}
+                    >
+                      Start Service (In Progress)
+                    </Button>
+                  )}
+
+                  {selectedComplaint.status === 'IN_PROGRESS' && (
+                    <Button
+                      size="small"
+                      variant="contained"
+                      color="success"
+                      onClick={() => handleUpdateStatus(selectedComplaint.id, 'RESOLVED')}
+                      sx={{ textTransform: 'none', fontWeight: 700 }}
+                    >
+                      Mark Resolved
+                    </Button>
+                  )}
+
+                  {selectedComplaint.status === 'RESOLVED' && (
+                    <Button
+                      size="small"
+                      variant="contained"
+                      color="inherit"
+                      onClick={() => {
+                        setCloseResolutionSummary(selectedComplaint.resolution_summary || '');
+                        setIsCloseDialogOpen(true);
+                      }}
+                      sx={{ textTransform: 'none', fontWeight: 700, bgcolor: '#0f172a', color: '#fff', '&:hover': { bgcolor: '#1e293b' } }}
+                    >
+                      Close Work Order & Feedback
+                    </Button>
+                  )}
+                </Box>
+              </Box>
+
               <Grid container spacing={2.5}>
                 {/* Vehicle & Customer Info */}
                 <Grid item xs={12} sm={6}>
@@ -1564,13 +1623,42 @@ export default function VSWorkOrdersTab() {
                   </Paper>
                 </Grid>
 
-                {/* Technician Assignment */}
+                {/* Component & Assignment Info */}
                 <Grid item xs={12} sm={6}>
                   <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, height: '100%' }}>
                     <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" gutterBottom>
-                      Assign Technician
+                      COMPONENT LINKAGE & TECHNICIAN
                     </Typography>
 
+                    {selectedComplaint.affected_component_label ? (
+                      <Box sx={{ mb: 2, p: 1.5, bgcolor: '#f8fafc', borderRadius: 1.5 }}>
+                        <Typography variant="subtitle2" fontWeight={700}>
+                          {selectedComplaint.affected_component_label}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          Active Serial Number: <strong>{selectedComplaint.affected_component_serial}</strong>
+                        </Typography>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => {
+                            setReplaceComponentId(selectedComplaint.affected_component_id || '');
+                            setReplaceNewSerial('');
+                            setReplaceReason('');
+                            setIsReplaceDialogOpen(true);
+                          }}
+                          sx={{ mt: 1, textTransform: 'none', fontSize: 11, py: 0.3 }}
+                        >
+                          Replace This Component Serial
+                        </Button>
+                      </Box>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        No specific component tied to this issue.
+                      </Typography>
+                    )}
+
+                    {/* Technician Assignment */}
                     <AppDropdown
                       label="Assigned Technician"
                       value={selectedComplaint.assigned_to_id || ''}
@@ -1623,10 +1711,78 @@ export default function VSWorkOrdersTab() {
                 </Paper>
               )}
 
+              {/* Service Costs Section */}
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" gutterBottom>
+                  SERVICE & REPLACEMENT COSTS
+                </Typography>
+                {selectedComplaint.costs && selectedComplaint.costs.length > 0 ? (
+                  <Table size="small" sx={{ mb: 2 }}>
+                    <TableHead>
+                      <TableRow sx={{ bgcolor: '#f8fafc' }}>
+                        <TableCell sx={{ fontWeight: 700 }}>Item / Part Description</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>Qty</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>Unit Price</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700 }}>Total Price</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {selectedComplaint.costs.map((cost) => (
+                        <TableRow key={cost.id}>
+                          <TableCell>{cost.item_name}</TableCell>
+                          <TableCell>{cost.quantity}</TableCell>
+                          <TableCell>₹{cost.unit_price.toFixed(2)}</TableCell>
+                          <TableCell align="right" sx={{ fontWeight: 700 }}>₹{cost.total_price.toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    No itemized parts or labor costs added to this work order.
+                  </Typography>
+                )}
+
+                {/* Add Cost Item */}
+                <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+                  <TextField
+                    label="Part / Labor Item"
+                    size="small"
+                    value={costItemName}
+                    onChange={(e) => setCostItemName(e.target.value)}
+                    sx={{ flex: 2, minWidth: 160 }}
+                  />
+                  <TextField
+                    label="Qty"
+                    type="number"
+                    size="small"
+                    value={costQty}
+                    onChange={(e) => setCostQty(Math.max(1, Number(e.target.value)))}
+                    sx={{ width: 80 }}
+                  />
+                  <TextField
+                    label="Unit Price (₹)"
+                    type="number"
+                    size="small"
+                    value={costUnitPrice}
+                    onChange={(e) => setCostUnitPrice(e.target.value ? Number(e.target.value) : '')}
+                    sx={{ width: 120 }}
+                  />
+                  <Button
+                    variant="outlined"
+                    onClick={handleAddCostSubmit}
+                    disabled={isAddingCost}
+                    sx={{ textTransform: 'none', fontWeight: 600 }}
+                  >
+                    Add Cost
+                  </Button>
+                </Box>
+              </Paper>
             </Box>
 
-            {/* RIGHT SIDE: Actions & Changelog (~27%) */}
-            <Box
+            {/* RIGHT SIDE: Changelog & Activity Logs (~27%) */}
+            <Paper
+              variant="outlined"
               sx={{
                 flex: { xs: '1 1 100%', md: '0 0 27%' },
                 width: { xs: '100%', md: '27%' },
@@ -1634,76 +1790,13 @@ export default function VSWorkOrdersTab() {
                 maxWidth: { md: 340 },
                 display: 'flex',
                 flexDirection: 'column',
-                gap: 1.5,
+                borderRadius: '12px',
+                borderColor: '#E4EBE1',
+                backgroundColor: '#FAFBF9',
+                p: 2,
+                overflow: 'hidden',
               }}
             >
-              {/* Action Buttons */}
-              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                {selectedComplaint.status === 'OPEN' && (
-                  <Button
-                    size="small"
-                    variant="contained"
-                    color="warning"
-                    onClick={() => handleUpdateStatus(selectedComplaint.id, 'ACKNOWLEDGED')}
-                    sx={{ textTransform: 'none', fontWeight: 700, flex: 1, minWidth: '90px' }}
-                  >
-                    Acknowledge
-                  </Button>
-                )}
-
-                {(selectedComplaint.status === 'OPEN' || selectedComplaint.status === 'ACKNOWLEDGED') && (
-                  <Button
-                    size="small"
-                    variant="contained"
-                    color="primary"
-                    onClick={() => handleUpdateStatus(selectedComplaint.id, 'IN_PROGRESS')}
-                    sx={{ textTransform: 'none', fontWeight: 700, flex: 1, minWidth: '130px' }}
-                  >
-                    Start Service
-                  </Button>
-                )}
-
-                {selectedComplaint.status === 'IN_PROGRESS' && (
-                  <Button
-                    size="small"
-                    variant="contained"
-                    color="success"
-                    onClick={() => handleUpdateStatus(selectedComplaint.id, 'RESOLVED')}
-                    sx={{ textTransform: 'none', fontWeight: 700, width: '100%' }}
-                  >
-                    Mark Resolved
-                  </Button>
-                )}
-
-                {selectedComplaint.status === 'RESOLVED' && (
-                  <Button
-                    size="small"
-                    variant="contained"
-                    color="inherit"
-                    onClick={() => {
-                      setCloseResolutionSummary(selectedComplaint.resolution_summary || '');
-                      setIsCloseDialogOpen(true);
-                    }}
-                    sx={{ textTransform: 'none', fontWeight: 700, bgcolor: '#0f172a', color: '#fff', '&:hover': { bgcolor: '#1e293b' }, width: '100%' }}
-                  >
-                    Close Work Order
-                  </Button>
-                )}
-              </Box>
-
-              <Paper
-                variant="outlined"
-                sx={{
-                  flex: 1,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  borderRadius: '12px',
-                  borderColor: '#E4EBE1',
-                  backgroundColor: '#FAFBF9',
-                  p: 2,
-                  overflow: 'hidden',
-                }}
-              >
               {/* Header */}
               <Box sx={{ mb: 1.5 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
