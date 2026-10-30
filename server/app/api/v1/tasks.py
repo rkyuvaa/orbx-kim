@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 from sqlalchemy import func, or_, and_, case
 
 from app.db.session import get_db
+from app.core.time_utils import get_local_now, to_local_datetime
 from app.models.projects import (
     Task, TaskStatusDef, TaskPriority, TaskStatusCategory, TaskSubtask, TaskTimeLog, TaskComment, TaskLogNote,
     TaskAttachment, TaskCustomFieldDefinition, TaskCustomFieldValue, Project, ProjectPhase,
@@ -1475,13 +1476,13 @@ def update_personal_task(
     if data.is_completed is not None:
         if data.is_completed and not task.is_completed:
             task.is_completed = True
-            task.completed_at = datetime.now(timezone.utc)
+            task.completed_at = get_local_now()
             task.completed_by = current_user.id
             task.progress_percentage = 100.0
             if not task.completion_date and not data.completion_date:
-                task.completion_date = datetime.now(timezone.utc).date()
+                task.completion_date = get_local_now().date()
             if not task.completion_time and not data.completion_time:
-                task.completion_time = datetime.now(timezone.utc).strftime("%I:%M %p")
+                task.completion_time = get_local_now().strftime("%I:%M %p")
             spawn_next_recurring_task(db, task, current_user.id)
         elif not data.is_completed and task.is_completed:
             task.is_completed = False
@@ -1835,12 +1836,12 @@ def update_task(
     if is_completion_requested and not task.is_completed:
 
         task.is_completed = True
-        task.completed_at = datetime.now(timezone.utc)
+        task.completed_at = get_local_now()
         task.completed_by = current_user.id
         if not task.completion_date and "completion_date" not in update_dict:
-            task.completion_date = datetime.now(timezone.utc).date()
+            task.completion_date = get_local_now().date()
         if not task.completion_time and "completion_time" not in update_dict:
-            task.completion_time = datetime.now(timezone.utc).strftime("%I:%M %p")
+            task.completion_time = get_local_now().strftime("%I:%M %p")
             
         task.progress_percentage = 100.0
             
@@ -2051,12 +2052,12 @@ def toggle_legacy_subtask(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Subtask not found")
     task.is_completed = not task.is_completed
     if task.is_completed:
-        task.completed_at = datetime.now(timezone.utc)
+        task.completed_at = get_local_now()
         task.completed_by = current_user.id
         if not task.completion_date:
-            task.completion_date = datetime.now(timezone.utc).date()
+            task.completion_date = get_local_now().date()
         if not task.completion_time:
-            task.completion_time = datetime.now(timezone.utc).strftime("%I:%M %p")
+            task.completion_time = get_local_now().strftime("%I:%M %p")
     else:
         task.completed_at = None
         task.completed_by = None
@@ -2524,17 +2525,18 @@ def add_task_log_note(
     if not data.note or not data.note.strip():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Log note content cannot be empty")
 
-    now = datetime.now(timezone.utc)
+    now_local = get_local_now()
     log_note = TaskLogNote(
         task_id=task.id,
         user_id=current_user.id,
         note=data.note.strip(),
-        created_at=now,
+        created_at=now_local,
     )
     db.add(log_note)
     db.commit()
     db.refresh(log_note)
 
+    local_dt = to_local_datetime(log_note.created_at) or now_local
     emp_name = current_user.full_name or current_user.username or "Employee"
     emp_photo = getattr(current_user, "profile_photo", None)
     return TaskLogNoteOut(
@@ -2544,9 +2546,9 @@ def add_task_log_note(
         employee_name=emp_name,
         employee_photo=emp_photo,
         note=log_note.note,
-        created_at=log_note.created_at,
-        formatted_date=log_note.created_at.strftime("%d-%m-%Y"),
-        formatted_time=log_note.created_at.strftime("%H:%M"),
+        created_at=local_dt,
+        formatted_date=local_dt.strftime("%d-%m-%Y"),
+        formatted_time=local_dt.strftime("%H:%M"),
     )
 
 
@@ -2566,6 +2568,7 @@ def get_task_log_notes(
     for n in notes:
         emp_name = n.user.full_name if n.user and n.user.full_name else (n.user.username if n.user else "Employee")
         emp_photo = n.user.profile_photo if n.user else None
+        local_dt = to_local_datetime(n.created_at)
         results.append(TaskLogNoteOut(
             id=n.id,
             task_id=n.task_id,
@@ -2573,9 +2576,9 @@ def get_task_log_notes(
             employee_name=emp_name,
             employee_photo=emp_photo,
             note=n.note,
-            created_at=n.created_at,
-            formatted_date=n.created_at.strftime("%d-%m-%Y"),
-            formatted_time=n.created_at.strftime("%H:%M"),
+            created_at=local_dt,
+            formatted_date=local_dt.strftime("%d-%m-%Y"),
+            formatted_time=local_dt.strftime("%H:%M"),
         ))
     return results
 

@@ -24,6 +24,7 @@ from app.schemas.projects import (
     TaskLogNoteCreate, TaskLogNoteOut
 )
 from app.core.deps import get_current_user, require_permission
+from app.core.time_utils import get_local_now, to_local_datetime
 from app.api.v1.tasks import (
     _format_task_out, _generate_task_number, _generate_personal_task_number, _validate_task_dates,
     spawn_next_recurring_task
@@ -1146,22 +1147,24 @@ def create_personal_task_log_note(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Capture a log note for a task with backend-generated timestamp and logged-in employee name"""
+    """Capture a log note for a task with backend-generated local timestamp and logged-in employee name"""
     task = db.query(Task).filter(Task.id == task_id, Task.is_deleted.is_(False)).first()
     if not task:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
 
-    now = datetime.now(timezone.utc)
+    # Capture in local time
+    now_local = get_local_now()
     log_note = TaskLogNote(
         task_id=task.id,
         user_id=current_user.id,
         note=data.note.strip(),
-        created_at=now,
+        created_at=now_local,
     )
     db.add(log_note)
     db.commit()
     db.refresh(log_note)
 
+    local_dt = to_local_datetime(log_note.created_at) or now_local
     emp_name = current_user.full_name or current_user.username or "Employee"
     emp_photo = getattr(current_user, "profile_photo", None)
     return TaskLogNoteOut(
@@ -1171,9 +1174,9 @@ def create_personal_task_log_note(
         employee_name=emp_name,
         employee_photo=emp_photo,
         note=log_note.note,
-        created_at=log_note.created_at,
-        formatted_date=log_note.created_at.strftime("%d-%m-%Y"),
-        formatted_time=log_note.created_at.strftime("%H:%M"),
+        created_at=local_dt,
+        formatted_date=local_dt.strftime("%d-%m-%Y"),
+        formatted_time=local_dt.strftime("%H:%M"),
     )
 
 
@@ -1183,7 +1186,7 @@ def get_personal_task_log_notes(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Retrieve chronological log notes for a task (newest first)"""
+    """Retrieve chronological log notes for a task (newest first, formatted in local time)"""
     task = db.query(Task).filter(Task.id == task_id, Task.is_deleted.is_(False)).first()
     if not task:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
@@ -1196,6 +1199,7 @@ def get_personal_task_log_notes(
     for n in notes:
         emp_name = n.user.full_name if n.user and n.user.full_name else (n.user.username if n.user else "Employee")
         emp_photo = n.user.profile_photo if n.user else None
+        local_dt = to_local_datetime(n.created_at)
         results.append(TaskLogNoteOut(
             id=n.id,
             task_id=n.task_id,
@@ -1203,9 +1207,9 @@ def get_personal_task_log_notes(
             employee_name=emp_name,
             employee_photo=emp_photo,
             note=n.note,
-            created_at=n.created_at,
-            formatted_date=n.created_at.strftime("%d-%m-%Y"),
-            formatted_time=n.created_at.strftime("%H:%M"),
+            created_at=local_dt,
+            formatted_date=local_dt.strftime("%d-%m-%Y"),
+            formatted_time=local_dt.strftime("%H:%M"),
         ))
     return results
 

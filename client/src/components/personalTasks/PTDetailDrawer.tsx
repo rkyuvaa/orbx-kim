@@ -56,6 +56,39 @@ import PTReminderPanel from './PTReminderPanel';
 import AutoSaveStatusBadge from '@/components/common/AutoSaveStatusBadge';
 import { useAutoSave } from '@/hooks/useAutoSave';
 
+const formatDisplayDate = (dateStr?: string, fallback?: string): string => {
+  if (dateStr) {
+    try {
+      const d = new Date(dateStr);
+      if (!isNaN(d.getTime())) {
+        const dd = String(d.getDate()).padStart(2, '0');
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const yyyy = d.getFullYear();
+        return `${dd}-${mm}-${yyyy}`;
+      }
+    } catch {
+      // fallback
+    }
+  }
+  return fallback || dateStr || '';
+};
+
+const formatDisplayTime = (dateStr?: string, fallback?: string): string => {
+  if (dateStr) {
+    try {
+      const d = new Date(dateStr);
+      if (!isNaN(d.getTime())) {
+        const hours = String(d.getHours()).padStart(2, '0');
+        const mins = String(d.getMinutes()).padStart(2, '0');
+        return `${hours}:${mins}`;
+      }
+    } catch {
+      // fallback
+    }
+  }
+  return fallback || dateStr || '';
+};
+
 interface PTDetailDrawerProps {
   open: boolean;
   task: PTTask | null;
@@ -756,14 +789,14 @@ export default function PTDetailDrawer({
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: '#64748B' }}>
                               <Calendar size={12} />
                               <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.74rem' }}>
-                                {note.formatted_date}
+                                {formatDisplayDate(note.created_at, note.formatted_date)}
                               </Typography>
                             </Box>
 
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: '#64748B' }}>
                               <Clock size={12} />
                               <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.74rem' }}>
-                                {note.formatted_time}
+                                {formatDisplayTime(note.created_at, note.formatted_time)}
                               </Typography>
                             </Box>
                           </Box>
