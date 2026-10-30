@@ -10,6 +10,7 @@ import {
   ShieldAlert,
   MapPin,
   Hash,
+  Settings2,
 } from 'lucide-react';
 
 import { useAppSelector } from '@/app/hooks';
@@ -17,6 +18,7 @@ import { usePermission } from '@/context/AuthPermissionContext';
 import MailServerConfigCard from '@/components/settings/MailServerConfigCard';
 import SystemBackupCard from '@/components/settings/SystemBackupCard';
 import DocumentNumberingTab from '@/components/settings/DocumentNumberingTab';
+import CustomFieldsAdminCard from '@/components/settings/CustomFieldsAdminCard';
 import UserManagementPage from '@/pages/admin/UserManagementPage';
 import RoleManagementPage from '@/pages/admin/RoleManagementPage';
 import DepartmentManagementPage from '@/pages/admin/DepartmentManagementPage';
@@ -55,6 +57,7 @@ export default function SettingsPage() {
   const canDepts = isSuperAdmin || can('view', 'departments');
   const canBranches = isSuperAdmin || can('view', 'departments');
   const canBackup = isSuperAdmin;
+  const canCustomFields = isSuperAdmin || can('manage', 'custom_fields');
 
   const tabs: { key: string; label: string; icon: React.ReactNode }[] = [];
 
@@ -68,6 +71,9 @@ export default function SettingsPage() {
     tabs.push({ key: 'branches', label: 'Branches', icon: <MapPin size={16} /> });
   }
   tabs.push({ key: 'numbering', label: 'Document Numbering', icon: <Hash size={16} /> });
+  if (canCustomFields) {
+    tabs.push({ key: 'custom_fields', label: 'Custom Fields', icon: <Settings2 size={16} /> });
+  }
   tabs.push({ key: 'mail', label: 'Mail Server (SMTP)', icon: <Mail size={16} /> });
   if (canBackup) {
     tabs.push({ key: 'backup', label: 'System Data Backup', icon: <Database size={16} /> });
@@ -179,11 +185,14 @@ export default function SettingsPage() {
 
           {t.key === 'numbering' && <DocumentNumberingTab />}
 
-          {t.key === 'mail' && <MailServerConfigCard />}
+                    {t.key === 'custom_fields' && <CustomFieldsAdminCard />}
 
-          {t.key === 'backup' && <SystemBackupCard />}
+                    {t.key === 'mail' && <MailServerConfigCard />}
+
+                    {t.key === 'backup' && <SystemBackupCard />}
         </CustomTabPanel>
       ))}
     </Box>
   );
 }
+
