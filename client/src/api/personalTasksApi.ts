@@ -230,7 +230,7 @@ export const personalTasksApi = baseApi.injectEndpoints({
       query: ({ id, data }) => ({
         url: `/tasks/personal/${id}`,
         method: 'PUT',
-        body,
+        body: data,
       }),
       invalidatesTags: (_res, _err, { id }) => [
         { type: 'PersonalTasks', id },

@@ -173,16 +173,24 @@ export default function PTDetailDrawer({
           title: task.title || '',
           description: task.description || '',
           priority: task.priority || 'NORMAL',
-          start_date: task.start_date || '',
-          due_date: task.due_date || '',
-          planned_date: task.planned_date || '',
-          estimated_hours: task.estimated_hours || '',
+          start_date: task.start_date ? task.start_date.split('T')[0] : null,
+          due_date: task.due_date ? task.due_date.split('T')[0] : null,
+          planned_date: task.planned_date ? task.planned_date.split('T')[0] : null,
+          estimated_hours: task.estimated_hours || 0,
           tag_names: task.tags_list?.map((t) => t.name) || [],
         }
       : {},
     onSave: async (patch: Record<string, any>) => {
       if (!task) return;
-      await onUpdateTask(task.id, patch);
+      const sanitized: Record<string, any> = {};
+      for (const [k, v] of Object.entries(patch)) {
+        if (v === '' && ['start_date', 'due_date', 'planned_date', 'estimated_hours'].includes(k)) {
+          sanitized[k] = null;
+        } else {
+          sanitized[k] = v;
+        }
+      }
+      await onUpdateTask(task.id, sanitized);
     },
   });
 
@@ -207,10 +215,10 @@ export default function PTDetailDrawer({
         title: task.title || '',
         description: task.description || '',
         priority: task.priority || 'NORMAL',
-        start_date: task.start_date || '',
-        due_date: task.due_date || '',
-        planned_date: task.planned_date || '',
-        estimated_hours: task.estimated_hours || '',
+        start_date: task.start_date ? task.start_date.split('T')[0] : null,
+        due_date: task.due_date ? task.due_date.split('T')[0] : null,
+        planned_date: task.planned_date ? task.planned_date.split('T')[0] : null,
+        estimated_hours: task.estimated_hours || 0,
         tag_names: task.tags_list?.map((t) => t.name) || [],
       });
     }

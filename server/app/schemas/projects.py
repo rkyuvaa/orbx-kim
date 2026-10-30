@@ -1,6 +1,6 @@
 from datetime import datetime, date
 from typing import Any, List, Optional
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 from app.models.projects import TaskPriority, TaskStatusCategory, DependencyType, RelationshipType
 
@@ -416,6 +416,18 @@ class TaskUpdate(BaseModel):
     blocked_reason: Optional[str] = None
     parent_due_follows_subtasks: Optional[bool] = None
     override_dependencies: Optional[bool] = False
+
+    @field_validator(
+        "start_date", "due_date", "planned_date", "completion_date", "recurrence_end_date",
+        "estimated_hours", "estimated_minutes", "actual_hours", "actual_minutes",
+        "estimated_cost", "actual_cost", "type_id", "status_id", "assignee_id",
+        mode="before", check_fields=False
+    )
+    @classmethod
+    def empty_str_to_none(cls, v):
+        if v == "" or v == "null":
+            return None
+        return v
 
 
 class TaskOut(TaskBase):
