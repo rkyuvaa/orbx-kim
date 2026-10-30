@@ -364,3 +364,166 @@ export interface VSPublicVehicleInfo {
   warranty_expiry: string | null;
   components: VSVehicleComponent[];
 }
+
+// Custom Fields for Vehicle Service
+export interface VSCustomFieldTab {
+  id: number;
+  name: string;
+  code: string;
+  description: string | null;
+  icon: string | null;
+  display_order: number;
+  is_active: boolean;
+  department_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface VSCustomFieldTabCreate {
+  name: string;
+  code: string;
+  description?: string;
+  icon?: string;
+  display_order?: number;
+  department_id?: string;
+}
+
+export interface VSCustomFieldTabUpdate {
+  name?: string;
+  description?: string;
+  icon?: string;
+  display_order?: number;
+  is_active?: boolean;
+  department_id?: string;
+}
+
+export interface VSCustomFieldDefinition {
+  id: number;
+  tab_id: number;
+  key: string;
+  label: string;
+  field_type: string; // text, number, date, timer, user, file, dropdown
+  is_required: boolean;
+  is_visible: boolean;
+  is_readonly: boolean;
+  display_order: number;
+  department_id: string | null;
+  placeholder: string | null;
+  help_text: string | null;
+  default_value: string | null;
+  options: { label: string; value: string; default?: boolean }[] | null;
+  file_config: { allowed_extensions?: string[]; max_size_mb?: number } | null;
+  user_config: { filter_by_department?: boolean; department_field?: string } | null;
+  required_by_status: Record<string, boolean> | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface VSCustomFieldDefinitionCreate {
+  tab_id: number;
+  key: string;
+  label: string;
+  field_type?: string;
+  is_required?: boolean;
+  is_visible?: boolean;
+  is_readonly?: boolean;
+  display_order?: number;
+  department_id?: string;
+  placeholder?: string;
+  help_text?: string;
+  default_value?: string;
+  options?: { label: string; value: string; default?: boolean }[];
+  file_config?: { allowed_extensions?: string[]; max_size_mb?: number };
+  user_config?: { filter_by_department?: boolean; department_field?: string };
+  required_by_status?: Record<string, boolean>;
+}
+
+export interface VSCustomFieldDefinitionUpdate {
+  key?: string;
+  label?: string;
+  field_type?: string;
+  is_required?: boolean;
+  is_visible?: boolean;
+  is_readonly?: boolean;
+  display_order?: number;
+  department_id?: string;
+  placeholder?: string;
+  help_text?: string;
+  default_value?: string;
+  options?: { label: string; value: string; default?: boolean }[];
+  file_config?: { allowed_extensions?: string[]; max_size_mb?: number };
+  user_config?: { filter_by_department?: boolean; department_field?: string };
+  required_by_status?: Record<string, boolean>;
+}
+
+export interface VSComplaintCustomFieldValue {
+  id: number;
+  complaint_id: number;
+  field_id: number;
+  value: string | null;
+  file_metadata: {
+    filename: string;
+    original_name: string;
+    size: number;
+    mime_type: string | null;
+    url: string;
+    preview_url: string | null;
+    uploaded_at: string;
+  } | null;
+  field?: VSCustomFieldDefinition;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface VSComplaintCustomFieldValueCreate {
+  field_id: number;
+  value?: string;
+  file_metadata?: {
+    filename: string;
+    original_name: string;
+    size: number;
+    mime_type: string | null;
+    url: string;
+    preview_url: string | null;
+    uploaded_at: string;
+  };
+}
+
+export interface VSComplaintCustomFieldValueBulkSave {
+  values: VSComplaintCustomFieldValueCreate[];
+}
+
+// Update VSComplaint to include custom_field_values
+export interface VSComplaint {
+  id: number;
+  complaint_no: string;
+  vehicle_id: number;
+  vehicle_number: string | null;
+  owner_name: string | null;
+  owner_phone: string | null;
+  affected_component_id: number | null;
+  affected_component_label: string | null;
+  affected_component_serial: string | null;
+  reported_by: string;
+  reported_phone: string;
+  category: string;
+  severity: string;
+  description: string;
+  gps_latitude: number | null;
+  gps_longitude: number | null;
+  gps_address: string | null;
+  registered_via: string;
+  status: string;
+  assigned_to_id: number | null;
+  assigned_to_name: string | null;
+  acknowledged_at: string | null;
+  resolved_at: string | null;
+  closed_at: string | null;
+  resolution_summary: string | null;
+  created_at: string;
+  updated_at: string;
+  notes: VSComplaintNote[];
+  feedback: VSCustomerFeedback | null;
+  costs: VSServiceCost[];
+  custom_field_values: VSComplaintCustomFieldValue[];
+}

@@ -88,6 +88,11 @@ from app.models.vehicle_service import (
     VSCustomerFeedback,
     VSServiceCost,
 )
+from app.models.vs_custom_field import (
+    VSCustomFieldTab,
+    VSCustomFieldDefinition,
+    VSComplaintCustomFieldValue,
+)
 from app.models.projects import (
     ProjectWorkspace,
     ProjectSpace,
@@ -255,4 +260,7 @@ __all__ = [
     "VSMaintenanceSchedule",
     "VSCustomerFeedback",
     "VSServiceCost",
-]
+        "VSCustomFieldTab",
+        "VSCustomFieldDefinition",
+        "VSComplaintCustomFieldValue",
+    ]

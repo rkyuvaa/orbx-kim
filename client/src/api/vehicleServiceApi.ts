@@ -23,6 +23,15 @@ import type {
   VSVehicle,
   VSVehicleCreate,
   VSVehicleUpdate,
+  VSCustomFieldTab,
+  VSCustomFieldTabCreate,
+  VSCustomFieldTabUpdate,
+  VSCustomFieldDefinition,
+  VSCustomFieldDefinitionCreate,
+  VSCustomFieldDefinitionUpdate,
+  VSComplaintCustomFieldValue,
+  VSComplaintCustomFieldValueCreate,
+  VSComplaintCustomFieldValueBulkSave,
 } from '@/types/vehicleService';
 
 export const vehicleServiceApi = baseApi.injectEndpoints({
@@ -222,8 +231,96 @@ export const vehicleServiceApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ['VSComplaints', 'VSDashboard'],
     }),
-  }),
-});
+
+        // Custom Fields
+        getCustomFieldTabs: build.query<VSCustomFieldTab[], { department_id?: string; active_only?: boolean } | void>({
+          query: (params) => {
+            const queryParams = new URLSearchParams();
+            const p = params || {};
+            if (p.department_id) queryParams.set('department_id', p.department_id);
+            if (p.active_only !== undefined) queryParams.set('active_only', String(p.active_only));
+            const qs = queryParams.toString();
+            return { url: `/vehicle-service/custom-fields/tabs${qs ? `?${qs}` : ''}` };
+          },
+          providesTags: ['VSCustomFieldTabs'],
+        }),
+        createCustomFieldTab: build.mutation<VSCustomFieldTab, VSCustomFieldTabCreate>({
+          query: (body) => ({ url: '/vehicle-service/custom-fields/tabs', method: 'POST', body }),
+          invalidatesTags: ['VSCustomFieldTabs'],
+        }),
+        updateCustomFieldTab: build.mutation<VSCustomFieldTab, { id: number; body: VSCustomFieldTabUpdate }>({
+          query: ({ id, body }) => ({ url: `/vehicle-service/custom-fields/tabs/${id}`, method: 'PATCH', body }),
+          invalidatesTags: ['VSCustomFieldTabs'],
+        }),
+        deleteCustomFieldTab: build.mutation<{ success: boolean; message: string }, number>({
+          query: (id) => ({ url: `/vehicle-service/custom-fields/tabs/${id}`, method: 'DELETE' }),
+          invalidatesTags: ['VSCustomFieldTabs'],
+        }),
+
+        getCustomFieldDefinitions: build.query<VSCustomFieldDefinition[], { tab_id?: number; department_id?: string; active_only?: boolean } | void>({
+          query: (params) => {
+            const queryParams = new URLSearchParams();
+            const p = params || {};
+            if (p.tab_id) queryParams.set('tab_id', String(p.tab_id));
+            if (p.department_id) queryParams.set('department_id', p.department_id);
+            if (p.active_only !== undefined) queryParams.set('active_only', String(p.active_only));
+            const qs = queryParams.toString();
+            return { url: `/vehicle-service/custom-fields/definitions${qs ? `?${qs}` : ''}` };
+          },
+          providesTags: ['VSCustomFieldDefinitions'],
+        }),
+        getCustomFieldDefinitionsByTab: build.query<VSCustomFieldDefinition[], { tab_id: number; department_id?: string; status?: string }>({
+          query: ({ tab_id, department_id, status }) => {
+            const queryParams = new URLSearchParams();
+            if (department_id) queryParams.set('department_id', department_id);
+            if (status) queryParams.set('status', status);
+            const qs = queryParams.toString();
+            return { url: `/vehicle-service/custom-fields/definitions/by-tab/${tab_id}${qs ? `?${qs}` : ''}` };
+          },
+          providesTags: ['VSCustomFieldDefinitions'],
+        }),
+        createCustomFieldDefinition: build.mutation<VSCustomFieldDefinition, VSCustomFieldDefinitionCreate>({
+          query: (body) => ({ url: '/vehicle-service/custom-fields/definitions', method: 'POST', body }),
+          invalidatesTags: ['VSCustomFieldDefinitions'],
+        }),
+        updateCustomFieldDefinition: build.mutation<VSCustomFieldDefinition, { field_id: number; body: VSCustomFieldDefinitionUpdate }>({
+          query: ({ field_id, body }) => ({ url: `/vehicle-service/custom-fields/definitions/${field_id}`, method: 'PATCH', body }),
+          invalidatesTags: ['VSCustomFieldDefinitions'],
+        }),
+        deleteCustomFieldDefinition: build.mutation<{ success: boolean; message: string }, number>({
+          query: (field_id) => ({ url: `/vehicle-service/custom-fields/definitions/${field_id}`, method: 'DELETE' }),
+          invalidatesTags: ['VSCustomFieldDefinitions'],
+        }),
+
+        getCustomFieldDefinitionsForComplaint: build.query<VSCustomFieldDefinition[], number>({
+          query: (complaint_id) => ({ url: `/vehicle-service/custom-fields/definitions/for-complaint/${complaint_id}` }),
+          providesTags: ['VSCustomFieldDefinitions'],
+        }),
+
+        getCustomFieldValuesForComplaint: build.query<VSComplaintCustomFieldValue[], number>({
+          query: (complaint_id) => ({ url: `/vehicle-service/custom-fields/values/complaint/${complaint_id}` }),
+          providesTags: ['VSCustomFieldValues'],
+        }),
+        upsertCustomFieldValuesForComplaint: build.mutation<VSComplaintCustomFieldValue[], { complaint_id: number; body: VSComplaintCustomFieldValueBulkSave }>({
+          query: ({ complaint_id, body }) => ({ url: `/vehicle-service/custom-fields/values/complaint/${complaint_id}/bulk`, method: 'POST', body }),
+          invalidatesTags: ['VSCustomFieldValues', 'VSComplaints'],
+        }),
+
+        uploadCustomFieldFile: build.mutation<{ filename: string; original_name: string; size: number; mime_type: string | null; url: string; preview_url: string | null; uploaded_at: string }, { file: File; field_id: number; complaint_id: number }>({
+          query: ({ file, field_id, complaint_id }) => {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('field_id', String(field_id));
+            formData.append('complaint_id', String(complaint_id));
+            return {
+              url: '/vehicle-service/custom-fields/files/upload',
+              method: 'POST',
+              body: formData,
+            };
+          },
+        }),
+      }),
+    });
 
 export const {
   useGetVSKitsQuery,
@@ -255,4 +352,18 @@ export const {
   useLazyLookupVSPublicVehicleQuery,
   useSubmitVSPublicComplaintMutation,
   useSubmitVSUniversalComplaintMutation,
+  // Custom Fields
+  useGetCustomFieldTabsQuery,
+  useCreateCustomFieldTabMutation,
+  useUpdateCustomFieldTabMutation,
+  useDeleteCustomFieldTabMutation,
+  useGetCustomFieldDefinitionsQuery,
+  useGetCustomFieldDefinitionsByTabQuery,
+  useCreateCustomFieldDefinitionMutation,
+  useUpdateCustomFieldDefinitionMutation,
+  useDeleteCustomFieldDefinitionMutation,
+  useGetCustomFieldDefinitionsForComplaintQuery,
+  useGetCustomFieldValuesForComplaintQuery,
+  useUpsertCustomFieldValuesForComplaintMutation,
+  useUploadCustomFieldFileMutation,
 } = vehicleServiceApi;

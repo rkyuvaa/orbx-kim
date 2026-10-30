@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -327,6 +327,7 @@ class VSComplaintOut(BaseModel):
     notes: List[VSComplaintNoteOut] = []
     feedback: Optional[VSCustomerFeedbackOut] = None
     costs: List[VSServiceCostOut] = []
+    custom_field_values: List[VSComplaintCustomFieldValueOut] = []
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -426,3 +427,129 @@ class VSPublicVehicleInfo(BaseModel):
     kit_name: Optional[str] = None
     warranty_expiry: Optional[date] = None
     components: List[VSVehicleComponentOut] = []
+
+
+# ============================================================================
+# Custom Fields for Vehicle Service
+# ============================================================================
+
+class VSCustomFieldTabCreate(BaseModel):
+    name: str = Field(..., max_length=60)
+    code: str = Field(..., max_length=40)
+    description: Optional[str] = None
+    icon: Optional[str] = None
+    display_order: int = 0
+    department_id: Optional[str] = None
+
+
+class VSCustomFieldTabUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    icon: Optional[str] = None
+    display_order: Optional[int] = None
+    is_active: Optional[bool] = None
+    department_id: Optional[str] = None
+
+
+class VSCustomFieldTabOut(BaseModel):
+    id: int
+    name: str
+    code: str
+    description: Optional[str] = None
+    icon: Optional[str] = None
+    display_order: int
+    is_active: bool
+    department_id: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class VSCustomFieldDefinitionCreate(BaseModel):
+    tab_id: int
+    key: str = Field(..., max_length=60)
+    label: str = Field(..., max_length=120)
+    field_type: str = Field(default="text", max_length=30)  # text, number, date, timer, user, file, dropdown
+    is_required: bool = False
+    is_visible: bool = True
+    is_readonly: bool = False
+    display_order: int = 0
+    department_id: Optional[str] = None
+    placeholder: Optional[str] = None
+    help_text: Optional[str] = None
+    default_value: Optional[str] = None
+    options: Optional[List[dict[str, Any]]] = None  # [{label, value, default}]
+    file_config: Optional[dict[str, Any]] = None  # {allowed_extensions: [], max_size_mb: 10}
+    user_config: Optional[dict[str, Any]] = None  # {filter_by_department: true, department_field: "department_id"}
+    required_by_status: Optional[dict[str, bool]] = None  # {"OPEN": true, "ACKNOWLEDGED": true, ...}
+
+
+class VSCustomFieldDefinitionUpdate(BaseModel):
+    key: Optional[str] = None
+    label: Optional[str] = None
+    field_type: Optional[str] = None
+    is_required: Optional[bool] = None
+    is_visible: Optional[bool] = None
+    is_readonly: Optional[bool] = None
+    display_order: Optional[int] = None
+    department_id: Optional[str] = None
+    placeholder: Optional[str] = None
+    help_text: Optional[str] = None
+    default_value: Optional[str] = None
+    options: Optional[List[dict[str, Any]]] = None
+    file_config: Optional[dict[str, Any]] = None
+    user_config: Optional[dict[str, Any]] = None
+    required_by_status: Optional[dict[str, bool]] = None
+
+
+class VSCustomFieldDefinitionOut(BaseModel):
+    id: int
+    tab_id: int
+    key: str
+    label: str
+    field_type: str
+    is_required: bool
+    is_visible: bool
+    is_readonly: bool
+    display_order: int
+    department_id: Optional[str] = None
+    placeholder: Optional[str] = None
+    help_text: Optional[str] = None
+    default_value: Optional[str] = None
+    options: Optional[List[dict[str, Any]]] = None
+    file_config: Optional[dict[str, Any]] = None
+    user_config: Optional[dict[str, Any]] = None
+    required_by_status: Optional[dict[str, bool]] = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class VSComplaintCustomFieldValueCreate(BaseModel):
+    field_id: int
+    value: Optional[str] = None
+    file_metadata: Optional[dict[str, Any]] = None
+
+
+class VSComplaintCustomFieldValueUpdate(BaseModel):
+    value: Optional[str] = None
+    file_metadata: Optional[dict[str, Any]] = None
+
+
+class VSComplaintCustomFieldValueOut(BaseModel):
+    id: int
+    complaint_id: int
+    field_id: int
+    value: Optional[str] = None
+    file_metadata: Optional[dict[str, Any]] = None
+    field: Optional[VSCustomFieldDefinitionOut] = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class VSComplaintCustomFieldValueBulkSave(BaseModel):
+    values: List[VSComplaintCustomFieldValueCreate]

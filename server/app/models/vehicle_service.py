@@ -165,6 +165,9 @@ class VSComplaint(Base):
     costs: Mapped[List["VSServiceCost"]] = relationship(
         "VSServiceCost", back_populates="complaint", cascade="all, delete-orphan", lazy="selectin"
     )
+    custom_field_values: Mapped[List["VSComplaintCustomFieldValue"]] = relationship(
+        "VSComplaintCustomFieldValue", back_populates="complaint", cascade="all, delete-orphan", lazy="selectin"
+    )
 
 
 class VSComplaintNote(Base):

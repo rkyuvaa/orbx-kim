@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Alert,
   Box,
@@ -56,6 +56,7 @@ import {
   ShieldAlert,
   Sliders,
   Trash2,
+  Upload,
   User,
   Wrench,
   X,
@@ -81,6 +82,218 @@ function formatDuration(createdAt: string): string {
   if (hours > 0) return `${hours}h ${mins}m`;
   return `${mins}m`;
 }
+
+// Status-based required field validation
+function getRequiredFieldsForStatus(fields: VSCustomFieldDefinition[], status: string): VSCustomFieldDefinition[] {
+  return fields.filter((field) => {
+    if (!field.is_required) return false;
+    // If field has status-specific required rules, check them
+    if (field.required_by_status) {
+      return field.required_by_status[status] === true;
+    }
+    // Default: required for all statuses
+    return true;
+  });
+}
+
+function validateRequiredFields(values: Record<string, any>, requiredFields: VSCustomFieldDefinition[]): string[] {
+  const errors: string[] = [];
+  requiredFields.forEach((field) => {
+    const value = values[String(field.id)];
+    if (value === undefined || value === null || value === '') {
+      errors.push(`${field.label} is required`);
+    }
+  });
+  return errors;
+}
+
+// Custom Field Renderer Component
+interface CustomFieldRendererProps {
+  field: VSCustomFieldDefinition;
+  value: any;
+  onChange: (fieldId: number, value: any) => void;
+  users: { id: number; full_name: string; department?: string }[];
+  uploadFile: (file: File) => Promise<any>;
+  disabled?: boolean;
+}
+
+function CustomFieldRenderer({ field, value, onChange, users, uploadFile, disabled = false }: CustomFieldRendererProps) {
+  const [filePreview, setFilePreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setUploading(true);
+    try {
+      const result = await uploadFile(file);
+      onChange(field.id, result.filename); // Store filename as value
+      setFilePreview(result.preview_url || result.url);
+    } catch (err) {
+      console.error('File upload failed:', err);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleValueChange = (newValue: any) => {
+    onChange(field.id, newValue);
+  };
+
+  // Timer field: HH:MM format
+  if (field.field_type === 'timer') {
+    return (
+      <TextField
+        label={field.label}
+        placeholder={field.placeholder || 'HH:MM'}
+        value={value || ''}
+        onChange={(e) => handleValueChange(e.target.value)}
+        fullWidth
+        size="small"
+        disabled={disabled || field.is_readonly}
+        inputProps={{
+          pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$',
+          maxLength: 5,
+        }}
+        helperText={field.help_text}
+        sx={{ '& .MuiOutlinedInput-root': { fontSize: 12.5 } }}
+      />
+    );
+  }
+
+  // Number field
+  if (field.field_type === 'number') {
+    return (
+      <TextField
+        label={field.label}
+        placeholder={field.placeholder}
+        type="number"
+        value={value || ''}
+        onChange={(e) => handleValueChange(e.target.value)}
+        fullWidth
+        size="small"
+        disabled={disabled || field.is_readonly}
+        helperText={field.help_text}
+        sx={{ '& .MuiOutlinedInput-root': { fontSize: 12.5 } }}
+      />
+    );
+  }
+
+  // Date field
+  if (field.field_type === 'date') {
+    return (
+      <TextField
+        label={field.label}
+        type="date"
+        value={value || ''}
+        onChange={(e) => handleValueChange(e.target.value)}
+        fullWidth
+        size="small"
+        disabled={disabled || field.is_readonly}
+        helperText={field.help_text}
+        InputLabelProps={{ shrink: true }}
+        sx={{ '& .MuiOutlinedInput-root': { fontSize: 12.5 } }}
+      />
+    );
+  }
+
+  // User dropdown (filtered by department)
+  if (field.field_type === 'user') {
+    const filterByDept = field.user_config?.filter_by_department;
+    const deptField = field.user_config?.department_field;
+    // For now, show all users. Department filtering would need the user's department
+    const filteredUsers = users; // In real implementation, filter by department
+    
+    return (
+      <AppDropdown
+        label={field.label}
+        value={value || ''}
+        emptyLabel="Select user"
+        allowEmpty={!field.is_required}
+        options={filteredUsers.map((u) => ({ value: String(u.id), label: u.full_name }))}
+        onChange={(val) => handleValueChange(val ? Number(val) : '')}
+        disabled={disabled || field.is_readonly}
+        helperText={field.help_text}
+        size="small"
+      />
+    );
+  }
+
+  // Dropdown field
+  if (field.field_type === 'dropdown') {
+    const options = field.options || [];
+    return (
+      <AppDropdown
+        label={field.label}
+        value={value || ''}
+        emptyLabel={field.placeholder || 'Select option'}
+        allowEmpty={!field.is_required}
+        options={options.map((opt) => ({ value: opt.value, label: opt.label }))}
+        onChange={(val) => handleValueChange(val)}
+        disabled={disabled || field.is_readonly}
+        helperText={field.help_text}
+        size="small"
+      />
+    );
+  }
+
+  // File field
+  if (field.field_type === 'file') {
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <input
+          type="file"
+          accept={field.file_config?.allowed_extensions?.join(',') || '*'}
+          onChange={handleFileUpload}
+          disabled={disabled || field.is_readonly || uploading}
+          style={{ display: 'none' }}
+          id={`custom-field-file-${field.id}`}
+        />
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={uploading ? <CircularProgress size={16} /> : <Upload size={16} />}
+          onClick={() => document.getElementById(`custom-field-file-${field.id}`)?.click()}
+          disabled={disabled || field.is_readonly || uploading}
+          fullWidth
+        >
+          {uploading ? 'Uploading...' : 'Select File'}
+        </Button>
+        {filePreview && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+            <Download size={16} color="primary" />
+            <Typography variant="body2" color="primary" sx={{ flex: 1, cursor: 'pointer' }} onClick={() => window.open(filePreview, '_blank')}>
+              {field.options?.[0]?.label || 'Uploaded File'}
+            </Typography>
+            <IconButton size="small" onClick={() => { setFilePreview(null); onChange(field.id, ''); }}>
+              <X size={14} />
+            </IconButton>
+          </Box>
+        )}
+        {field.help_text && <Typography variant="caption" color="text.secondary">{field.help_text}</Typography>}
+      </Box>
+    );
+  }
+
+  // Default text field
+  return (
+    <TextField
+      label={field.label}
+      placeholder={field.placeholder}
+      value={value || ''}
+      onChange={(e) => handleValueChange(e.target.value)}
+      fullWidth
+      size="small"
+      multiline={field.field_type === 'textarea'}
+      rows={field.field_type === 'textarea' ? 3 : 1}
+      disabled={disabled || field.is_readonly}
+      helperText={field.help_text}
+      sx={{ '& .MuiOutlinedInput-root': { fontSize: 12.5 } }}
+    />
+  );
+}
+
 import {
   useAddVSComplaintNoteMutation,
   useAddVSServiceCostMutation,
@@ -92,6 +305,11 @@ import {
   useGetVSVehiclesQuery,
   useReplaceVSComponentMutation,
   useUpdateVSComplaintMutation,
+  // Custom Fields
+  useGetCustomFieldDefinitionsForComplaintQuery,
+  useGetCustomFieldValuesForComplaintQuery,
+  useUpsertCustomFieldValuesForComplaintMutation,
+  useUploadCustomFieldFileMutation,
 } from '@/api/vehicleServiceApi';
 import type {
   VSComplaint,
@@ -99,6 +317,8 @@ import type {
   VSComplaintCreate,
   VSKit,
   VSVehicle,
+  VSCustomFieldDefinition,
+  VSComplaintCustomFieldValue,
 } from '@/types/vehicleService';
 
 const SEVERITY_COLORS: Record<string, string> = {
@@ -254,7 +474,11 @@ export default function VSWorkOrdersTab() {
   const [closeRating, setCloseRating] = useState<number | null>(5);
   const [closeFeedbackComment, setCloseFeedbackComment] = useState('');
 
-  // Component Replacement inside Complaint Dialog
+    // Custom Fields state
+    const [newCustomFieldValues, setNewCustomFieldValues] = useState<Record<string, any>>({});
+    const [manageCustomFieldValues, setManageCustomFieldValues] = useState<Record<string, any>>({});
+
+    // Component Replacement inside Complaint Dialog
   const [isReplaceDialogOpen, setIsReplaceDialogOpen] = useState(false);
   const [replaceComponentId, setReplaceComponentId] = useState<number | ''>('');
   const [replaceNewSerial, setReplaceNewSerial] = useState('');
@@ -348,50 +572,113 @@ export default function VSWorkOrdersTab() {
     }
     setCreateError(null);
 
-    const reporter = newReportedBy.trim() || selectedKit?.customer_name || 'Customer';
-    const phone = newReportedPhone.trim() || '0000000000';
-    const desc =
-      newDescription.trim() ||
-      `${newCategory} issue reported for ${selectedKit?.vehicle_number || selectedKit?.kit_name || 'Vehicle'}`;
+      // Validate required custom fields for OPEN status
+      const requiredFields = getRequiredFieldsForStatus(newCustomFields, 'OPEN');
+      const validationErrors = validateRequiredFields(newCustomFieldValues, requiredFields);
+      if (validationErrors.length > 0) {
+        setCreateError(validationErrors.join('; '));
+        return;
+      }
 
-    const payload: VSComplaintCreate = {
-      kit_id: selectedKit?.id,
-      vehicle_id: newVehicleId ? Number(newVehicleId) : undefined,
-      vehicle_number: selectedKit?.vehicle_number || selectedVehicleObj?.vehicle_number || undefined,
-      affected_component_id: newComponentId ? Number(newComponentId) : undefined,
-      reported_by: reporter,
-      reported_phone: phone,
-      category: newCategory,
-      severity: newSeverity,
-      description: desc,
-      assigned_to_id: newAssignedTo ? Number(newAssignedTo) : undefined,
+      const reporter = newReportedBy.trim() || selectedKit?.customer_name || 'Customer';
+      const phone = newReportedPhone.trim() || '0000000000';
+      const desc =
+        newDescription.trim() ||
+        `${newCategory} issue reported for ${selectedKit?.vehicle_number || selectedKit?.kit_name || 'Vehicle'}`;
+
+      const payload: VSComplaintCreate = {
+        kit_id: selectedKit?.id,
+        vehicle_id: newVehicleId ? Number(newVehicleId) : undefined,
+        vehicle_number: selectedKit?.vehicle_number || selectedVehicleObj?.vehicle_number || undefined,
+        affected_component_id: newComponentId ? Number(newComponentId) : undefined,
+        reported_by: reporter,
+        reported_phone: phone,
+        category: newCategory,
+        severity: newSeverity,
+        description: desc,
+        assigned_to_id: newAssignedTo ? Number(newAssignedTo) : undefined,
+      };
+
+      try {
+        const created = await createComplaint(payload).unwrap();
+        if (newInitialNote.trim()) {
+          try {
+            await addNote({ complaintId: created.id, note: newInitialNote.trim() }).unwrap();
+          } catch {
+            // Non-blocking note
+          }
+        }
+      
+        // Save custom field values for new complaint
+        if (Object.keys(newCustomFieldValues).length > 0) {
+          try {
+            await upsertCustomFieldValuesForComplaint({
+              complaintId: created.id,
+              values: Object.entries(newCustomFieldValues).map(([field_id, value]) => ({
+                field_id: Number(field_id),
+                value: String(value),
+              })),
+            }).unwrap();
+          } catch (err) {
+            console.error('Failed to save custom field values:', err);
+          }
+        }
+      
+        setIsNewDialogOpen(false);
+        refetch();
+      } catch (err: any) {
+        setCreateError(err?.data?.detail || 'Failed to create work order.');
+      }
     };
 
-    try {
-      const created = await createComplaint(payload).unwrap();
-      if (newInitialNote.trim()) {
-        try {
-          await addNote({ complaintId: created.id, note: newInitialNote.trim() }).unwrap();
-        } catch {
-          // Non-blocking note
-        }
-      }
-      setIsNewDialogOpen(false);
-      refetch();
-    } catch (err: any) {
-      setCreateError(err?.data?.detail || 'Failed to create work order.');
-    }
-  };
+    // Custom Fields: Fetch definitions and values for Create dialog
+    const { data: newCustomFields = [] } = useGetCustomFieldDefinitionsForComplaintQuery({ 
+      status: 'OPEN', 
+      department_id: currentUser?.department 
+    });
+    const [uploadCustomFieldFile] = useUploadCustomFieldFileMutation();
 
-  const handleUpdateStatus = async (complaintId: number, nextStatus: string) => {
-    try {
-      const updated = await updateComplaint({ id: complaintId, body: { status: nextStatus } }).unwrap();
-      setSelectedComplaint(updated);
-      refetch();
-    } catch (err: any) {
-      alert(err?.data?.detail || 'Failed to update status.');
+    // Custom Fields: Fetch definitions and values for Manage dialog
+    const { data: manageCustomFields = [] } = useGetCustomFieldDefinitionsForComplaintQuery({ 
+      status: selectedComplaint?.status || 'OPEN', 
+      department_id: currentUser?.department 
+    }, { 
+      skip: !selectedComplaint 
+    });
+    const { data: manageCustomFieldValuesData = [] } = useGetCustomFieldValuesForComplaintQuery(
+      selectedComplaint?.id || 0,
+      { skip: !selectedComplaint }
+    );
+    const [upsertCustomFieldValuesForComplaint] = useUpsertCustomFieldValuesForComplaintMutation();
+
+    // Sync fetched values to local state for Manage dialog
+    React.useEffect(() => {
+      if (manageCustomFieldValuesData.length > 0) {
+        const valuesMap: Record<string, any> = {};
+        manageCustomFieldValuesData.forEach((v) => {
+          valuesMap[String(v.field_id)] = v.value;
+        });
+        setManageCustomFieldValues(valuesMap);
+      }
+    }, [manageCustomFieldValuesData]);
+
+    const handleUpdateStatus = async (complaintId: number, nextStatus: string) => {
+        // Validate required custom fields for the next status
+        const requiredFields = getRequiredFieldsForStatus(manageCustomFields, nextStatus);
+        const validationErrors = validateRequiredFields(manageCustomFieldValues, requiredFields);
+        if (validationErrors.length > 0) {
+          alert(`Cannot change status: ${validationErrors.join('; ')}`);
+          return;
     }
-  };
+
+        try {
+          const updated = await updateComplaint({ id: complaintId, body: { status: nextStatus } }).unwrap();
+          setSelectedComplaint(updated);
+          refetch();
+        } catch (err: any) {
+          alert(err?.data?.detail || 'Failed to update status.');
+        }
+      };
 
   const handleAssignUser = async (complaintId: number, userId: number) => {
     try {
@@ -422,21 +709,29 @@ export default function VSWorkOrdersTab() {
       return;
     }
 
-    const payload: VSComplaintCloseRequest = {
-      resolution_summary: closeResolutionSummary.trim(),
-      rating: closeRating || undefined,
-      feedback_comment: closeFeedbackComment.trim() || undefined,
-    };
+      // Validate required custom fields for CLOSED status
+      const requiredFields = getRequiredFieldsForStatus(manageCustomFields, 'CLOSED');
+      const validationErrors = validateRequiredFields(manageCustomFieldValues, requiredFields);
+      if (validationErrors.length > 0) {
+        alert(`Cannot close work order: ${validationErrors.join('; ')}`);
+        return;
+      }
 
-    try {
-      const res = await closeComplaint({ id: selectedComplaint.id, body: payload }).unwrap();
-      setSelectedComplaint(res);
-      setIsCloseDialogOpen(false);
-      refetch();
-    } catch (err: any) {
-      alert(err?.data?.detail || 'Failed to close work order.');
-    }
-  };
+      const payload: VSComplaintCloseRequest = {
+        resolution_summary: closeResolutionSummary.trim(),
+        rating: closeRating || undefined,
+        feedback_comment: closeFeedbackComment.trim() || undefined,
+      };
+
+      try {
+        const res = await closeComplaint({ id: selectedComplaint.id, body: payload }).unwrap();
+        setSelectedComplaint(res);
+        setIsCloseDialogOpen(false);
+        refetch();
+      } catch (err: any) {
+        alert(err?.data?.detail || 'Failed to close work order.');
+      }
+    };
 
   const handleReplaceComponentSubmit = async () => {
     if (!selectedComplaint || !replaceComponentId || !replaceNewSerial.trim()) {
@@ -495,6 +790,35 @@ export default function VSWorkOrdersTab() {
       setSelectedComplaint(updated);
     } catch (err: any) {
       alert('Failed to add cost item.');
+    }
+  };
+
+  const handleSaveCustomFields = async () => {
+    if (!selectedComplaint) return;
+
+    // Validate required fields for current status
+    const currentStatus = selectedComplaint.status;
+    const requiredFields = getRequiredFieldsForStatus(manageCustomFields, currentStatus);
+    const validationErrors = validateRequiredFields(manageCustomFieldValues, requiredFields);
+    if (validationErrors.length > 0) {
+      alert(`Cannot save: ${validationErrors.join('; ')}`);
+      return;
+    }
+
+    try {
+      await upsertCustomFieldValuesForComplaint({
+        complaintId: selectedComplaint.id,
+        values: Object.entries(manageCustomFieldValues).map(([field_id, value]) => ({
+          field_id: Number(field_id),
+          value: String(value),
+        })),
+      }).unwrap();
+
+      // Refresh the complaint to get updated values
+      const updated = await updateComplaint({ id: selectedComplaint.id, body: {} }).unwrap();
+      setSelectedComplaint(updated);
+    } catch (err: any) {
+      alert(err?.data?.detail || 'Failed to save custom fields.');
     }
   };
 
@@ -1412,7 +1736,29 @@ export default function VSWorkOrdersTab() {
                 Will be captured in the work order changelog upon creation.
               </Typography>
             </Box>
-          </Paper>
+
+                        {/* Custom Fields for Create Dialog */}
+                        {newCustomFields.length > 0 && (
+                          <Box sx={{ mt: 1 }}>
+                            <Divider sx={{ mb: 1.5, borderColor: '#E4EBE1' }} />
+                            <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#023020', fontSize: 13 }}>
+                              Custom Fields
+                            </Typography>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                              {newCustomFields.map((field) => (
+                                <CustomFieldRenderer
+                                  key={field.id}
+                                  field={field}
+                                  value={newCustomFieldValues[String(field.id)]}
+                                  onChange={(fieldId, value) => setNewCustomFieldValues(prev => ({ ...prev, [String(fieldId)]: value }))}
+                                  users={users}
+                                  uploadFile={uploadCustomFieldFile}
+                                />
+                              ))}
+                            </Box>
+                          </Box>
+                        )}
+                      </Paper>
         </DialogContent>
 
         <DialogActions sx={{ p: 2, px: 3, borderTop: '1px solid #E4EBE1' }}>
@@ -1711,7 +2057,29 @@ export default function VSWorkOrdersTab() {
                 </Paper>
               )}
 
-            </Box>
+                            {/* Custom Fields for Manage Dialog */}
+                            {manageCustomFields.length > 0 && (
+                              <Box sx={{ mt: 1 }}>
+                                <Divider sx={{ mb: 1.5, borderColor: '#E4EBE1' }} />
+                                <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#023020', fontSize: 13 }}>
+                                  Custom Fields
+                                </Typography>
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                                  {manageCustomFields.map((field) => (
+                                    <CustomFieldRenderer
+                                      key={field.id}
+                                      field={field}
+                                      value={manageCustomFieldValues[String(field.id)]}
+                                      onChange={(fieldId, value) => setManageCustomFieldValues(prev => ({ ...prev, [String(fieldId)]: value }))}
+                                      users={users}
+                                      uploadFile={uploadCustomFieldFile}
+                                    />
+                                  ))}
+                                </Box>
+                              </Box>
+                            )}
+
+                          </Box>
 
             {/* RIGHT SIDE: Changelog & Activity Logs (~27%) */}
             <Paper
@@ -1904,15 +2272,24 @@ export default function VSWorkOrdersTab() {
             </Paper>
           </DialogContent>
 
-          <DialogActions sx={{ p: 2, px: 3, borderTop: '1px solid #E4EBE1' }}>
-            <Button
-              onClick={() => setSelectedComplaint(null)}
-              variant="outlined"
-              sx={{ textTransform: 'none', fontWeight: 600, borderColor: '#E4EBE1', color: '#64748B' }}
-            >
-              Close
-            </Button>
-          </DialogActions>
+                    <DialogActions sx={{ p: 2, px: 3, borderTop: '1px solid #E4EBE1' }}>
+                      {manageCustomFields.length > 0 && (
+                        <Button
+                          variant="contained"
+                          onClick={handleSaveCustomFields}
+                          sx={{ textTransform: 'none', fontWeight: 600, backgroundColor: '#023020', '&:hover': { backgroundColor: '#034732' }, borderRadius: '8px' }}
+                        >
+                          Save Custom Fields
+                        </Button>
+                      )}
+                      <Button
+                        onClick={() => setSelectedComplaint(null)}
+                        variant="outlined"
+                        sx={{ textTransform: 'none', fontWeight: 600, borderColor: '#E4EBE1', color: '#64748B' }}
+                      >
+                        Close
+                      </Button>
+                    </DialogActions>
         </Dialog>
       )}
 
