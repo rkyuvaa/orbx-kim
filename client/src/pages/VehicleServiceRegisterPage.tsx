@@ -176,21 +176,50 @@ export default function VehicleServiceRegisterPage() {
             border: '1px solid #E2E8E2',
           }}
         >
-          <Box
-            sx={{
-              width: 72,
-              height: 72,
-              borderRadius: '50%',
-              bgcolor: '#EAF0EA',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              mx: 'auto',
-              mb: 2,
-            }}
-          >
-            <CheckCircle2 size={42} color="#203020" />
-          </Box>
+            {/* Brand Logo Header */}
+            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1.5, px: 2.2, py: 0.9, borderRadius: '12px', backgroundColor: '#203020', mb: 3 }}>
+              <Box
+                sx={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: '7px',
+                  backgroundColor: '#16C47F',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#203020',
+                  fontWeight: 900,
+                  fontSize: 15,
+                  letterSpacing: '-0.5px',
+                }}
+              >
+                K
+              </Box>
+              <Box sx={{ textAlign: 'left', lineHeight: 1.1 }}>
+                <Typography sx={{ fontSize: 15, fontWeight: 900, letterSpacing: '-0.02em', color: '#FFFFFF', lineHeight: 1.1 }}>
+                  KIM <span style={{ color: '#16C47F' }}>ERP</span>
+                </Typography>
+                <Typography sx={{ fontSize: 8.5, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#A3D9B8', display: 'block', mt: 0.2 }}>
+                  Konwert India Motors
+                </Typography>
+              </Box>
+            </Box>
+
+            <Box
+              sx={{
+                width: 72,
+                height: 72,
+                borderRadius: '50%',
+                bgcolor: '#EAF0EA',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                mx: 'auto',
+                mb: 2,
+              }}
+            >
+              <CheckCircle2 size={42} color="#203020" />
+            </Box>
           <Typography variant="h5" fontWeight={800} color="#203020" gutterBottom>
             Service Request Registered
           </Typography>
@@ -263,24 +292,64 @@ export default function VehicleServiceRegisterPage() {
   return (
     <Box sx={{ minHeight: '100dvh', bgcolor: '#F8FAF8', py: { xs: 2, sm: 6 }, pb: 'max(24px, env(safe-area-inset-bottom, 0px))' }}>
       <Container maxWidth="sm">
-        {/* Header (Subtitle removed) */}
+        {/* Header with Brand Logo */}
         <Box sx={{ textAlign: 'center', mb: 3 }}>
           <Box
             sx={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: 1,
-              bgcolor: '#EAF0EA',
-              px: 2,
-              py: 0.8,
-              borderRadius: 9999,
-              mb: 1.5,
+              gap: 1.5,
+              px: 2.2,
+              py: 0.9,
+              borderRadius: '12px',
+              backgroundColor: '#203020',
+              boxShadow: '0 4px 14px rgba(32, 48, 32, 0.16)',
+              mb: 2,
             }}
           >
-            <Zap size={18} color="#203020" />
-            <Typography variant="caption" fontWeight={700} color="#203020">
-              EV 3-WHEELER RETROFIT SERVICE
-            </Typography>
+            <Box
+              sx={{
+                width: 32,
+                height: 32,
+                borderRadius: '8px',
+                backgroundColor: '#16C47F',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#203020',
+                fontWeight: 900,
+                fontSize: 17,
+                letterSpacing: '-0.5px',
+              }}
+            >
+              K
+            </Box>
+            <Box sx={{ textAlign: 'left', lineHeight: 1.1 }}>
+              <Typography
+                sx={{
+                  fontSize: 17,
+                  fontWeight: 900,
+                  letterSpacing: '-0.02em',
+                  color: '#FFFFFF',
+                  lineHeight: 1.1,
+                }}
+              >
+                KIM <span style={{ color: '#16C47F' }}>ERP</span>
+              </Typography>
+              <Typography
+                sx={{
+                  fontSize: 9.5,
+                  fontWeight: 700,
+                  letterSpacing: '0.12em',
+                  textTransform: 'uppercase',
+                  color: '#A3D9B8',
+                  display: 'block',
+                  mt: 0.2,
+                }}
+              >
+                Konwert India Motors
+              </Typography>
+            </Box>
           </Box>
           <Typography variant="h5" fontWeight={800} color="#203020">
             Register Service Complaint
