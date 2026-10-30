@@ -69,6 +69,18 @@ import { useUsersQuery } from '@/api/mastersApi';
 import { AppDropdown } from '@/components/ui/AppDropdown';
 import { LocationDisplay, formatNoteLocation, useResolvedAddress } from '@/utils/geolocation';
 import { formatDate, formatDateTime } from '@/utils/format';
+
+function formatDuration(createdAt: string): string {
+  const diffMs = Date.now() - new Date(createdAt).getTime();
+  if (diffMs < 0) return '—';
+  const totalMins = Math.floor(diffMs / 60_000);
+  const days = Math.floor(totalMins / 1440);
+  const hours = Math.floor((totalMins % 1440) / 60);
+  const mins = totalMins % 60;
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${mins}m`;
+  return `${mins}m`;
+}
 import {
   useAddVSComplaintNoteMutation,
   useAddVSServiceCostMutation,
@@ -743,13 +755,13 @@ export default function VSWorkOrdersTab() {
                 <TableRow sx={{ bgcolor: '#f8fafc' }}>
                   <TableCell sx={{ fontWeight: 700 }}>Complaint ID</TableCell>
                   <TableCell sx={{ fontWeight: 700 }}>Vehicle & Owner</TableCell>
-                  <TableCell sx={{ fontWeight: 700 }}>Affected Component</TableCell>
                   <TableCell sx={{ fontWeight: 700 }}>Category</TableCell>
                   <TableCell sx={{ fontWeight: 700 }}>Severity</TableCell>
                   <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
                   <TableCell sx={{ fontWeight: 700 }}>Assigned To</TableCell>
                   <TableCell sx={{ fontWeight: 700 }}>Location</TableCell>
                   <TableCell sx={{ fontWeight: 700 }}>Created At</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Duration</TableCell>
                   <TableCell align="right" sx={{ fontWeight: 700 }}>Actions</TableCell>
                 </TableRow>
               </TableHead>
@@ -771,22 +783,6 @@ export default function VSWorkOrdersTab() {
                       <Typography variant="caption" color="text.secondary">
                         {c.owner_name} ({c.owner_phone})
                       </Typography>
-                    </TableCell>
-                    <TableCell>
-                      {c.affected_component_label ? (
-                        <Box>
-                          <Typography variant="caption" fontWeight={600} display="block">
-                            {c.affected_component_label}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            SN: {c.affected_component_serial}
-                          </Typography>
-                        </Box>
-                      ) : (
-                        <Typography variant="caption" color="text.secondary">
-                          General / Unspecified
-                        </Typography>
-                      )}
                     </TableCell>
                     <TableCell>
                       <Chip label={c.category} size="small" variant="outlined" />
@@ -833,6 +829,11 @@ export default function VSWorkOrdersTab() {
                     <TableCell>
                       <Typography variant="caption" sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>
                         {formatDateTime(c.created_at)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="caption" sx={{ whiteSpace: 'nowrap', fontWeight: 600, color: '#023020' }}>
+                        {formatDuration(c.created_at)}
                       </Typography>
                     </TableCell>
                     <TableCell align="right" sx={{ whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
