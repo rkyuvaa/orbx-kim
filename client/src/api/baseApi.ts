@@ -111,6 +111,9 @@ export const baseApi = createApi({
     'VSDashboard',
     'PersonalTasks',
     'DocumentNumbering',
-  ],
+      'VSCustomFieldTabs',
+      'VSCustomFieldDefinitions',
+      'VSCustomFieldValues',
+    ],
   endpoints: () => ({}),
 });

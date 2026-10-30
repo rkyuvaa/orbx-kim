@@ -361,11 +361,12 @@ import {
   useReplaceVSComponentMutation,
   useUpdateVSComplaintMutation,
   // Custom Fields
-  useGetCustomFieldDefinitionsForComplaintQuery,
-  useGetCustomFieldValuesForComplaintQuery,
-  useUpsertCustomFieldValuesForComplaintMutation,
-  useUploadCustomFieldFileMutation,
-} from '@/api/vehicleServiceApi';
+    useGetCustomFieldDefinitionsQuery,
+    useGetCustomFieldDefinitionsForComplaintQuery,
+    useGetCustomFieldValuesForComplaintQuery,
+    useUpsertCustomFieldValuesForComplaintMutation,
+    useUploadCustomFieldFileMutation,
+  } from '@/api/vehicleServiceApi';
 import type {
   VSComplaint,
   VSComplaintCloseRequest,
@@ -668,16 +669,18 @@ export default function VSWorkOrdersTab() {
         if (Object.keys(newCustomFieldValues).length > 0) {
           try {
             await upsertCustomFieldValuesForComplaint({
-              complaintId: created.id,
-              values: Object.entries(newCustomFieldValues).map(([field_id, value]) => ({
-                field_id: Number(field_id),
-                value: String(value),
-              })),
-            }).unwrap();
-          } catch (err) {
-            console.error('Failed to save custom field values:', err);
-          }
-        }
+                      complaint_id: created.id,
+                      body: {
+                        values: Object.entries(newCustomFieldValues).map(([field_id, value]) => ({
+                          field_id: Number(field_id),
+                          value: String(value),
+                        })),
+                      },
+                    }).unwrap();
+                  } catch (err) {
+                    console.error('Failed to save custom field values:', err);
+                  }
+                }
       
         setIsNewDialogOpen(false);
         refetch();
@@ -687,24 +690,34 @@ export default function VSWorkOrdersTab() {
     };
 
     // Custom Fields: Fetch definitions and values for Create dialog
-    const { data: newCustomFields = [] } = useGetCustomFieldDefinitionsForComplaintQuery({ 
-      status: 'OPEN', 
-      department_id: currentUser?.department 
-    });
-    const [uploadCustomFieldFile] = useUploadCustomFieldFileMutation();
+        // Use general definitions endpoint (not complaint-specific since complaint doesn't exist yet)
+        const { data: newCustomFields = [] } = useGetCustomFieldDefinitionsQuery({
+          active_only: true
+        });
+        const [uploadCustomFieldFileMutation] = useUploadCustomFieldFileMutation();
+        const uploadCustomFieldFile = async (file: File) => {
+          // For create dialog, we don't have a complaint_id yet, use 0 as placeholder
+          // The backend should handle this appropriately (might need adjustment)
+          const result = await uploadCustomFieldFileMutation({ file, field_id: 0, complaint_id: 0 }).unwrap();
+          return result;
+        };
 
-    // Custom Fields: Fetch definitions and values for Manage dialog
-    const { data: manageCustomFields = [] } = useGetCustomFieldDefinitionsForComplaintQuery({ 
-      status: selectedComplaint?.status || 'OPEN', 
-      department_id: currentUser?.department 
-    }, { 
-      skip: !selectedComplaint 
-    });
+        // Custom Fields: Fetch definitions and values for Manage dialog
+        const { data: manageCustomFields = [] } = useGetCustomFieldDefinitionsForComplaintQuery(
+          selectedComplaint?.id || 0,
+          { skip: !selectedComplaint }
+        );
     const { data: manageCustomFieldValuesData = [] } = useGetCustomFieldValuesForComplaintQuery(
       selectedComplaint?.id || 0,
       { skip: !selectedComplaint }
     );
-    const [upsertCustomFieldValuesForComplaint] = useUpsertCustomFieldValuesForComplaintMutation();
+        const [uploadCustomFieldFileMutationManage] = useUploadCustomFieldFileMutation();
+        const uploadCustomFieldFileManage = async (file: File, fieldId: number) => {
+          if (!selectedComplaint) return;
+          const result = await uploadCustomFieldFileMutationManage({ file, field_id: fieldId, complaint_id: selectedComplaint.id }).unwrap();
+          return result;
+        };
+        const [upsertCustomFieldValuesForComplaint] = useUpsertCustomFieldValuesForComplaintMutation();
 
     // Sync fetched values to local state for Manage dialog
     React.useEffect(() => {
@@ -862,19 +875,21 @@ export default function VSWorkOrdersTab() {
 
     try {
       await upsertCustomFieldValuesForComplaint({
-        complaintId: selectedComplaint.id,
-        values: Object.entries(manageCustomFieldValues).map(([field_id, value]) => ({
-          field_id: Number(field_id),
-          value: String(value),
-        })),
-      }).unwrap();
+            complaint_id: selectedComplaint.id,
+            body: {
+              values: Object.entries(manageCustomFieldValues).map(([field_id, value]) => ({
+                field_id: Number(field_id),
+                value: String(value),
+              })),
+            },
+          }).unwrap();
 
-      // Refresh the complaint to get updated values
-      const updated = await updateComplaint({ id: selectedComplaint.id, body: {} }).unwrap();
-      setSelectedComplaint(updated);
-    } catch (err: any) {
-      alert(err?.data?.detail || 'Failed to save custom fields.');
-    }
+          // Refresh the complaint to get updated values
+          const updated = await updateComplaint({ id: selectedComplaint.id, body: {} }).unwrap();
+          setSelectedComplaint(updated);
+        } catch (err: any) {
+          alert(err?.data?.detail || 'Failed to save custom fields.');
+        }
   };
 
   return (
@@ -1793,7 +1808,7 @@ export default function VSWorkOrdersTab() {
             </Box>
 
                         {/* Custom Fields for Create Dialog */}
-                        {newCustomFields.length > 0 && (
+                                    {newCustomFields.length > 0 ? (
                           <Box sx={{ mt: 1 }}>
                             <Divider sx={{ mb: 1.5, borderColor: '#E4EBE1' }} />
                             <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#023020', fontSize: 13 }}>
@@ -1812,7 +1827,17 @@ export default function VSWorkOrdersTab() {
                               ))}
                             </Box>
                           </Box>
-                        )}
+                                    ) : (
+                                      <Box sx={{ mt: 1 }}>
+                                        <Divider sx={{ mb: 1.5, borderColor: '#E4EBE1' }} />
+                                        <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#023020', fontSize: 13 }}>
+                                          Custom Fields
+                                        </Typography>
+                                        <Typography variant="caption" color="text.secondary" sx={{ py: 2 }}>
+                                          No custom fields configured for OPEN status in your department.
+                                        </Typography>
+                                      </Box>
+                                    )}
                       </Paper>
         </DialogContent>
 
@@ -2127,7 +2152,7 @@ export default function VSWorkOrdersTab() {
                                       value={manageCustomFieldValues[String(field.id)]}
                                       onChange={(fieldId, value) => setManageCustomFieldValues(prev => ({ ...prev, [String(fieldId)]: value }))}
                                       users={users}
-                                      uploadFile={uploadCustomFieldFile}
+                                                                  uploadFile={(file) => uploadCustomFieldFileManage(file, field.id)}
                                     />
                                   ))}
                                 </Box>

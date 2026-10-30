@@ -1531,338 +1531,338 @@ def get_dashboard(
 
 
     # ============================================================================
-    # Custom Fields Endpoints for Vehicle Service
-    # ============================================================================
+# Custom Fields Endpoints for Vehicle Service
+# ============================================================================
 
-    # Tabs
-    @router.get("/custom-fields/tabs", response_model=list[VSCustomFieldTabOut])
-    def list_custom_field_tabs(
-        department_id: Optional[str] = None,
-        active_only: bool = True,
-        db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user),
-    ):
-        query = db.query(VSCustomFieldTab)
-        if active_only:
-            query = query.filter(VSCustomFieldTab.is_active == True)
+# Tabs
+@router.get("/custom-fields/tabs", response_model=list[VSCustomFieldTabOut])
+def list_custom_field_tabs(
+    department_id: Optional[str] = None,
+    active_only: bool = True,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    query = db.query(VSCustomFieldTab)
+    if active_only:
+        query = query.filter(VSCustomFieldTab.is_active == True)
+    if department_id:
+        query = query.filter(VSCustomFieldTab.department_id == department_id)
+    return query.order_by(VSCustomFieldTab.display_order).all()
+
+
+@router.post("/custom-fields/tabs", response_model=VSCustomFieldTabOut, status_code=status.HTTP_201_CREATED)
+def create_custom_field_tab(
+    payload: VSCustomFieldTabCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    tab = VSCustomFieldTab(**payload.model_dump())
+    db.add(tab)
+    db.commit()
+    db.refresh(tab)
+    return tab
+
+
+@router.patch("/custom-fields/tabs/{tab_id}", response_model=VSCustomFieldTabOut)
+def update_custom_field_tab(
+    tab_id: int,
+    payload: VSCustomFieldTabUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    tab = db.query(VSCustomFieldTab).filter(VSCustomFieldTab.id == tab_id).first()
+    if not tab:
+        raise HTTPException(status_code=404, detail="Tab not found")
+    for k, v in payload.model_dump(exclude_unset=True).items():
+        setattr(tab, k, v)
+    db.commit()
+    db.refresh(tab)
+    return tab
+
+
+@router.delete("/custom-fields/tabs/{tab_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_custom_field_tab(
+    tab_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    tab = db.query(VSCustomFieldTab).filter(VSCustomFieldTab.id == tab_id).first()
+    if not tab:
+        raise HTTPException(status_code=404, detail="Tab not found")
+    db.delete(tab)
+    db.commit()
+
+
+# Field Definitions
+@router.get("/custom-fields/definitions", response_model=list[VSCustomFieldDefinitionOut])
+def list_custom_field_definitions(
+    tab_id: Optional[int] = None,
+    department_id: Optional[str] = None,
+    active_only: bool = True,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    query = db.query(VSCustomFieldDefinition)
+    if tab_id:
+        query = query.filter(VSCustomFieldDefinition.tab_id == tab_id)
+    if department_id:
+        query = query.filter(VSCustomFieldDefinition.department_id == department_id)
+    if active_only:
+        query = query.filter(VSCustomFieldDefinition.is_visible == True)
+    return query.order_by(VSCustomFieldDefinition.tab_id, VSCustomFieldDefinition.display_order).all()
+
+
+@router.get("/custom-fields/definitions/by-tab/{tab_id}", response_model=list[VSCustomFieldDefinitionOut])
+def list_custom_field_definitions_by_tab(
+    tab_id: int,
+    department_id: Optional[str] = None,
+    status: Optional[str] = None,  # Filter by required status
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    query = db.query(VSCustomFieldDefinition).filter(VSCustomFieldDefinition.tab_id == tab_id)
+    if department_id:
+        query = query.filter(VSCustomFieldDefinition.department_id == department_id)
+    definitions = query.order_by(VSCustomFieldDefinition.display_order).all()
+
+    # Filter by required_by_status if status provided
+    if status:
+        filtered = []
+        for d in definitions:
+            req = d.required_by_status or {}
+            if req.get(status.upper(), False):
+                filtered.append(d)
+        return filtered
+    return definitions
+
+
+@router.post("/custom-fields/definitions", response_model=VSCustomFieldDefinitionOut, status_code=status.HTTP_201_CREATED)
+def create_custom_field_definition(
+    payload: VSCustomFieldDefinitionCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    # Check tab exists
+    tab = db.query(VSCustomFieldTab).filter(VSCustomFieldTab.id == payload.tab_id).first()
+    if not tab:
+        raise HTTPException(status_code=404, detail="Tab not found")
+
+    definition = VSCustomFieldDefinition(**payload.model_dump())
+    db.add(definition)
+    db.commit()
+    db.refresh(definition)
+    return definition
+
+
+@router.patch("/custom-fields/definitions/{field_id}", response_model=VSCustomFieldDefinitionOut)
+def update_custom_field_definition(
+    field_id: int,
+    payload: VSCustomFieldDefinitionUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    field = db.query(VSCustomFieldDefinition).filter(VSCustomFieldDefinition.id == field_id).first()
+    if not field:
+        raise HTTPException(status_code=404, detail="Field definition not found")
+    for k, v in payload.model_dump(exclude_unset=True).items():
+        setattr(field, k, v)
+    db.commit()
+    db.refresh(field)
+    return field
+
+
+@router.delete("/custom-fields/definitions/{field_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_custom_field_definition(
+    field_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    field = db.query(VSCustomFieldDefinition).filter(VSCustomFieldDefinition.id == field_id).first()
+    if not field:
+        raise HTTPException(status_code=404, detail="Field definition not found")
+    db.delete(field)
+    db.commit()
+
+
+# Field Values
+@router.get("/custom-fields/values/complaint/{complaint_id}", response_model=list[VSComplaintCustomFieldValueOut])
+def get_custom_field_values_for_complaint(
+    complaint_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    values = db.query(VSComplaintCustomFieldValue).filter(
+        VSComplaintCustomFieldValue.complaint_id == complaint_id
+    ).all()
+    # Attach field definition for convenience
+    field_ids = [v.field_id for v in values]
+    fields = {f.id: f for f in db.query(VSCustomFieldDefinition).filter(VSCustomFieldDefinition.id.in_(field_ids)).all()} if field_ids else {}
+    for v in values:
+        v.field = fields.get(v.field_id)
+    return values
+
+
+@router.post("/custom-fields/values/complaint/{complaint_id}/bulk", response_model=list[VSComplaintCustomFieldValueOut])
+def upsert_custom_field_values_for_complaint(
+    complaint_id: int,
+    payload: VSComplaintCustomFieldValueBulkSave,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    # Verify complaint exists
+    complaint = db.query(VSComplaint).filter(VSComplaint.id == complaint_id).first()
+    if not complaint:
+        raise HTTPException(status_code=404, detail="Complaint not found")
+
+    results = []
+    for item in payload.values:
+        existing = db.query(VSComplaintCustomFieldValue).filter(
+            VSComplaintCustomFieldValue.complaint_id == complaint_id,
+            VSComplaintCustomFieldValue.field_id == item.field_id
+        ).first()
+        if existing:
+            existing.value = item.value
+            existing.file_metadata = item.file_metadata
+            existing.updated_at = datetime.now(UTC)
+            results.append(existing)
+        else:
+            new_val = VSComplaintCustomFieldValue(
+                complaint_id=complaint_id,
+                field_id=item.field_id,
+                value=item.value,
+                file_metadata=item.file_metadata,
+            )
+            db.add(new_val)
+            results.append(new_val)
+    db.commit()
+    for r in results:
+        db.refresh(r)
+    # Attach field definitions
+    field_ids = [r.field_id for r in results]
+    fields = {f.id: f for f in db.query(VSCustomFieldDefinition).filter(VSCustomFieldDefinition.id.in_(field_ids)).all()} if field_ids else {}
+    for r in results:
+        r.field = fields.get(r.field_id)
+    return results
+
+
+@router.get("/custom-fields/definitions/for-complaint/{complaint_id}", response_model=list[VSCustomFieldDefinitionOut])
+def get_custom_field_definitions_for_complaint(
+    complaint_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get field definitions applicable to a complaint based on its status and department."""
+    complaint = db.query(VSComplaint).filter(VSComplaint.id == complaint_id).first()
+    if not complaint:
+        raise HTTPException(status_code=404, detail="Complaint not found")
+
+    # Get vehicle to determine department if needed
+    vehicle = db.query(VSVehicle).filter(VSVehicle.id == complaint.vehicle_id).first()
+    department_id = getattr(vehicle, 'department_id', None) if vehicle else None
+
+    # Get all active tabs
+    tabs = db.query(VSCustomFieldTab).filter(VSCustomFieldTab.is_active == True).all()
+    if department_id:
+        tabs = [t for t in tabs if t.department_id is None or t.department_id == department_id]
+
+    all_definitions = []
+    for tab in tabs:
+        query = db.query(VSCustomFieldDefinition).filter(
+            VSCustomFieldDefinition.tab_id == tab.id,
+            VSCustomFieldDefinition.is_visible == True
+        )
         if department_id:
-            query = query.filter(VSCustomFieldTab.department_id == department_id)
-        return query.order_by(VSCustomFieldTab.display_order).all()
-
-
-    @router.post("/custom-fields/tabs", response_model=VSCustomFieldTabOut, status_code=status.HTTP_201_CREATED)
-    def create_custom_field_tab(
-        payload: VSCustomFieldTabCreate,
-        db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user),
-    ):
-        tab = VSCustomFieldTab(**payload.model_dump())
-        db.add(tab)
-        db.commit()
-        db.refresh(tab)
-        return tab
-
-
-    @router.patch("/custom-fields/tabs/{tab_id}", response_model=VSCustomFieldTabOut)
-    def update_custom_field_tab(
-        tab_id: int,
-        payload: VSCustomFieldTabUpdate,
-        db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user),
-    ):
-        tab = db.query(VSCustomFieldTab).filter(VSCustomFieldTab.id == tab_id).first()
-        if not tab:
-            raise HTTPException(status_code=404, detail="Tab not found")
-        for k, v in payload.model_dump(exclude_unset=True).items():
-            setattr(tab, k, v)
-        db.commit()
-        db.refresh(tab)
-        return tab
-
-
-    @router.delete("/custom-fields/tabs/{tab_id}", status_code=status.HTTP_204_NO_CONTENT)
-    def delete_custom_field_tab(
-        tab_id: int,
-        db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user),
-    ):
-        tab = db.query(VSCustomFieldTab).filter(VSCustomFieldTab.id == tab_id).first()
-        if not tab:
-            raise HTTPException(status_code=404, detail="Tab not found")
-        db.delete(tab)
-        db.commit()
-
-
-    # Field Definitions
-    @router.get("/custom-fields/definitions", response_model=list[VSCustomFieldDefinitionOut])
-    def list_custom_field_definitions(
-        tab_id: Optional[int] = None,
-        department_id: Optional[str] = None,
-        active_only: bool = True,
-        db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user),
-    ):
-        query = db.query(VSCustomFieldDefinition)
-        if tab_id:
-            query = query.filter(VSCustomFieldDefinition.tab_id == tab_id)
-        if department_id:
-            query = query.filter(VSCustomFieldDefinition.department_id == department_id)
-        if active_only:
-            query = query.filter(VSCustomFieldDefinition.is_visible == True)
-        return query.order_by(VSCustomFieldDefinition.tab_id, VSCustomFieldDefinition.display_order).all()
-
-
-    @router.get("/custom-fields/definitions/by-tab/{tab_id}", response_model=list[VSCustomFieldDefinitionOut])
-    def list_custom_field_definitions_by_tab(
-        tab_id: int,
-        department_id: Optional[str] = None,
-        status: Optional[str] = None,  # Filter by required status
-        db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user),
-    ):
-        query = db.query(VSCustomFieldDefinition).filter(VSCustomFieldDefinition.tab_id == tab_id)
-        if department_id:
-            query = query.filter(VSCustomFieldDefinition.department_id == department_id)
+            query = query.filter(
+                (VSCustomFieldDefinition.department_id.is_(None)) | 
+                (VSCustomFieldDefinition.department_id == department_id)
+            )
         definitions = query.order_by(VSCustomFieldDefinition.display_order).all()
-    
-        # Filter by required_by_status if status provided
-        if status:
-            filtered = []
-            for d in definitions:
-                req = d.required_by_status or {}
-                if req.get(status.upper(), False):
-                    filtered.append(d)
-            return filtered
-        return definitions
+        all_definitions.extend(definitions)
+
+    return all_definitions
 
 
-    @router.post("/custom-fields/definitions", response_model=VSCustomFieldDefinitionOut, status_code=status.HTTP_201_CREATED)
-    def create_custom_field_definition(
-        payload: VSCustomFieldDefinitionCreate,
-        db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user),
-    ):
-        # Check tab exists
-        tab = db.query(VSCustomFieldTab).filter(VSCustomFieldTab.id == payload.tab_id).first()
-        if not tab:
-            raise HTTPException(status_code=404, detail="Tab not found")
-    
-        definition = VSCustomFieldDefinition(**payload.model_dump())
-        db.add(definition)
-        db.commit()
-        db.refresh(definition)
-        return definition
+@router.post("/custom-fields/files/upload", response_model=dict[str, Any])
+async def upload_custom_field_file(
+    file: UploadFile = File(...),
+    field_id: int = Form(...),
+    complaint_id: int = Form(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Upload a file for a custom field."""
+    import os
+    import uuid
+    from pathlib import Path
+
+    # Verify field exists and is file type
+    field = db.query(VSCustomFieldDefinition).filter(VSCustomFieldDefinition.id == field_id).first()
+    if not field:
+        raise HTTPException(status_code=404, detail="Field not found")
+    if field.field_type != "file":
+        raise HTTPException(status_code=400, detail="Field is not a file type")
+
+    # Verify complaint exists
+    complaint = db.query(VSComplaint).filter(VSComplaint.id == complaint_id).first()
+    if not complaint:
+        raise HTTPException(status_code=404, detail="Complaint not found")
+
+    # Validate file type
+    file_config = field.file_config or {}
+    allowed_extensions = file_config.get("allowed_extensions", ["pdf", "png", "jpg", "jpeg", "doc", "docx"])
+    max_size_mb = file_config.get("max_size_mb", 10)
+
+    file_ext = Path(file.filename).suffix.lower().lstrip(".")
+    if file_ext not in allowed_extensions:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"File type .{file_ext} not allowed. Allowed: {', '.join(allowed_extensions)}"
+        )
+
+    # Check file size
+    content = await file.read()
+    if len(content) > max_size_mb * 1024 * 1024:
+        raise HTTPException(status_code=400, detail=f"File size exceeds {max_size_mb}MB limit")
+
+    # Save file
+    upload_dir = Path("uploads/vehicle_service/custom_fields")
+    upload_dir.mkdir(parents=True, exist_ok=True)
+
+    unique_name = f"{uuid.uuid4().hex}_{file.filename}"
+    file_path = upload_dir / unique_name
+
+    with open(file_path, "wb") as f:
+        f.write(content)
+
+    # Return file metadata
+    file_metadata = {
+        "filename": unique_name,
+        "original_name": file.filename,
+        "size": len(content),
+        "mime_type": file.content_type,
+        "url": f"/api/v1/vehicle-service/custom-fields/files/{unique_name}",
+        "preview_url": f"/api/v1/vehicle-service/custom-fields/files/{unique_name}/preview",
+        "uploaded_at": datetime.now(UTC).isoformat(),
+    }
+
+    return file_metadata
 
 
-    @router.patch("/custom-fields/definitions/{field_id}", response_model=VSCustomFieldDefinitionOut)
-    def update_custom_field_definition(
-        field_id: int,
-        payload: VSCustomFieldDefinitionUpdate,
-        db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user),
-    ):
-        field = db.query(VSCustomFieldDefinition).filter(VSCustomFieldDefinition.id == field_id).first()
-        if not field:
-            raise HTTPException(status_code=404, detail="Field definition not found")
-        for k, v in payload.model_dump(exclude_unset=True).items():
-            setattr(field, k, v)
-        db.commit()
-        db.refresh(field)
-        return field
+@router.get("/custom-fields/files/{filename}")
+async def download_custom_field_file(filename: str):
+    """Download a custom field file."""
+    from fastapi.responses import FileResponse
+    file_path = Path("uploads/vehicle_service/custom_fields") / filename
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="File not found")
+    return FileResponse(path=file_path, filename=filename)
 
 
-    @router.delete("/custom-fields/definitions/{field_id}", status_code=status.HTTP_204_NO_CONTENT)
-    def delete_custom_field_definition(
-        field_id: int,
-        db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user),
-    ):
-        field = db.query(VSCustomFieldDefinition).filter(VSCustomFieldDefinition.id == field_id).first()
-        if not field:
-            raise HTTPException(status_code=404, detail="Field definition not found")
-        db.delete(field)
-        db.commit()
-
-
-    # Field Values
-    @router.get("/custom-fields/values/complaint/{complaint_id}", response_model=list[VSComplaintCustomFieldValueOut])
-    def get_custom_field_values_for_complaint(
-        complaint_id: int,
-        db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user),
-    ):
-        values = db.query(VSComplaintCustomFieldValue).filter(
-            VSComplaintCustomFieldValue.complaint_id == complaint_id
-        ).all()
-        # Attach field definition for convenience
-        field_ids = [v.field_id for v in values]
-        fields = {f.id: f for f in db.query(VSCustomFieldDefinition).filter(VSCustomFieldDefinition.id.in_(field_ids)).all()} if field_ids else {}
-        for v in values:
-            v.field = fields.get(v.field_id)
-        return values
-
-
-    @router.post("/custom-fields/values/complaint/{complaint_id}/bulk", response_model=list[VSComplaintCustomFieldValueOut])
-    def upsert_custom_field_values_for_complaint(
-        complaint_id: int,
-        payload: VSComplaintCustomFieldValueBulkSave,
-        db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user),
-    ):
-        # Verify complaint exists
-        complaint = db.query(VSComplaint).filter(VSComplaint.id == complaint_id).first()
-        if not complaint:
-            raise HTTPException(status_code=404, detail="Complaint not found")
-    
-        results = []
-        for item in payload.values:
-            existing = db.query(VSComplaintCustomFieldValue).filter(
-                VSComplaintCustomFieldValue.complaint_id == complaint_id,
-                VSComplaintCustomFieldValue.field_id == item.field_id
-            ).first()
-            if existing:
-                existing.value = item.value
-                existing.file_metadata = item.file_metadata
-                existing.updated_at = datetime.now(UTC)
-                results.append(existing)
-            else:
-                new_val = VSComplaintCustomFieldValue(
-                    complaint_id=complaint_id,
-                    field_id=item.field_id,
-                    value=item.value,
-                    file_metadata=item.file_metadata,
-                )
-                db.add(new_val)
-                results.append(new_val)
-        db.commit()
-        for r in results:
-            db.refresh(r)
-        # Attach field definitions
-        field_ids = [r.field_id for r in results]
-        fields = {f.id: f for f in db.query(VSCustomFieldDefinition).filter(VSCustomFieldDefinition.id.in_(field_ids)).all()} if field_ids else {}
-        for r in results:
-            r.field = fields.get(r.field_id)
-        return results
-
-
-        @router.get("/custom-fields/definitions/for-complaint/{complaint_id}", response_model=list[VSCustomFieldDefinitionOut])
-        def get_custom_field_definitions_for_complaint(
-            complaint_id: int,
-            db: Session = Depends(get_db),
-            current_user: User = Depends(get_current_user),
-        ):
-            """Get field definitions applicable to a complaint based on its status and department."""
-            complaint = db.query(VSComplaint).filter(VSComplaint.id == complaint_id).first()
-            if not complaint:
-                raise HTTPException(status_code=404, detail="Complaint not found")
-        
-            # Get vehicle to determine department if needed
-            vehicle = db.query(VSVehicle).filter(VSVehicle.id == complaint.vehicle_id).first()
-            department_id = getattr(vehicle, 'department_id', None) if vehicle else None
-        
-            # Get all active tabs
-            tabs = db.query(VSCustomFieldTab).filter(VSCustomFieldTab.is_active == True).all()
-            if department_id:
-                tabs = [t for t in tabs if t.department_id is None or t.department_id == department_id]
-        
-            all_definitions = []
-            for tab in tabs:
-                query = db.query(VSCustomFieldDefinition).filter(
-                    VSCustomFieldDefinition.tab_id == tab.id,
-                    VSCustomFieldDefinition.is_visible == True
-                )
-                if department_id:
-                    query = query.filter(
-                        (VSCustomFieldDefinition.department_id.is_(None)) | 
-                        (VSCustomFieldDefinition.department_id == department_id)
-                    )
-                definitions = query.order_by(VSCustomFieldDefinition.display_order).all()
-                all_definitions.extend(definitions)
-        
-            return all_definitions
-
-
-        @router.post("/custom-fields/files/upload", response_model=dict[str, Any])
-        async def upload_custom_field_file(
-            file: UploadFile = File(...),
-            field_id: int = Form(...),
-            complaint_id: int = Form(...),
-            db: Session = Depends(get_db),
-            current_user: User = Depends(get_current_user),
-        ):
-            """Upload a file for a custom field."""
-            import os
-            import uuid
-            from pathlib import Path
-        
-            # Verify field exists and is file type
-            field = db.query(VSCustomFieldDefinition).filter(VSCustomFieldDefinition.id == field_id).first()
-            if not field:
-                raise HTTPException(status_code=404, detail="Field not found")
-            if field.field_type != "file":
-                raise HTTPException(status_code=400, detail="Field is not a file type")
-        
-            # Verify complaint exists
-            complaint = db.query(VSComplaint).filter(VSComplaint.id == complaint_id).first()
-            if not complaint:
-                raise HTTPException(status_code=404, detail="Complaint not found")
-        
-            # Validate file type
-            file_config = field.file_config or {}
-            allowed_extensions = file_config.get("allowed_extensions", ["pdf", "png", "jpg", "jpeg", "doc", "docx"])
-            max_size_mb = file_config.get("max_size_mb", 10)
-        
-            file_ext = Path(file.filename).suffix.lower().lstrip(".")
-            if file_ext not in allowed_extensions:
-                raise HTTPException(
-                    status_code=400, 
-                    detail=f"File type .{file_ext} not allowed. Allowed: {', '.join(allowed_extensions)}"
-                )
-        
-            # Check file size
-            content = await file.read()
-            if len(content) > max_size_mb * 1024 * 1024:
-                raise HTTPException(status_code=400, detail=f"File size exceeds {max_size_mb}MB limit")
-        
-            # Save file
-            upload_dir = Path("uploads/vehicle_service/custom_fields")
-            upload_dir.mkdir(parents=True, exist_ok=True)
-        
-            unique_name = f"{uuid.uuid4().hex}_{file.filename}"
-            file_path = upload_dir / unique_name
-        
-            with open(file_path, "wb") as f:
-                f.write(content)
-        
-            # Return file metadata
-            file_metadata = {
-                "filename": unique_name,
-                "original_name": file.filename,
-                "size": len(content),
-                "mime_type": file.content_type,
-                "url": f"/api/v1/vehicle-service/custom-fields/files/{unique_name}",
-                "preview_url": f"/api/v1/vehicle-service/custom-fields/files/{unique_name}/preview",
-                "uploaded_at": datetime.now(UTC).isoformat(),
-            }
-        
-            return file_metadata
-
-
-        @router.get("/custom-fields/files/{filename}")
-        async def download_custom_field_file(filename: str):
-            """Download a custom field file."""
-            from fastapi.responses import FileResponse
-            file_path = Path("uploads/vehicle_service/custom_fields") / filename
-            if not file_path.exists():
-                raise HTTPException(status_code=404, detail="File not found")
-            return FileResponse(path=file_path, filename=filename)
-
-
-        @router.get("/custom-fields/files/{filename}/preview")
-        async def preview_custom_field_file(filename: str):
-            """Preview a custom field file (for images/PDFs)."""
-            from fastapi.responses import FileResponse
-            file_path = Path("uploads/vehicle_service/custom_fields") / filename
-            if not file_path.exists():
-                raise HTTPException(status_code=404, detail="File not found")
-            return FileResponse(path=file_path)
+@router.get("/custom-fields/files/{filename}/preview")
+async def preview_custom_field_file(filename: str):
+    """Preview a custom field file (for images/PDFs)."""
+    from fastapi.responses import FileResponse
+    file_path = Path("uploads/vehicle_service/custom_fields") / filename
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="File not found")
+    return FileResponse(path=file_path)
