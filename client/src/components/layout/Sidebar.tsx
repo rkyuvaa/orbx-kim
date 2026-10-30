@@ -462,22 +462,41 @@ export default function Sidebar({
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, overflow: 'hidden', minWidth: 0 }}>
-          {!collapsed && (
-            <div style={{ lineHeight: 1.2, overflow: 'hidden' }}>
-              <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: -0.2, color: '#FFFFFF', whiteSpace: 'nowrap' }}>
-                KIM <span style={{ color: '#16C47F' }}>ERP</span>
-              </div>
+          {!collapsed ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+              <img
+                src="/logo.svg"
+                alt="KIM ERP"
+                style={{
+                  height: 38,
+                  maxWidth: 130,
+                  objectFit: 'contain',
+                }}
+              />
               <div
                 style={{
                   fontSize: 10,
-                  fontWeight: 500,
+                  fontWeight: 600,
                   letterSpacing: 0.5,
                   color: 'rgba(255, 255, 255, 0.60)',
-                  marginTop: 2,
+                  textTransform: 'uppercase',
+                  whiteSpace: 'nowrap',
                 }}
               >
-                Version 2.0
+                v2.0
               </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <img
+                src="/logo.svg"
+                alt="KIM ERP"
+                style={{
+                  height: 28,
+                  maxWidth: 32,
+                  objectFit: 'contain',
+                }}
+              />
             </div>
           )}
         </div>

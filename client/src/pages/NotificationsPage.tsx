@@ -90,18 +90,29 @@ export default function NotificationsPage() {
               >
                 <span
                   style={{
-                    width: 34,
-                    height: 34,
+                    width: 36,
+                    height: 36,
                     borderRadius: '50%',
-                    background: n.is_read ? '#EEF1EE' : '#E6F3EA',
-                    color: n.is_read ? '#6B7A6F' : '#16C47F',
+                    background: n.is_read ? '#EEF1EE' : '#FFFFFF',
+                    border: n.is_read ? '1px solid #E2E8E2' : '1px solid #CDE7D5',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     flexShrink: 0,
+                    overflow: 'hidden',
+                    padding: 3,
                   }}
                 >
-                  <Bell size={16} />
+                  <img
+                    src="/logo.svg"
+                    alt="KIM"
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'contain',
+                      opacity: n.is_read ? 0.65 : 1,
+                    }}
+                  />
                 </span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: n.is_read ? 400 : 600, color: '#16231B' }}>{n.message}</div>

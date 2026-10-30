@@ -158,21 +158,20 @@ export default function LoginPage() {
         }}
       />
 
-      {/* Centered KIM ERP Title */}
-      <Box sx={{ textAlign: 'center', zIndex: 1 }}>
-        <Typography
-          component="h1"
+      {/* Centered KIM ERP Logo */}
+      <Box sx={{ textAlign: 'center', zIndex: 1, maxWidth: 320, width: '100%', px: 2 }}>
+        <Box
+          component="img"
+          src="/logo.svg"
+          alt="KIM ERP"
           sx={{
-            fontSize: { md: 52, lg: 64 },
-            fontWeight: 900,
-            letterSpacing: '-0.035em',
-            lineHeight: 1.05,
-            color: '#FFFFFF',
-            textShadow: '0 4px 24px rgba(0, 0, 0, 0.35)',
+            width: '100%',
+            maxWidth: 260,
+            height: 'auto',
+            objectFit: 'contain',
+            filter: 'drop-shadow(0 6px 24px rgba(0, 0, 0, 0.35))',
           }}
-        >
-          KIM <span style={{ color: '#16C47F' }}>ERP</span>
-        </Typography>
+        />
         <Typography
           sx={{
             fontSize: 13,
@@ -218,18 +217,19 @@ export default function LoginPage() {
         <Box sx={{ width: '100%', maxWidth: 400 }}>
           {/* Mobile view branding header */}
           <Box sx={{ display: { xs: 'block', md: 'none' }, textAlign: 'center', mb: 4 }}>
-            <Typography
-              component="h1"
+            <Box
+              component="img"
+              src="/logo.svg"
+              alt="KIM ERP"
               sx={{
-                fontSize: 32,
-                fontWeight: 900,
-                letterSpacing: '-0.02em',
-                color: '#203020',
+                width: '100%',
+                maxWidth: 180,
+                height: 'auto',
+                mx: 'auto',
+                mb: 1,
               }}
-            >
-              KIM <span style={{ color: '#16C47F' }}>ERP</span>
-            </Typography>
-            <Typography sx={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.15em', color: '#7A8B80', textTransform: 'uppercase', mt: 0.5 }}>
+            />
+            <Typography sx={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.15em', color: '#7A8B80', textTransform: 'uppercase' }}>
               Version 2.0
             </Typography>
           </Box>

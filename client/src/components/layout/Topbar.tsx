@@ -95,25 +95,27 @@ export default function Topbar({ onToggleSidebar, isMobile, isSidebarCollapsed }
         transition: 'background-color 0.18s ease, border-color 0.18s ease',
       }}
     >
-      {/* Navigation toggle button: Drawer toggle on mobile/tablet, collapse toggle on desktop */}
-      <Tooltip title={isEffectiveMobile ? "Toggle Navigation Menu" : (isSidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar")} arrow>
-        <IconButton
-          onClick={onToggleSidebar}
-          aria-label={isEffectiveMobile ? "Toggle navigation drawer" : "Toggle sidebar"}
-          sx={{
-            border: mode === 'dark' ? '1px solid #262E36' : '1px solid #E2E8E2',
-            borderRadius: 2,
-            p: 1,
-            color: mode === 'dark' ? '#F3F5F7' : '#16231B',
-            transition: 'all 0.15s ease',
-            display: 'inline-flex',
-            flexShrink: 0,
-            '&:hover': { background: mode === 'dark' ? 'rgba(255, 255, 255, 0.06)' : 'rgba(32, 48, 32, 0.04)' },
-          }}
-        >
-          <MenuIcon size={19} />
-        </IconButton>
-      </Tooltip>
+      {/* Navigation toggle button: Drawer toggle on mobile/tablet only (hidden on desktop to avoid duplicate toggle) */}
+      {isEffectiveMobile && (
+        <Tooltip title="Toggle Navigation Menu" arrow>
+          <IconButton
+            onClick={onToggleSidebar}
+            aria-label="Toggle navigation drawer"
+            sx={{
+              border: mode === 'dark' ? '1px solid #262E36' : '1px solid #E2E8E2',
+              borderRadius: 2,
+              p: 1,
+              color: mode === 'dark' ? '#F3F5F7' : '#16231B',
+              transition: 'all 0.15s ease',
+              display: 'inline-flex',
+              flexShrink: 0,
+              '&:hover': { background: mode === 'dark' ? 'rgba(255, 255, 255, 0.06)' : 'rgba(32, 48, 32, 0.04)' },
+            }}
+          >
+            <MenuIcon size={19} />
+          </IconButton>
+        </Tooltip>
+      )}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden' }}>
         {!isTablet && (
