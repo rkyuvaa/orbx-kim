@@ -1483,6 +1483,10 @@ def update_personal_task(
                 task.completion_date = get_local_now().date()
             if not task.completion_time and not data.completion_time:
                 task.completion_time = get_local_now().strftime("%I:%M %p")
+            if not task.due_date and not getattr(data, "due_date", None):
+                task.due_date = get_local_now().date()
+            if not task.due_time and not getattr(data, "due_time", None):
+                task.due_time = get_local_now().strftime("%H:%M")
             spawn_next_recurring_task(db, task, current_user.id)
         elif not data.is_completed and task.is_completed:
             task.is_completed = False
@@ -1842,6 +1846,10 @@ def update_task(
             task.completion_date = get_local_now().date()
         if not task.completion_time and "completion_time" not in update_dict:
             task.completion_time = get_local_now().strftime("%I:%M %p")
+        if not task.due_date and "due_date" not in update_dict:
+            task.due_date = get_local_now().date()
+        if not task.due_time and "due_time" not in update_dict:
+            task.due_time = get_local_now().strftime("%H:%M")
             
         task.progress_percentage = 100.0
             

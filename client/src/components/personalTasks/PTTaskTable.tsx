@@ -622,15 +622,10 @@ export default function PTTaskTable({
                   </Tooltip>
                 </TableCell>
 
-                {/* Due Date (Direct Editable Popover) */}
+                {/* Due Date / Completion Date & Time */}
                 <TableCell>
-                  <Tooltip title="Click to change due date">
+                  {isCompleted ? (
                     <Box
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDueDateAnchor({ el: e.currentTarget, task });
-                        setDueDateValue(task.due_date ? task.due_date.split('T')[0] : '');
-                      }}
                       sx={{
                         display: 'inline-flex',
                         alignItems: 'center',
@@ -638,34 +633,62 @@ export default function PTTaskTable({
                         px: 1,
                         py: 0.35,
                         borderRadius: 1.5,
-                        cursor: 'pointer',
-                        border: '1px dashed transparent',
-                        backgroundColor: isOverdue
-                          ? 'rgba(239, 68, 68, 0.12)'
-                          : isDueToday
-                          ? 'rgba(249, 115, 22, 0.12)'
-                          : isDark
-                          ? 'rgba(255,255,255,0.04)'
-                          : 'rgba(0,0,0,0.04)',
-                        color: isOverdue
-                          ? '#EF4444'
-                          : isDueToday
-                          ? '#F97316'
-                          : 'inherit',
-                        fontWeight: isOverdue || isDueToday ? 700 : 500,
+                        backgroundColor: isDark ? 'rgba(22, 196, 127, 0.12)' : 'rgba(22, 196, 127, 0.08)',
+                        color: '#16C47F',
+                        fontWeight: 600,
                         fontSize: '0.78rem',
-                        transition: 'all 0.15s ease',
-                        '&:hover': {
-                          border: '1px dashed',
-                          borderColor: '#16C47F',
-                          backgroundColor: isDark ? 'rgba(22, 196, 127, 0.08)' : 'rgba(22, 196, 127, 0.06)',
-                        },
                       }}
                     >
-                      <Calendar size={13} />
-                      <span>{task.due_date ? formatDate(task.due_date) : 'Set date'}</span>
+                      <CheckCircle2 size={13} />
+                      <span>
+                        {formatDate(task.completion_date || task.completed_at || task.due_date)}{' '}
+                        {task.completion_time || (task.completed_at ? format(parseISO(task.completed_at), 'hh:mm a') : '')}
+                      </span>
                     </Box>
-                  </Tooltip>
+                  ) : (
+                    <Tooltip title="Click to change due date">
+                      <Box
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDueDateAnchor({ el: e.currentTarget, task });
+                          setDueDateValue(task.due_date ? task.due_date.split('T')[0] : '');
+                        }}
+                        sx={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 0.75,
+                          px: 1,
+                          py: 0.35,
+                          borderRadius: 1.5,
+                          cursor: 'pointer',
+                          border: '1px dashed transparent',
+                          backgroundColor: isOverdue
+                            ? 'rgba(239, 68, 68, 0.12)'
+                            : isDueToday
+                            ? 'rgba(249, 115, 22, 0.12)'
+                            : isDark
+                            ? 'rgba(255,255,255,0.04)'
+                            : 'rgba(0,0,0,0.04)',
+                          color: isOverdue
+                            ? '#EF4444'
+                            : isDueToday
+                            ? '#F97316'
+                            : 'inherit',
+                          fontWeight: isOverdue || isDueToday ? 700 : 500,
+                          fontSize: '0.78rem',
+                          transition: 'all 0.15s ease',
+                          '&:hover': {
+                            border: '1px dashed',
+                            borderColor: '#16C47F',
+                            backgroundColor: isDark ? 'rgba(22, 196, 127, 0.08)' : 'rgba(22, 196, 127, 0.06)',
+                          },
+                        }}
+                      >
+                        <Calendar size={13} />
+                        <span>{task.due_date ? formatDate(task.due_date) : 'Set date'}</span>
+                      </Box>
+                    </Tooltip>
+                  )}
                 </TableCell>
 
                 {/* Actions Menu */}

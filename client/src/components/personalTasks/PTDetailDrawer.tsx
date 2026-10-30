@@ -303,6 +303,22 @@ export default function PTDetailDrawer({
             errorMessage={autoSave.errorMessage}
             onRetry={autoSave.retry}
           />
+
+          {isCompleted && (
+            <Chip
+              icon={<CheckCircle2 size={13} />}
+              label={`Completed: ${formatDisplayDate(task.completion_date || task.completed_at)} ${task.completion_time || (task.completed_at ? formatDisplayTime(task.completed_at) : '')}`.trim()}
+              size="small"
+              sx={{
+                fontWeight: 600,
+                fontSize: '0.74rem',
+                backgroundColor: isDark ? 'rgba(22, 196, 127, 0.15)' : 'rgba(22, 196, 127, 0.1)',
+                color: '#16C47F',
+                border: '1px solid',
+                borderColor: 'rgba(22, 196, 127, 0.3)',
+              }}
+            />
+          )}
         </Box>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -498,6 +514,58 @@ export default function PTDetailDrawer({
                     />
                   </Box>
                 </Box>
+
+                {/* Completed Date & Time Row */}
+                {(isCompleted || task.completion_date || task.completed_at) && (
+                  <Box
+                    sx={{
+                      p: 1.5,
+                      borderRadius: 2,
+                      backgroundColor: isDark ? 'rgba(22, 196, 127, 0.08)' : 'rgba(22, 196, 127, 0.05)',
+                      border: '1px solid',
+                      borderColor: isDark ? 'rgba(22, 196, 127, 0.25)' : 'rgba(22, 196, 127, 0.3)',
+                      display: 'flex',
+                      gap: 1.5,
+                    }}
+                  >
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="caption" sx={{ color: isDark ? '#A3D9B8' : '#15803D', display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5, fontWeight: 700 }}>
+                        <CheckCircle2 size={13} /> Completed Date
+                      </Typography>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        type="date"
+                        value={task.completion_date ? task.completion_date.split('T')[0] : (task.completed_at ? task.completed_at.split('T')[0] : '')}
+                        disabled
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            backgroundColor: isDark ? '#14181C' : '#FFFFFF',
+                            fontSize: '0.82rem',
+                          },
+                        }}
+                      />
+                    </Box>
+
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="caption" sx={{ color: isDark ? '#A3D9B8' : '#15803D', display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5, fontWeight: 700 }}>
+                        <Clock size={13} /> Completed Time
+                      </Typography>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        value={task.completion_time || (task.completed_at ? formatDisplayTime(task.completed_at) : '')}
+                        disabled
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            backgroundColor: isDark ? '#14181C' : '#FFFFFF',
+                            fontSize: '0.82rem',
+                          },
+                        }}
+                      />
+                    </Box>
+                  </Box>
+                )}
 
                 {/* Tags Autocomplete */}
                 <Autocomplete

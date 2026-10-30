@@ -338,44 +338,69 @@ def update_personal_task(
     if 'estimated_hours' in update_dict and update_dict['estimated_hours'] is not None:
         task.estimated_minutes = int(float(update_dict['estimated_hours']) * 60)
 
-    # Handle completion status
-    if data.is_completed is not None:
-        if data.is_completed and not task.is_completed:
-            task.is_completed = True
-            task.completed_at = datetime.now(timezone.utc)
-            task.completed_by = current_user.id
-            task.progress_percentage = 100.0
-            task.cancelled_at = None
-            task.cancellation_reason = None
-            # Automatically synchronize status_id to Completed/Done status
-            done_status = db.query(TaskStatusDef).filter(
-                or_(
-                    TaskStatusDef.name.ilike("Done"),
-                    TaskStatusDef.name.ilike("Completed"),
-                    TaskStatusDef.is_terminal.is_(True)
-                )
-            ).first()
-            if done_status:
-                task.status_id = done_status.id
-            _log_pt_activity(db, task.id, current_user.id, "COMPLETED", source="user")
-            # Cancel pending routine reminders
-            db.query(PersonalReminder).filter(
-                PersonalReminder.task_id == task.id,
-                PersonalReminder.status == "pending"
-            ).update({"status": "cancelled"})
-            spawn_next_recurring_task(db, task, current_user.id)
-        elif not data.is_completed and task.is_completed:
-            task.is_completed = False
-            task.completed_at = None
-            task.completed_by = None
-            task.cancelled_at = None
-            # Automatically revert status_id to To Do
-            todo_status = db.query(TaskStatusDef).filter(
-                TaskStatusDef.name.ilike("To Do")
-            ).first()
-            if todo_status:
-                task.status_id = todo_status.id
-            _log_pt_activity(db, task.id, current_user.id, "REOPENED", source="user")
+    # Handle completion status (via is_completed flag OR completed status_id)
+    is_completion_requested = False
+    is_reopen_requested = False
+
+    if data.is_completed is True:
+        is_completion_requested = True
+    elif data.is_completed is False:
+        is_reopen_requested = True
+    elif data.status_id is not None and data.status_id != task.status_id:
+        status_def = db.get(TaskStatusDef, data.status_id)
+        if status_def:
+            if status_def.name.lower() in ["done", "completed"] or (hasattr(status_def, "category") and status_def.category in [TaskStatusCategory.DONE, TaskStatusCategory.CLOSED]) or getattr(status_def, "is_terminal", False):
+                is_completion_requested = True
+            elif task.is_completed:
+                is_reopen_requested = True
+
+    if is_completion_requested and not task.is_completed:
+        now_local = get_local_now()
+        task.is_completed = True
+        task.completed_at = now_local
+        task.completion_date = now_local.date()
+        task.completion_time = now_local.strftime("%I:%M %p")
+        task.completed_by = current_user.id
+        task.progress_percentage = 100.0
+        task.cancelled_at = None
+        task.cancellation_reason = None
+
+        # Automatically update due date and time if unset so completion date is preserved
+        if not task.due_date and not getattr(data, "due_date", None):
+            task.due_date = now_local.date()
+        if not task.due_time and not getattr(data, "due_time", None):
+            task.due_time = now_local.strftime("%H:%M")
+
+        done_status = db.query(TaskStatusDef).filter(
+            or_(
+                TaskStatusDef.name.ilike("Done"),
+                TaskStatusDef.name.ilike("Completed"),
+                TaskStatusDef.is_terminal.is_(True)
+            )
+        ).first()
+        if done_status:
+            task.status_id = done_status.id
+
+        _log_pt_activity(db, task.id, current_user.id, "COMPLETED", source="user")
+        db.query(PersonalReminder).filter(
+            PersonalReminder.task_id == task.id,
+            PersonalReminder.status == "pending"
+        ).update({"status": "cancelled"})
+        spawn_next_recurring_task(db, task, current_user.id)
+
+    elif is_reopen_requested and task.is_completed:
+        task.is_completed = False
+        task.completed_at = None
+        task.completion_date = None
+        task.completion_time = None
+        task.completed_by = None
+        task.cancelled_at = None
+        todo_status = db.query(TaskStatusDef).filter(
+            TaskStatusDef.name.ilike("To Do")
+        ).first()
+        if todo_status:
+            task.status_id = todo_status.id
+        _log_pt_activity(db, task.id, current_user.id, "REOPENED", source="user")
 
     # Tags handling
     if data.tag_ids is not None or data.tag_names is not None:
@@ -536,6 +561,8 @@ def reopen_personal_task(
 
     task.is_completed = False
     task.completed_at = None
+    task.completion_date = None
+    task.completion_time = None
     task.completed_by = None
     task.cancelled_at = None
     task.cancellation_reason = None
