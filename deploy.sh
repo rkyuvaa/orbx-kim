@@ -2,7 +2,7 @@
 set -e
 
 echo "=========================================="
-echo " Starting KIM ERP Production Deployment   "
+echo " Starting KIM-One Production Deployment   "
 echo "=========================================="
 
 echo ">> 1. Pulling latest code from origin/main..."
@@ -16,5 +16,5 @@ echo ">> 3. Waiting for API container health..."
 docker compose ps
 
 echo "=========================================="
-echo " Deployment Complete! KIM ERP is live.   "
+echo " Deployment Complete! KIM-One is live.   "
 echo "=========================================="

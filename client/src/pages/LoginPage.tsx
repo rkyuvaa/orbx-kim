@@ -129,7 +129,7 @@ export default function LoginPage() {
 
   const errorMessage = extractErrorMessage(error);
 
-  // Left side brand panel with centered KIM ERP on a #203020 gradient
+  // Right side brand panel with green gradient
   const brandPanel = (
     <Box
       sx={{
@@ -158,31 +158,52 @@ export default function LoginPage() {
         }}
       />
 
-      {/* Centered KIM ERP Logo */}
-      <Box sx={{ textAlign: 'center', zIndex: 1, maxWidth: 320, width: '100%', px: 2 }}>
+      {/* Hero Visual Card with High-Contrast Logo */}
+      <Box sx={{ textAlign: 'center', zIndex: 1, maxWidth: 360, width: '100%', px: 2 }}>
         <Box
-          component="img"
-          src="/logo.svg"
-          alt="KIM ERP"
           sx={{
-            width: '100%',
-            maxWidth: 260,
-            height: 'auto',
-            objectFit: 'contain',
-            filter: 'drop-shadow(0 6px 24px rgba(0, 0, 0, 0.35))',
-          }}
-        />
-        <Typography
-          sx={{
-            fontSize: 13,
-            fontWeight: 600,
-            letterSpacing: '0.22em',
-            textTransform: 'uppercase',
-            color: '#A3D9B8',
-            mt: 2,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            p: 3,
+            borderRadius: 4,
+            background: 'rgba(255, 255, 255, 0.95)',
+            boxShadow: '0 12px 36px rgba(0, 0, 0, 0.35)',
+            mb: 3,
           }}
         >
-          Version 2.0
+          <Box
+            component="img"
+            src="/logo.svg"
+            alt="KIM-One"
+            sx={{
+              width: '100%',
+              maxWidth: 220,
+              height: 'auto',
+              objectFit: 'contain',
+              display: 'block',
+            }}
+          />
+        </Box>
+        <Typography
+          sx={{
+            fontSize: 22,
+            fontWeight: 800,
+            letterSpacing: '-0.02em',
+            color: '#FFFFFF',
+            mb: 1,
+          }}
+        >
+          Enterprise Resource Planning
+        </Typography>
+        <Typography
+          sx={{
+            fontSize: 14,
+            color: '#A3D9B8',
+            lineHeight: 1.5,
+          }}
+        >
+          Streamlined automotive operations, project workflows, and management.
         </Typography>
       </Box>
 
@@ -196,15 +217,14 @@ export default function LoginPage() {
           letterSpacing: '0.02em',
         }}
       >
-        © 2026 KIM ERP. All rights reserved.
+        © 2026 KIM-One. All rights reserved.
       </Typography>
     </Box>
   );
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100dvh', background: '#F8FAF8' }}>
-      {brandPanel}
-
+      {/* Left side: Form panel on clean white background */}
       <Box
         sx={{
           flex: '1 1 50%',
@@ -214,24 +234,21 @@ export default function LoginPage() {
           p: { xs: 3, sm: 6 },
         }}
       >
-        <Box sx={{ width: '100%', maxWidth: 400 }}>
-          {/* Mobile view branding header */}
-          <Box sx={{ display: { xs: 'block', md: 'none' }, textAlign: 'center', mb: 4 }}>
+        <Box sx={{ width: '100%', maxWidth: 420 }}>
+          {/* Logo prominently displayed on the clean white/light background for maximum visibility */}
+          <Box sx={{ textAlign: 'center', mb: 3 }}>
             <Box
               component="img"
               src="/logo.svg"
-              alt="KIM ERP"
+              alt="KIM-One"
               sx={{
                 width: '100%',
-                maxWidth: 180,
+                maxWidth: 220,
                 height: 'auto',
                 mx: 'auto',
-                mb: 1,
+                display: 'block',
               }}
             />
-            <Typography sx={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.15em', color: '#7A8B80', textTransform: 'uppercase' }}>
-              Version 2.0
-            </Typography>
           </Box>
 
           <Typography
@@ -382,11 +399,14 @@ export default function LoginPage() {
               to="/"
               style={{ fontSize: 12, color: '#7A8B80', textDecoration: 'none' }}
             >
-              © 2026 KIM ERP · Privacy · Terms
+              © 2026 KIM-One · Privacy · Terms
             </Link>
           </Box>
         </Box>
       </Box>
+
+      {/* Right side: Green brand hero panel */}
+      {brandPanel}
     </Box>
   );
 }

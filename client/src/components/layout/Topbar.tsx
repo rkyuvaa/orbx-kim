@@ -53,8 +53,8 @@ export default function Topbar({ onToggleSidebar, isMobile, isSidebarCollapsed }
   const isTablet = useMediaQuery('(max-width:900px)');
 
   const crumb = BREADCRUMBS[location.pathname] ?? BREADCRUMBS[`/${location.pathname.split('/')[1]}`] ?? [
-    'KIM ERP',
-    'Version 2.0',
+    'KIM-One',
+    '',
   ];
   const unread = dashboard?.nav_counts.notifications ?? 0;
 
@@ -118,24 +118,41 @@ export default function Topbar({ onToggleSidebar, isMobile, isSidebarCollapsed }
       )}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden' }}>
-        {!isTablet && (
-          <span style={{ fontSize: 13, color: mode === 'dark' ? '#94A3B8' : '#7A8B80', fontWeight: 500, whiteSpace: 'nowrap' }}>
+        {crumb[1] ? (
+          <>
+            {!isTablet && (
+              <span style={{ fontSize: 13, color: mode === 'dark' ? '#94A3B8' : '#7A8B80', fontWeight: 500, whiteSpace: 'nowrap' }}>
+                {crumb[0]}
+              </span>
+            )}
+            {!isTablet && <ChevronRight size={14} color={mode === 'dark' ? '#64748B' : '#9BA99F'} style={{ flexShrink: 0 }} />}
+            <span
+              style={{
+                fontSize: isSmallMobile ? 12.5 : 13.5,
+                fontWeight: 700,
+                color: mode === 'dark' ? '#F3F5F7' : '#16231B',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {crumb[1]}
+            </span>
+          </>
+        ) : (
+          <span
+            style={{
+              fontSize: isSmallMobile ? 12.5 : 13.5,
+              fontWeight: 700,
+              color: mode === 'dark' ? '#F3F5F7' : '#16231B',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
             {crumb[0]}
           </span>
         )}
-        {!isTablet && <ChevronRight size={14} color={mode === 'dark' ? '#64748B' : '#9BA99F'} style={{ flexShrink: 0 }} />}
-        <span
-          style={{
-            fontSize: isSmallMobile ? 12.5 : 13.5,
-            fontWeight: 700,
-            color: mode === 'dark' ? '#F3F5F7' : '#16231B',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}
-        >
-          {crumb[1]}
-        </span>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: isSmallMobile ? 6 : 10, flexShrink: 0, marginLeft: 'auto' }}>

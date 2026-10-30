@@ -50,7 +50,7 @@ export interface AppDropdownProps<T extends string | number = string> {
  * 2. Select an option: Allows users to click and select an item from the list.
  * 3. Typing: Non-editable listbox — users cannot type letters or enter custom text.
  * 4. Search box: No search input box displayed inside or above the menu.
- * 5. Consistency: Framework standard for all dropdown menus across KIM ERP.
+ * 5. Consistency: Framework standard for all dropdown menus across KIM-One.
  */
 export function AppDropdown<T extends string | number = string>({
   id,
