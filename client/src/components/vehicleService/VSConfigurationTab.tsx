@@ -1379,7 +1379,25 @@ export default function VSConfigurationTab() {
       {/* =====================================================================
           MODAL: SCHEDULE MAINTENANCE
       ====================================================================== */}
-      <Dialog open={isMaintDialogOpen} onClose={() => setIsMaintDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog 
+        open={isMaintDialogOpen} 
+        onClose={() => setIsMaintDialogOpen(false)} 
+        maxWidth="sm" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            position: 'fixed',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            maxHeight: 'calc(100vh - 64px)',
+            overflow: 'auto',
+            zIndex: 1300,
+            width: 'calc(100% - 32px)',
+            maxWidth: '500px !important'
+          }
+        }}
+      >
         <DialogTitle sx={{ fontWeight: 800 }}>Schedule Preventive Maintenance</DialogTitle>
         <DialogContent dividers>
           <Box sx={{ mb: 2 }}>

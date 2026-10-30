@@ -258,7 +258,25 @@ export default function DropdownOptionsPanel({
       </Paper>
 
       {/* Add / Edit Dialog */}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="xs">
+      <Dialog 
+        open={dialogOpen} 
+        onClose={() => setDialogOpen(false)} 
+        fullWidth 
+        maxWidth="xs"
+        PaperProps={{
+          sx: {
+            position: 'fixed',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            maxHeight: 'calc(100vh - 64px)',
+            overflow: 'auto',
+            zIndex: 1300,
+            width: 'calc(100% - 32px)',
+            maxWidth: '450px !important'
+          }
+        }}
+      >
         <DialogTitle sx={{ fontWeight: 700 }}>
           {editing ? `Edit ${singularTitle}` : `Add ${singularTitle}`}
         </DialogTitle>
@@ -299,7 +317,25 @@ export default function DropdownOptionsPanel({
       </Dialog>
 
       {/* Delete Confirmation */}
-      <Dialog open={Boolean(deleteTarget)} onClose={() => setDeleteTarget(null)} maxWidth="xs" fullWidth>
+      <Dialog 
+        open={Boolean(deleteTarget)} 
+        onClose={() => setDeleteTarget(null)} 
+        maxWidth="xs" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            position: 'fixed',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            maxHeight: 'calc(100vh - 64px)',
+            overflow: 'auto',
+            zIndex: 1300,
+            width: 'calc(100% - 32px)',
+            maxWidth: '400px !important'
+          }
+        }}
+      >
         <DialogTitle sx={{ fontWeight: 700 }}>Delete {singularTitle.toLowerCase()}?</DialogTitle>
         <DialogContent>
           Are you sure you want to delete &quot;{deleteTarget?.label}&quot;? Existing leads with this option will keep their captured text.
