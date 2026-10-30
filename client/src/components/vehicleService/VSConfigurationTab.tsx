@@ -59,6 +59,7 @@ import {
 import { useAppSelector } from '@/app/hooks';
 import { usePermission } from '@/context/AuthPermissionContext';
 import { useUsersQuery } from '@/api/mastersApi';
+import { AppDropdown } from '@/components/ui/AppDropdown';
 import { useToast } from '@/components/ui/ToastHost';
 import { formatDate, formatDateTime } from '@/utils/format';
 import DropdownOptionsPanel from '@/features/configuration/DropdownOptionsPanel';
