@@ -177,32 +177,8 @@ export default function VehicleServiceRegisterPage() {
           }}
         >
             {/* Brand Logo Header */}
-            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1.5, px: 2.2, py: 0.9, borderRadius: '12px', backgroundColor: '#203020', mb: 3 }}>
-              <Box
-                sx={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: '7px',
-                  backgroundColor: '#16C47F',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#203020',
-                  fontWeight: 900,
-                  fontSize: 15,
-                  letterSpacing: '-0.5px',
-                }}
-              >
-                K
-              </Box>
-              <Box sx={{ textAlign: 'left', lineHeight: 1.1 }}>
-                <Typography sx={{ fontSize: 15, fontWeight: 900, letterSpacing: '-0.02em', color: '#FFFFFF', lineHeight: 1.1 }}>
-                  KIM <span style={{ color: '#16C47F' }}>ERP</span>
-                </Typography>
-                <Typography sx={{ fontSize: 8.5, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#A3D9B8', display: 'block', mt: 0.2 }}>
-                  Konwert India Motors
-                </Typography>
-              </Box>
+            <Box sx={{ mb: 3 }}>
+              <img src="/logo.svg" alt="Konwert India Motors" style={{ height: 56, maxWidth: 200, objectFit: 'contain' }} />
             </Box>
 
             <Box
@@ -294,62 +270,8 @@ export default function VehicleServiceRegisterPage() {
       <Container maxWidth="sm">
         {/* Header with Brand Logo */}
         <Box sx={{ textAlign: 'center', mb: 3 }}>
-          <Box
-            sx={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 1.5,
-              px: 2.2,
-              py: 0.9,
-              borderRadius: '12px',
-              backgroundColor: '#203020',
-              boxShadow: '0 4px 14px rgba(32, 48, 32, 0.16)',
-              mb: 2,
-            }}
-          >
-            <Box
-              sx={{
-                width: 32,
-                height: 32,
-                borderRadius: '8px',
-                backgroundColor: '#16C47F',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#203020',
-                fontWeight: 900,
-                fontSize: 17,
-                letterSpacing: '-0.5px',
-              }}
-            >
-              K
-            </Box>
-            <Box sx={{ textAlign: 'left', lineHeight: 1.1 }}>
-              <Typography
-                sx={{
-                  fontSize: 17,
-                  fontWeight: 900,
-                  letterSpacing: '-0.02em',
-                  color: '#FFFFFF',
-                  lineHeight: 1.1,
-                }}
-              >
-                KIM <span style={{ color: '#16C47F' }}>ERP</span>
-              </Typography>
-              <Typography
-                sx={{
-                  fontSize: 9.5,
-                  fontWeight: 700,
-                  letterSpacing: '0.12em',
-                  textTransform: 'uppercase',
-                  color: '#A3D9B8',
-                  display: 'block',
-                  mt: 0.2,
-                }}
-              >
-                Konwert India Motors
-              </Typography>
-            </Box>
+          <Box sx={{ mb: 2 }}>
+            <img src="/logo.svg" alt="Konwert India Motors" style={{ height: 64, maxWidth: 240, objectFit: 'contain' }} />
           </Box>
           <Typography variant="h5" fontWeight={800} color="#203020">
             Register Service Complaint
@@ -423,7 +345,6 @@ export default function VehicleServiceRegisterPage() {
             fullWidth
             value={vehicleNumber}
             onChange={(e) => setVehicleNumber(e.target.value.toUpperCase())}
-            helperText="Enter your 3-wheeler auto registration number"
             sx={{
               mb: 2.5,
               '& .MuiOutlinedInput-root.Mui-focused fieldset': {
@@ -451,8 +372,8 @@ export default function VehicleServiceRegisterPage() {
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
-                label="Mobile Number (for SMS)"
-                placeholder="10-digit mobile"
+                label="Contact Number"
+                placeholder="Contact Number"
                 size="small"
                 required
                 fullWidth
