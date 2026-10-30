@@ -10,7 +10,7 @@ from sqlalchemy import func, or_, and_, case
 
 from app.db.session import get_db
 from app.models.projects import (
-    Task, TaskStatusDef, TaskPriority, TaskStatusCategory, TaskSubtask, TaskTimeLog, TaskComment,
+    Task, TaskStatusDef, TaskPriority, TaskStatusCategory, TaskSubtask, TaskTimeLog, TaskComment, TaskLogNote,
     TaskAttachment, TaskCustomFieldDefinition, TaskCustomFieldValue, Project, ProjectPhase,
     TaskAssignee, TaskFollower, TaskTag, TaskTagMap, TaskChecklist, TaskChecklistItem,
     TaskTimeEntry, TaskDependency, TaskRelationship, TaskActivity, TaskTemplate, TaskAutomationRule,
@@ -32,6 +32,8 @@ from app.schemas.projects import (
     TaskTimeLogOut,
     TaskCommentCreate,
     TaskCommentOut,
+    TaskLogNoteCreate,
+    TaskLogNoteOut,
     TaskAttachmentCreate,
     TaskAttachmentOut,
     CustomFieldValueCreate,
@@ -2506,6 +2508,76 @@ def get_task_comments(
         results.append(out)
     return results
 
+
+
+# --- Task Log Notes API ---
+
+@router.post("/{task_id}/log-notes", response_model=TaskLogNoteOut, status_code=status.HTTP_201_CREATED)
+def add_task_log_note(
+    task_id: int,
+    data: TaskLogNoteCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    task = _get_task_or_404_with_auth(db, task_id, current_user)
+
+    if not data.note or not data.note.strip():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Log note content cannot be empty")
+
+    now = datetime.now(timezone.utc)
+    log_note = TaskLogNote(
+        task_id=task.id,
+        user_id=current_user.id,
+        note=data.note.strip(),
+        created_at=now,
+    )
+    db.add(log_note)
+    db.commit()
+    db.refresh(log_note)
+
+    emp_name = current_user.full_name or current_user.username or "Employee"
+    emp_photo = getattr(current_user, "profile_photo", None)
+    return TaskLogNoteOut(
+        id=log_note.id,
+        task_id=log_note.task_id,
+        user_id=log_note.user_id,
+        employee_name=emp_name,
+        employee_photo=emp_photo,
+        note=log_note.note,
+        created_at=log_note.created_at,
+        formatted_date=log_note.created_at.strftime("%d-%m-%Y"),
+        formatted_time=log_note.created_at.strftime("%H:%M"),
+    )
+
+
+@router.get("/{task_id}/log-notes", response_model=List[TaskLogNoteOut])
+def get_task_log_notes(
+    task_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    task = _get_task_or_404_with_auth(db, task_id, current_user)
+
+    notes = db.query(TaskLogNote).filter(
+        TaskLogNote.task_id == task_id
+    ).order_by(TaskLogNote.created_at.desc()).all()
+
+    results = []
+    for n in notes:
+        emp_name = n.user.full_name if n.user and n.user.full_name else (n.user.username if n.user else "Employee")
+        emp_photo = n.user.profile_photo if n.user else None
+        results.append(TaskLogNoteOut(
+            id=n.id,
+            task_id=n.task_id,
+            user_id=n.user_id,
+            employee_name=emp_name,
+            employee_photo=emp_photo,
+            note=n.note,
+            created_at=n.created_at,
+            formatted_date=n.created_at.strftime("%d-%m-%Y"),
+            formatted_time=n.created_at.strftime("%H:%M"),
+        ))
+    return results
 
 # --- Attachments API ---
 

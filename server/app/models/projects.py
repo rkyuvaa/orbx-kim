@@ -346,6 +346,7 @@ class Task(Base):
     time_entries: Mapped[List["TaskTimeEntry"]] = relationship("TaskTimeEntry", back_populates="task", cascade="all, delete-orphan")
     time_logs: Mapped[List["TaskTimeLog"]] = relationship("TaskTimeLog", back_populates="task", cascade="all, delete-orphan")
     comments: Mapped[List["TaskComment"]] = relationship("TaskComment", back_populates="task", cascade="all, delete-orphan")
+    log_notes: Mapped[List["TaskLogNote"]] = relationship("TaskLogNote", back_populates="task", cascade="all, delete-orphan", order_by="desc(TaskLogNote.created_at)")
     attachments: Mapped[List["TaskAttachment"]] = relationship("TaskAttachment", back_populates="task", cascade="all, delete-orphan")
     subtasks: Mapped[List["TaskSubtask"]] = relationship("TaskSubtask", back_populates="task", cascade="all, delete-orphan")
     tag_mappings: Mapped[List["TaskTagMap"]] = relationship("TaskTagMap", back_populates="task", cascade="all, delete-orphan")
@@ -522,6 +523,20 @@ class TaskComment(Base):
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     task: Mapped["Task"] = relationship("Task", back_populates="comments")
+    user: Mapped["User"] = relationship("User", foreign_keys=[user_id], lazy="joined")
+
+
+class TaskLogNote(Base):
+    """Timestamped log note captured for a task by an employee"""
+    __tablename__ = "task_log_notes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    note: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.current_timestamp(), nullable=False, index=True)
+
+    task: Mapped["Task"] = relationship("Task", back_populates="log_notes")
     user: Mapped["User"] = relationship("User", foreign_keys=[user_id], lazy="joined")
 
 

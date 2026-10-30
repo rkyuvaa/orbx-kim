@@ -16,6 +16,22 @@ export interface PTActivityInfo {
   created_at: string;
 }
 
+export interface TaskLogNote {
+  id: number;
+  task_id: number;
+  user_id: number;
+  employee_name: string;
+  employee_photo?: string | null;
+  note: string;
+  created_at: string;
+  formatted_date: string;
+  formatted_time: string;
+}
+
+export interface TaskLogNoteCreate {
+  note: string;
+}
+
 export interface PTTask extends TaskItem {
   planned_date?: string | null;
   cancelled_at?: string | null;
@@ -345,6 +361,21 @@ export const personalTasksApi = baseApi.injectEndpoints({
       providesTags: ['PersonalTasks'],
     }),
 
+    // Task Log Notes
+    getTaskLogNotes: build.query<TaskLogNote[], number>({
+      query: (taskId) => `/tasks/personal/${taskId}/log-notes`,
+      providesTags: (_res, _err, taskId) => [{ type: 'PersonalTasks', id: `log-notes-${taskId}` }],
+    }),
+
+    createTaskLogNote: build.mutation<TaskLogNote, { taskId: number; note: string }>({
+      query: ({ taskId, note }) => ({
+        url: `/tasks/personal/${taskId}/log-notes`,
+        method: 'POST',
+        body: { note },
+      }),
+      invalidatesTags: (_res, _err, { taskId }) => [{ type: 'PersonalTasks', id: `log-notes-${taskId}` }],
+    }),
+
     // Audit Trail
     getPersonalTaskAudit: build.query<PTActivityInfo[], number>({
       query: (taskId) => `/tasks/personal/${taskId}/audit`,
@@ -455,6 +486,8 @@ export const {
   useGetPersonalWorkloadQuery,
   useGetMyDaySummaryQuery,
   useGetWeeklyReviewQuery,
+  useGetTaskLogNotesQuery,
+  useCreateTaskLogNoteMutation,
   useGetPersonalTaskAuditQuery,
   useGetPersonalAuditTimelineQuery,
   useGetPersonalSettingsQuery,

@@ -12,7 +12,7 @@ from sqlalchemy import or_, and_, desc
 from app.db.session import get_db
 from app.models.projects import (
     Task, TaskStatusDef, TaskPriority, TaskStatusCategory,
-    TaskAssignee, TaskTag, TaskTagMap, TaskTimeEntry, TaskActivity
+    TaskAssignee, TaskTag, TaskTagMap, TaskTimeEntry, TaskActivity, TaskLogNote
 )
 from app.models.personal_settings import PersonalSettings, PersonalReminder, PersonalTemplate
 from app.models.user import User
@@ -20,7 +20,8 @@ from app.schemas.projects import (
     TaskCreate, TaskOut, TaskUpdate, TaskTimeEntryOut, TaskTimeEntryCreate,
     TaskActivityOut, CancelTaskRequest, PersonalSettingsOut, PersonalSettingsUpdate,
     PersonalReminderCreate, PersonalReminderOut, PersonalTemplateCreate, PersonalTemplateOut,
-    WorkloadSummaryOut, WorkloadDailyItem, WorkloadRiskTask, MyDaySummaryOut, WeeklyReviewOut
+    WorkloadSummaryOut, WorkloadDailyItem, WorkloadRiskTask, MyDaySummaryOut, WeeklyReviewOut,
+    TaskLogNoteCreate, TaskLogNoteOut
 )
 from app.core.deps import get_current_user, require_permission
 from app.api.v1.tasks import (
@@ -1130,6 +1131,82 @@ def get_personal_audit_timeline(
         out = TaskActivityOut.model_validate(a)
         out.actor_name = a.actor.full_name if a.actor else "System"
         results.append(out)
+    return results
+
+
+# =========================================================================
+# =========================================================================
+# 5b. TASK LOG NOTES
+# =========================================================================
+
+@router.post("/{task_id}/log-notes", response_model=TaskLogNoteOut, status_code=status.HTTP_201_CREATED)
+def create_personal_task_log_note(
+    task_id: int,
+    data: TaskLogNoteCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Capture a log note for a task with backend-generated timestamp and logged-in employee name"""
+    task = db.query(Task).filter(Task.id == task_id, Task.is_deleted.is_(False)).first()
+    if not task:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+
+    now = datetime.now(timezone.utc)
+    log_note = TaskLogNote(
+        task_id=task.id,
+        user_id=current_user.id,
+        note=data.note.strip(),
+        created_at=now,
+    )
+    db.add(log_note)
+    db.commit()
+    db.refresh(log_note)
+
+    emp_name = current_user.full_name or current_user.username or "Employee"
+    emp_photo = getattr(current_user, "profile_photo", None)
+    return TaskLogNoteOut(
+        id=log_note.id,
+        task_id=log_note.task_id,
+        user_id=log_note.user_id,
+        employee_name=emp_name,
+        employee_photo=emp_photo,
+        note=log_note.note,
+        created_at=log_note.created_at,
+        formatted_date=log_note.created_at.strftime("%d-%m-%Y"),
+        formatted_time=log_note.created_at.strftime("%H:%M"),
+    )
+
+
+@router.get("/{task_id}/log-notes", response_model=List[TaskLogNoteOut])
+def get_personal_task_log_notes(
+    task_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Retrieve chronological log notes for a task (newest first)"""
+    task = db.query(Task).filter(Task.id == task_id, Task.is_deleted.is_(False)).first()
+    if not task:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+
+    notes = db.query(TaskLogNote).filter(
+        TaskLogNote.task_id == task_id
+    ).order_by(TaskLogNote.created_at.desc()).all()
+
+    results = []
+    for n in notes:
+        emp_name = n.user.full_name if n.user and n.user.full_name else (n.user.username if n.user else "Employee")
+        emp_photo = n.user.profile_photo if n.user else None
+        results.append(TaskLogNoteOut(
+            id=n.id,
+            task_id=n.task_id,
+            user_id=n.user_id,
+            employee_name=emp_name,
+            employee_photo=emp_photo,
+            note=n.note,
+            created_at=n.created_at,
+            formatted_date=n.created_at.strftime("%d-%m-%Y"),
+            formatted_time=n.created_at.strftime("%H:%M"),
+        ))
     return results
 
 

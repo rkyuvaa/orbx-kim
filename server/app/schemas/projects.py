@@ -200,6 +200,25 @@ class TaskCommentOut(TaskCommentBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+# --- Task Log Note ---
+class TaskLogNoteCreate(BaseModel):
+    note: str = Field(..., min_length=1, max_length=10000)
+
+
+class TaskLogNoteOut(BaseModel):
+    id: int
+    task_id: int
+    user_id: int
+    employee_name: str
+    employee_photo: Optional[str] = None
+    note: str
+    created_at: datetime
+    formatted_date: str
+    formatted_time: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # --- Task Attachment ---
 class TaskAttachmentBase(BaseModel):
     filename: str

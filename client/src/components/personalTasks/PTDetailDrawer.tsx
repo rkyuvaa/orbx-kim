@@ -17,6 +17,8 @@ import {
   DialogActions,
   Divider,
   Autocomplete,
+  Avatar,
+  CircularProgress,
   Tooltip,
   useTheme,
 } from '@mui/material';
@@ -28,12 +30,12 @@ import {
   ListTree,
   History,
   FileText,
-  AlertTriangle,
   RotateCcw,
   XCircle,
   Archive,
   Trash2,
   Calendar,
+  Plus,
 } from 'lucide-react';
 import {
   PTTask,
@@ -43,6 +45,8 @@ import {
   TaskPriority,
   PTActivityInfo,
   useGetPersonalTagsQuery,
+  useGetTaskLogNotesQuery,
+  useCreateTaskLogNoteMutation,
 } from '@/api/personalTasksApi';
 import { TaskTimeEntryInfo } from '@/api/projectsApi';
 import PTSubtaskPanel from './PTSubtaskPanel';
@@ -106,6 +110,13 @@ export default function PTDetailDrawer({
 
   const { data: existingTags = [] } = useGetPersonalTagsQuery();
 
+  // Task log notes query and mutation
+  const { data: logNotes = [], isLoading: isLoadingNotes } = useGetTaskLogNotesQuery(task?.id || 0, {
+    skip: !task?.id,
+  });
+  const [createLogNote, { isLoading: isSubmittingLog }] = useCreateTaskLogNoteMutation();
+  const [newLogNote, setNewLogNote] = useState('');
+
   const [activeTab, setActiveTab] = useState<'details' | 'subtasks' | 'time' | 'audit'>('details');
 
   // Local form states
@@ -116,7 +127,6 @@ export default function PTDetailDrawer({
   const [dueDate, setDueDate] = useState('');
   const [plannedDate, setPlannedDate] = useState('');
   const [estimatedHours, setEstimatedHours] = useState<number | ''>('');
-  const [blockedReason, setBlockedReason] = useState('');
   const [tags, setTags] = useState<string[]>([]);
   const [recurrencePattern, setRecurrencePattern] = useState<string>('none');
 
@@ -134,7 +144,6 @@ export default function PTDetailDrawer({
           due_date: task.due_date || '',
           planned_date: task.planned_date || '',
           estimated_hours: task.estimated_hours || '',
-          blocked_reason: task.blocked_reason || '',
           tag_names: task.tags_list?.map((t) => t.name) || [],
         }
       : {},
@@ -154,7 +163,6 @@ export default function PTDetailDrawer({
       setDueDate(task.due_date ? task.due_date.split('T')[0] : '');
       setPlannedDate(task.planned_date ? task.planned_date.split('T')[0] : '');
       setEstimatedHours(task.estimated_hours || '');
-      setBlockedReason(task.blocked_reason || '');
       setTags(task.tags_list ? task.tags_list.map((t) => t.name) : []);
       if (task.recurrence_rule && typeof task.recurrence_rule === 'object') {
         setRecurrencePattern(task.recurrence_rule.pattern || 'none');
@@ -170,7 +178,6 @@ export default function PTDetailDrawer({
         due_date: task.due_date || '',
         planned_date: task.planned_date || '',
         estimated_hours: task.estimated_hours || '',
-        blocked_reason: task.blocked_reason || '',
         tag_names: task.tags_list?.map((t) => t.name) || [],
       });
     }
@@ -193,6 +200,16 @@ export default function PTDetailDrawer({
     setCancellationReason('');
   };
 
+  const handleAddLogNote = async () => {
+    if (!newLogNote.trim() || !task) return;
+    try {
+      await createLogNote({ taskId: task.id, note: newLogNote.trim() }).unwrap();
+      setNewLogNote('');
+    } catch (err) {
+      console.error('Failed to log note:', err);
+    }
+  };
+
   return (
     <Drawer
       anchor="right"
@@ -200,8 +217,9 @@ export default function PTDetailDrawer({
       onClose={handleClose}
       PaperProps={{
         sx: {
-          width: { xs: '100%', sm: 520 },
-          maxWidth: '100vw',
+          width: { xs: '100%', md: '82vw', lg: '74vw', xl: '68vw' },
+          minWidth: { md: 840 },
+          maxWidth: { xs: '100vw', xl: 1280 },
           height: '100%',
           maxHeight: '100dvh',
           backgroundColor: isDark ? '#14181C' : '#FFFFFF',
@@ -215,6 +233,7 @@ export default function PTDetailDrawer({
       <Box
         sx={{
           p: 2,
+          px: 2.5,
           borderBottom: '1px solid',
           borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
           display: 'flex',
@@ -276,277 +295,508 @@ export default function PTDetailDrawer({
         </Box>
       </Box>
 
-      {/* Navigation Tabs */}
-      <Tabs
-        value={activeTab}
-        onChange={(_, val) => setActiveTab(val)}
-        variant="fullWidth"
+      {/* Drawer Body Container: Two-column layout (50% left, 50% right) on desktop */}
+      <Box
         sx={{
-          borderBottom: '1px solid',
-          borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
-          minHeight: 44,
-          '& .MuiTab-root': {
-            minHeight: 44,
-            textTransform: 'none',
-            fontWeight: 600,
-            fontSize: '0.82rem',
-          },
+          flex: 1,
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: { xs: 'column', md: 'row' },
         }}
       >
-        <Tab icon={<FileText size={15} />} iconPosition="start" label="Details" value="details" />
-        <Tab
-          icon={<ListTree size={15} />}
-          iconPosition="start"
-          label={`Subtasks (${task.subtask_count || 0})`}
-          value="subtasks"
-        />
-        <Tab icon={<Clock size={15} />} iconPosition="start" label="Time" value="time" />
-        <Tab icon={<History size={15} />} iconPosition="start" label="Audit" value="audit" />
-      </Tabs>
-
-      {/* Drawer Body */}
-      <Box sx={{ flex: 1, overflowY: 'auto', p: 3, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-        {activeTab === 'details' && (
-          <>
-            {/* Title */}
-            <TextField
-              label="Task Title"
-              fullWidth
-              size="small"
-              value={title}
-              onChange={(e) => {
-                setTitle(e.target.value);
-                autoSave.setPendingField('title', e.target.value);
-              }}
-              onBlur={() => autoSave.saveField('title', title.trim())}
+        {/* Left Column (50%): Task Details, Subtasks, Time, Audit Tabs */}
+        <Box
+          sx={{
+            flex: 1,
+            width: { xs: '100%', md: '50%' },
+            borderRight: { md: '1px solid' },
+            borderColor: { md: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' },
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+          }}
+        >
+          {/* Navigation Tabs */}
+          <Tabs
+            value={activeTab}
+            onChange={(_, val) => setActiveTab(val)}
+            variant="fullWidth"
+            sx={{
+              borderBottom: '1px solid',
+              borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+              minHeight: 44,
+              '& .MuiTab-root': {
+                minHeight: 44,
+                textTransform: 'none',
+                fontWeight: 600,
+                fontSize: '0.82rem',
+              },
+            }}
+          >
+            <Tab icon={<FileText size={15} />} iconPosition="start" label="Details" value="details" />
+            <Tab
+              icon={<ListTree size={15} />}
+              iconPosition="start"
+              label={`Subtasks (${task.subtask_count || 0})`}
+              value="subtasks"
             />
+            <Tab icon={<Clock size={15} />} iconPosition="start" label="Time" value="time" />
+            <Tab icon={<History size={15} />} iconPosition="start" label="Audit" value="audit" />
+          </Tabs>
 
-            {/* Priority & Estimated Hours */}
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <Box sx={{ flex: 1 }}>
-                <Typography variant="caption" sx={{ color: '#64748B', display: 'block', mb: 0.5 }}>
-                  Priority
-                </Typography>
-                <Select
-                  fullWidth
-                  size="small"
-                  value={priority}
-                  onChange={(e) => {
-                    const p = e.target.value as TaskPriority;
-                    setPriority(p);
-                    autoSave.saveField('priority', p);
-                  }}
-                >
-                  <MenuItem value="URGENT">Urgent</MenuItem>
-                  <MenuItem value="HIGH">High</MenuItem>
-                  <MenuItem value="NORMAL">Normal</MenuItem>
-                  <MenuItem value="LOW">Low</MenuItem>
-                </Select>
-              </Box>
-
-              <Box sx={{ flex: 1 }}>
-                <Typography variant="caption" sx={{ color: '#64748B', display: 'block', mb: 0.5 }}>
-                  Estimated Hours
-                </Typography>
+          {/* Left Column Scrollable Content */}
+          <Box sx={{ flex: 1, overflowY: 'auto', p: { xs: 2, sm: 2.5 }, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+            {activeTab === 'details' && (
+              <>
+                {/* Title */}
                 <TextField
+                  label="Task Title"
                   fullWidth
                   size="small"
-                  type="number"
-                  placeholder="e.g. 2.5"
-                  value={estimatedHours}
+                  value={title}
                   onChange={(e) => {
-                    const v = e.target.value === '' ? '' : parseFloat(e.target.value);
-                    setEstimatedHours(v);
-                    autoSave.setPendingField('estimated_hours', v);
+                    setTitle(e.target.value);
+                    autoSave.setPendingField('title', e.target.value);
                   }}
-                  onBlur={() => autoSave.saveField('estimated_hours', estimatedHours === '' ? 0 : estimatedHours)}
+                  onBlur={() => autoSave.saveField('title', title.trim())}
                 />
-              </Box>
-            </Box>
 
-            {/* Dates Row: Start, Planned, Due */}
-            <Box sx={{ display: 'flex', gap: 1.5 }}>
-              <Box sx={{ flex: 1 }}>
-                <Typography variant="caption" sx={{ color: '#64748B', display: 'block', mb: 0.5 }}>
-                  Start Date
-                </Typography>
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => {
-                    setStartDate(e.target.value);
-                    autoSave.setPendingField('start_date', e.target.value);
+                {/* Priority & Estimated Hours */}
+                <Box sx={{ display: 'flex', gap: 2 }}>
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="caption" sx={{ color: '#64748B', display: 'block', mb: 0.5 }}>
+                      Priority
+                    </Typography>
+                    <Select
+                      fullWidth
+                      size="small"
+                      value={priority}
+                      onChange={(e) => {
+                        const p = e.target.value as TaskPriority;
+                        setPriority(p);
+                        autoSave.saveField('priority', p);
+                      }}
+                    >
+                      <MenuItem value="URGENT">Urgent</MenuItem>
+                      <MenuItem value="HIGH">High</MenuItem>
+                      <MenuItem value="NORMAL">Normal</MenuItem>
+                      <MenuItem value="LOW">Low</MenuItem>
+                    </Select>
+                  </Box>
+
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="caption" sx={{ color: '#64748B', display: 'block', mb: 0.5 }}>
+                      Estimated Hours
+                    </Typography>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      type="number"
+                      placeholder="e.g. 2.5"
+                      value={estimatedHours}
+                      onChange={(e) => {
+                        const v = e.target.value === '' ? '' : parseFloat(e.target.value);
+                        setEstimatedHours(v);
+                        autoSave.setPendingField('estimated_hours', v);
+                      }}
+                      onBlur={() => autoSave.saveField('estimated_hours', estimatedHours === '' ? 0 : estimatedHours)}
+                    />
+                  </Box>
+                </Box>
+
+                {/* Dates Row: Start, Planned, Due */}
+                <Box sx={{ display: 'flex', gap: 1.5 }}>
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="caption" sx={{ color: '#64748B', display: 'block', mb: 0.5 }}>
+                      Start Date
+                    </Typography>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => {
+                        setStartDate(e.target.value);
+                        autoSave.setPendingField('start_date', e.target.value);
+                      }}
+                      onBlur={() => autoSave.saveField('start_date', startDate || null)}
+                    />
+                  </Box>
+
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="caption" sx={{ color: '#64748B', display: 'block', mb: 0.5 }}>
+                      Planned Date
+                    </Typography>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      type="date"
+                      value={plannedDate}
+                      onChange={(e) => {
+                        setPlannedDate(e.target.value);
+                        autoSave.setPendingField('planned_date', e.target.value);
+                      }}
+                      onBlur={() => autoSave.saveField('planned_date', plannedDate || null)}
+                    />
+                  </Box>
+
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="caption" sx={{ color: '#64748B', display: 'block', mb: 0.5 }}>
+                      Due Date
+                    </Typography>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      type="date"
+                      value={dueDate}
+                      onChange={(e) => {
+                        setDueDate(e.target.value);
+                        autoSave.setPendingField('due_date', e.target.value);
+                      }}
+                      onBlur={() => autoSave.saveField('due_date', dueDate || null)}
+                    />
+                  </Box>
+                </Box>
+
+                {/* Tags Autocomplete */}
+                <Autocomplete
+                  multiple
+                  freeSolo
+                  options={existingTags}
+                  value={tags}
+                  onChange={(_, newTags) => {
+                    const normalized = newTags.map((t) => (t.startsWith('#') ? t.slice(1) : t).trim()).filter(Boolean);
+                    setTags(normalized);
+                    autoSave.saveField('tag_names', normalized);
                   }}
-                  onBlur={() => autoSave.saveField('start_date', startDate || null)}
+                  renderTags={(val, getTagProps) =>
+                    val.map((option, index) => (
+                      <Chip
+                        size="small"
+                        label={`#${option}`}
+                        {...getTagProps({ index })}
+                        key={option}
+                      />
+                    ))
+                  }
+                  renderInput={(params) => (
+                    <TextField {...params} size="small" label="Tags" placeholder="Select or type #tag" />
+                  )}
                 />
-              </Box>
 
-              <Box sx={{ flex: 1 }}>
-                <Typography variant="caption" sx={{ color: '#64748B', display: 'block', mb: 0.5 }}>
-                  Planned Date
-                </Typography>
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="date"
-                  value={plannedDate}
-                  onChange={(e) => {
-                    setPlannedDate(e.target.value);
-                    autoSave.setPendingField('planned_date', e.target.value);
-                  }}
-                  onBlur={() => autoSave.saveField('planned_date', plannedDate || null)}
-                />
-              </Box>
-
-              <Box sx={{ flex: 1 }}>
-                <Typography variant="caption" sx={{ color: '#64748B', display: 'block', mb: 0.5 }}>
-                  Due Date
-                </Typography>
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="date"
-                  value={dueDate}
-                  onChange={(e) => {
-                    setDueDate(e.target.value);
-                    autoSave.setPendingField('due_date', e.target.value);
-                  }}
-                  onBlur={() => autoSave.saveField('due_date', dueDate || null)}
-                />
-              </Box>
-            </Box>
-
-            {/* Blocked / Waiting On Reason */}
-            <TextField
-              label="Blocked / On Hold Reason (optional)"
-              fullWidth
-              size="small"
-              placeholder="e.g. Waiting on client response for logo assets"
-              value={blockedReason}
-              onChange={(e) => {
-                setBlockedReason(e.target.value);
-                autoSave.setPendingField('blocked_reason', e.target.value);
-              }}
-              onBlur={() => autoSave.saveField('blocked_reason', blockedReason)}
-            />
-
-            {/* Tags Autocomplete */}
-            <Autocomplete
-              multiple
-              freeSolo
-              options={existingTags}
-              value={tags}
-              onChange={(_, newTags) => {
-                const normalized = newTags.map((t) => (t.startsWith('#') ? t.slice(1) : t).trim()).filter(Boolean);
-                setTags(normalized);
-                autoSave.saveField('tag_names', normalized);
-              }}
-              renderTags={(val, getTagProps) =>
-                val.map((option, index) => (
-                  <Chip
+                {/* Recurrence Rule */}
+                <Box>
+                  <Typography variant="caption" sx={{ color: '#64748B', display: 'block', mb: 0.5 }}>
+                    Recurrence Rule
+                  </Typography>
+                  <Select
+                    fullWidth
                     size="small"
-                    label={`#${option}`}
-                    {...getTagProps({ index })}
-                    key={option}
-                  />
-                ))
-              }
-              renderInput={(params) => (
-                <TextField {...params} size="small" label="Tags" placeholder="Select or type #tag" />
-              )}
-            />
+                    value={recurrencePattern}
+                    onChange={(e) => {
+                      const pat = e.target.value;
+                      setRecurrencePattern(pat);
+                      autoSave.saveField(
+                        'recurrence_rule',
+                        pat === 'none' ? null : { pattern: pat, interval: 1, mode: 'after-completion' }
+                      );
+                    }}
+                  >
+                    <MenuItem value="none">No Recurrence (Single Task)</MenuItem>
+                    <MenuItem value="daily">Daily</MenuItem>
+                    <MenuItem value="weekly">Weekly</MenuItem>
+                    <MenuItem value="monthly">Monthly</MenuItem>
+                  </Select>
+                </Box>
 
-            {/* Recurrence Rule */}
-            <Box>
-              <Typography variant="caption" sx={{ color: '#64748B', display: 'block', mb: 0.5 }}>
-                Recurrence Rule
+                {/* Description */}
+                <TextField
+                  label="Description / Notes"
+                  fullWidth
+                  multiline
+                  rows={4}
+                  size="small"
+                  value={description}
+                  onChange={(e) => {
+                    setDescription(e.target.value);
+                    autoSave.setPendingField('description', e.target.value);
+                  }}
+                  onBlur={() => autoSave.saveField('description', description)}
+                />
+
+                <Divider />
+
+                {/* Reminders Section */}
+                <PTReminderPanel
+                  taskId={task.id}
+                  dueDate={task.due_date}
+                  reminders={reminders}
+                  onCreateReminder={onCreateReminder}
+                  onSnoozeReminder={onSnoozeReminder}
+                />
+              </>
+            )}
+
+            {activeTab === 'subtasks' && (
+              <PTSubtaskPanel
+                task={task}
+                onAddSubtask={onAddSubtask}
+                onToggleSubtask={onToggleSubtask}
+                onDeleteSubtask={onDeleteSubtask}
+                onToggleFollowDue={async (enabled) => {
+                  await onUpdateTask(task.id, { parent_due_follows_subtasks: enabled });
+                }}
+              />
+            )}
+
+            {activeTab === 'time' && (
+              <PTTimerWidget
+                taskId={task.id}
+                taskTitle={task.title}
+                estimatedHours={task.estimated_hours || 0}
+                actualHours={task.actual_hours || 0}
+                activeTimer={activeTimer}
+                timeEntries={timeEntries}
+                onStartTimer={onStartTimer}
+                onStopTimer={onStopTimer}
+                onAddManualEntry={onAddManualTime}
+                onDeleteEntry={onDeleteTimeEntry}
+              />
+            )}
+
+            {activeTab === 'audit' && (
+              <PTAuditLog activities={activities} />
+            )}
+          </Box>
+        </Box>
+
+        {/* Right Column (50%): Task Log Notes & Chronological Timeline */}
+        <Box
+          sx={{
+            flex: 1,
+            width: { xs: '100%', md: '50%' },
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            backgroundColor: isDark ? '#11151A' : '#F8FAFC',
+          }}
+        >
+          {/* Header of Log Notes Section */}
+          <Box
+            sx={{
+              p: 2,
+              px: 2.5,
+              borderBottom: '1px solid',
+              borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              backgroundColor: isDark ? '#14191F' : '#FFFFFF',
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <FileText size={17} color="#16C47F" />
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: '0.88rem' }}>
+                Task Log Notes
               </Typography>
-              <Select
+              <Chip
+                label={logNotes.length}
+                size="small"
+                sx={{
+                  height: 20,
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  backgroundColor: isDark ? 'rgba(22, 196, 127, 0.15)' : 'rgba(22, 196, 127, 0.12)',
+                  color: '#16C47F',
+                }}
+              />
+            </Box>
+            <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 500 }}>
+              Chronological Timeline
+            </Typography>
+          </Box>
+
+          {/* Scrollable Container with Capture Box + Timeline */}
+          <Box
+            sx={{
+              flex: 1,
+              overflowY: 'auto',
+              p: { xs: 2, sm: 2.5 },
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2.5,
+            }}
+          >
+            {/* Capture Input Card */}
+            <Box
+              sx={{
+                p: 2,
+                borderRadius: 2.5,
+                border: '1px solid',
+                borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+                backgroundColor: isDark ? '#181E24' : '#FFFFFF',
+                boxShadow: isDark ? '0 2px 8px rgba(0,0,0,0.2)' : '0 1px 4px rgba(0,0,0,0.04)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 1.5,
+              }}
+            >
+              <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 600 }}>
+                Record Work Update / Log Note
+              </Typography>
+
+              <TextField
+                multiline
+                minRows={3}
+                maxRows={8}
                 fullWidth
                 size="small"
-                value={recurrencePattern}
-                onChange={(e) => {
-                  const pat = e.target.value;
-                  setRecurrencePattern(pat);
-                  autoSave.saveField(
-                    'recurrence_rule',
-                    pat === 'none' ? null : { pattern: pat, interval: 1, mode: 'after-completion' }
-                  );
+                placeholder="Enter log note / work update..."
+                value={newLogNote}
+                onChange={(e) => setNewLogNote(e.target.value)}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    backgroundColor: isDark ? '#12161A' : '#FAFAFA',
+                    fontSize: '0.86rem',
+                  },
                 }}
-              >
-                <MenuItem value="none">No Recurrence (Single Task)</MenuItem>
-                <MenuItem value="daily">Daily</MenuItem>
-                <MenuItem value="weekly">Weekly</MenuItem>
-                <MenuItem value="monthly">Monthly</MenuItem>
-              </Select>
+              />
+
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 1 }}>
+                <Button
+                  variant="contained"
+                  size="small"
+                  disabled={!newLogNote.trim() || isSubmittingLog}
+                  onClick={handleAddLogNote}
+                  startIcon={isSubmittingLog ? <CircularProgress size={14} color="inherit" /> : <Plus size={15} />}
+                  sx={{
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    borderRadius: 2,
+                    px: 2,
+                    backgroundColor: '#16C47F',
+                    '&:hover': {
+                      backgroundColor: '#13A86B',
+                    },
+                  }}
+                >
+                  Log Note
+                </Button>
+              </Box>
             </Box>
 
-            {/* Description */}
-            <TextField
-              label="Description / Notes"
-              fullWidth
-              multiline
-              rows={4}
-              size="small"
-              value={description}
-              onChange={(e) => {
-                setDescription(e.target.value);
-                autoSave.setPendingField('description', e.target.value);
-              }}
-              onBlur={() => autoSave.saveField('description', description)}
-            />
+            <Divider sx={{ my: 0.5, borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }}>
+              <Typography variant="caption" sx={{ color: '#94A3B8', fontWeight: 600, px: 1 }}>
+                TIMELINE (NEWEST FIRST)
+              </Typography>
+            </Divider>
 
-            <Divider />
+            {/* Timeline Stream */}
+            {logNotes.length === 0 ? (
+              <Box sx={{ py: 6, px: 2, textAlign: 'center', color: '#94A3B8' }}>
+                <Clock size={36} style={{ strokeWidth: 1.5, opacity: 0.4, marginBottom: 8 }} />
+                <Typography variant="body2" sx={{ fontWeight: 600, color: '#64748B' }}>
+                  No log notes recorded yet.
+                </Typography>
+                <Typography variant="caption" sx={{ color: '#94A3B8' }}>
+                  Enter an update above to begin tracking timeline activity.
+                </Typography>
+              </Box>
+            ) : (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {logNotes.map((note, idx) => {
+                  const empName = note.employee_name || 'Employee';
+                  const initials = empName
+                    .split(' ')
+                    .map((n) => n[0])
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .join('')
+                    .toUpperCase() || 'E';
 
-            {/* Reminders Section */}
-            <PTReminderPanel
-              taskId={task.id}
-              dueDate={task.due_date}
-              reminders={reminders}
-              onCreateReminder={onCreateReminder}
-              onSnoozeReminder={onSnoozeReminder}
-            />
-          </>
-        )}
+                  return (
+                    <Box key={note.id || idx} sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
+                      {/* Timeline Dot / Avatar */}
+                      <Avatar
+                        src={note.employee_photo || undefined}
+                        sx={{
+                          width: 32,
+                          height: 32,
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          backgroundColor: isDark ? '#233038' : '#E2E8F0',
+                          color: isDark ? '#16C47F' : '#1E293B',
+                          border: '2px solid',
+                          borderColor: isDark ? 'rgba(22, 196, 127, 0.4)' : '#16C47F',
+                          mt: 0.25,
+                        }}
+                      >
+                        {initials}
+                      </Avatar>
 
-        {activeTab === 'subtasks' && (
-          <PTSubtaskPanel
-            task={task}
-            onAddSubtask={onAddSubtask}
-            onToggleSubtask={onToggleSubtask}
-            onDeleteSubtask={onDeleteSubtask}
-            onToggleFollowDue={async (enabled) => {
-              await onUpdateTask(task.id, { parent_due_follows_subtasks: enabled });
-            }}
-          />
-        )}
+                      {/* Timeline Card */}
+                      <Box
+                        sx={{
+                          flex: 1,
+                          p: 1.75,
+                          borderRadius: 2.25,
+                          border: '1px solid',
+                          borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+                          backgroundColor: isDark ? '#161B21' : '#FFFFFF',
+                          boxShadow: isDark ? '0 1px 4px rgba(0,0,0,0.15)' : '0 1px 3px rgba(0,0,0,0.03)',
+                        }}
+                      >
+                        {/* Header: Employee Name + Date & Time */}
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1, flexWrap: 'wrap', gap: 0.5 }}>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: '0.84rem' }}>
+                            {empName}
+                          </Typography>
 
-        {activeTab === 'time' && (
-          <PTTimerWidget
-            taskId={task.id}
-            taskTitle={task.title}
-            estimatedHours={task.estimated_hours || 0}
-            actualHours={task.actual_hours || 0}
-            activeTimer={activeTimer}
-            timeEntries={timeEntries}
-            onStartTimer={onStartTimer}
-            onStopTimer={onStopTimer}
-            onAddManualEntry={onAddManualTime}
-            onDeleteEntry={onDeleteTimeEntry}
-          />
-        )}
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: '#64748B' }}>
+                              <Calendar size={12} />
+                              <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.74rem' }}>
+                                {note.formatted_date}
+                              </Typography>
+                            </Box>
 
-        {activeTab === 'audit' && (
-          <PTAuditLog activities={activities} />
-        )}
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: '#64748B' }}>
+                              <Clock size={12} />
+                              <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.74rem' }}>
+                                {note.formatted_time}
+                              </Typography>
+                            </Box>
+                          </Box>
+                        </Box>
+
+                        {/* Note Content */}
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            color: isDark ? '#E2E8F0' : '#334155',
+                            fontSize: '0.84rem',
+                            lineHeight: 1.55,
+                            whiteSpace: 'pre-wrap',
+                            wordBreak: 'break-word',
+                          }}
+                        >
+                          {note.note}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  );
+                })}
+              </Box>
+            )}
+          </Box>
+        </Box>
       </Box>
 
       {/* Drawer Footer Actions */}
       <Box
         sx={{
           p: 2,
+          px: 2.5,
           pb: 'max(16px, env(safe-area-inset-bottom, 0px))',
           borderTop: '1px solid',
           borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
