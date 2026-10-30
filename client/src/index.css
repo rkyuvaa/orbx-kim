@@ -36,7 +36,7 @@
   /* Layout Shell */
   --sidebar-bg: #172517;
   --sidebar-border: rgba(255, 255, 255, 0.08);
-  --current-sidebar-width: 244px;
+  --current-sidebar-width: 0px;
   --topbar-bg: rgba(255, 255, 255, 0.94);
   --topbar-border: #e2e8e2;
 

@@ -1253,20 +1253,19 @@ export default function VSConfigurationTab() {
           </Grid>
 
           {/* Kit Selector */}
-          <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-            <InputLabel>Assign EV Conversion Kit Master *</InputLabel>
-            <Select
+          <Box sx={{ mb: 2 }}>
+            <AppDropdown
+              label="Assign EV Conversion Kit Master"
+              required
               value={selectedKitId}
-              label="Assign EV Conversion Kit Master *"
-              onChange={(e) => setSelectedKitId(Number(e.target.value))}
-            >
-              {kits.map((k) => (
-                <MenuItem key={k.id} value={k.id}>
-                  {k.kit_number} — {k.kit_name} ({k.component_types.length} Components)
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+              placeholder="Select kit"
+              options={kits.map((k) => ({
+                value: k.id,
+                label: `${k.kit_number} — ${k.kit_name} (${k.component_types.length} Components)`,
+              }))}
+              onChange={(val) => setSelectedKitId(Number(val))}
+            />
+          </Box>
 
           {/* Customer / Owner Details */}
           <Grid container spacing={2} sx={{ mb: 2 }}>
@@ -1383,23 +1382,22 @@ export default function VSConfigurationTab() {
       <Dialog open={isMaintDialogOpen} onClose={() => setIsMaintDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ fontWeight: 800 }}>Schedule Preventive Maintenance</DialogTitle>
         <DialogContent dividers>
-          <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-            <InputLabel>Retrofitted Vehicle *</InputLabel>
-            <Select
+          <Box sx={{ mb: 2 }}>
+            <AppDropdown
+              label="Retrofitted Vehicle"
+              required
               value={maintVehicleId}
-              label="Retrofitted Vehicle *"
-              onChange={(e) => setMaintVehicleId(Number(e.target.value))}
-            >
-              {vehicles.map((v) => (
-                <MenuItem key={v.id} value={v.id}>
-                  {v.vehicle_number} — {v.owner_name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+              placeholder="Select vehicle"
+              options={vehicles.map((v) => ({
+                value: v.id,
+                label: `${v.vehicle_number} — ${v.owner_name}`,
+              }))}
+              onChange={(val) => setMaintVehicleId(Number(val))}
+            />
+          </Box>
 
           <TextField
-            label="Service Title *"
+            label="Service Title"
             placeholder="e.g. 5,000 KM General Inspection"
             size="small"
             fullWidth
@@ -1411,14 +1409,11 @@ export default function VSConfigurationTab() {
 
           <Grid container spacing={2} sx={{ mb: 2 }}>
             <Grid item xs={6}>
-              <TextField
-                label="Scheduled Date *"
-                type="date"
-                size="small"
-                fullWidth
-                InputLabelProps={{ shrink: true }}
+              <DdMmYyyyInput
+                label="Scheduled Date"
+                required
                 value={maintDate}
-                onChange={(e) => setMaintDate(e.target.value)}
+                onChange={(val) => setMaintDate(val)}
               />
             </Grid>
             <Grid item xs={6}>
@@ -1433,23 +1428,20 @@ export default function VSConfigurationTab() {
             </Grid>
           </Grid>
 
-          <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-            <InputLabel>Assigned Technician</InputLabel>
-            <Select
-              value={maintTechId}
+          <Box sx={{ mb: 2 }}>
+            <AppDropdown
               label="Assigned Technician"
-              onChange={(e) => setMaintTechId(e.target.value as number | '')}
-            >
-              <MenuItem value="">
-                <em>Unassigned</em>
-              </MenuItem>
-              {users.map((u) => (
-                <MenuItem key={u.id} value={u.id}>
-                  {u.full_name} ({u.role})
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+              value={maintTechId}
+              emptyLabel="Unassigned"
+              allowEmpty
+              options={users.map((u) => ({
+                value: u.id,
+                label: `${u.full_name} (${u.role})`,
+              }))}
+              onChange={(val) => setMaintTechId(val ? Number(val) : '')}
+            />
+          </Box>
+
 
           <TextField
             label="Notes / Specific Checklist"

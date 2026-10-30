@@ -48,6 +48,9 @@ export default function AppLayout() {
       '--current-sidebar-width',
       `${isMobile ? 0 : sidebarWidth}px`
     );
+    return () => {
+      document.documentElement.style.setProperty('--current-sidebar-width', '0px');
+    };
   }, [sidebarWidth, isMobile]);
 
   return (

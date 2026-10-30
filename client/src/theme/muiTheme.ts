@@ -283,17 +283,53 @@ export const getMuiTheme = (mode: 'light' | 'dark') => {
           scroll: 'paper',
         },
         styleOverrides: {
+          root: {
+            '& .MuiBackdrop-root': {
+              left: 'var(--current-sidebar-width, 0px)',
+              transition: 'left 0.22s cubic-bezier(0.4, 0, 0.2, 1)',
+            },
+            '& .MuiDialog-container': {
+              paddingLeft: 'calc(var(--current-sidebar-width, 0px) + 16px)',
+              paddingRight: 16,
+              boxSizing: 'border-box',
+              justifyContent: 'center',
+              alignItems: 'center',
+              transition: 'padding-left 0.22s cubic-bezier(0.4, 0, 0.2, 1)',
+              '@media (max-width: 1024px)': {
+                paddingLeft: 16,
+                paddingRight: 16,
+              },
+            },
+          },
           paper: {
             backgroundColor: surfaces.paper,
             borderColor: surfaces.border,
             boxShadow: isDark ? '0 16px 40px rgba(0, 0, 0, 0.6)' : '0 16px 40px rgba(32, 48, 32, 0.1)',
-            borderRadius: 12,
+            borderRadius: 16,
             maxHeight: 'calc(100dvh - 32px)',
-            maxWidth: 'calc(100vw - 32px)',
-            margin: 16,
+            maxWidth: 'calc(100vw - var(--current-sidebar-width, 0px) - 32px)',
+            margin: '0 auto',
             overflowY: 'auto',
             WebkitOverflowScrolling: 'touch',
             transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+            '@media (max-width: 1024px)': {
+              maxWidth: 'calc(100vw - 32px)',
+            },
+          },
+          paperWidthXs: {
+            maxWidth: '460px !important',
+          },
+          paperWidthSm: {
+            maxWidth: '620px !important',
+          },
+          paperWidthMd: {
+            maxWidth: '920px !important',
+          },
+          paperWidthLg: {
+            maxWidth: '1200px !important',
+          },
+          paperWidthXl: {
+            maxWidth: '1440px !important',
           },
         },
       },

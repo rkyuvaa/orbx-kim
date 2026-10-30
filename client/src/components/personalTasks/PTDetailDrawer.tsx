@@ -42,6 +42,7 @@ import {
   PTTaskCreate,
   TaskPriority,
   PTActivityInfo,
+  useGetPersonalTagsQuery,
 } from '@/api/personalTasksApi';
 import { TaskTimeEntryInfo } from '@/api/projectsApi';
 import PTSubtaskPanel from './PTSubtaskPanel';
@@ -102,6 +103,8 @@ export default function PTDetailDrawer({
 }: PTDetailDrawerProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
+
+  const { data: existingTags = [] } = useGetPersonalTagsQuery();
 
   const [activeTab, setActiveTab] = useState<'details' | 'subtasks' | 'time' | 'audit'>('details');
 
@@ -433,11 +436,12 @@ export default function PTDetailDrawer({
             <Autocomplete
               multiple
               freeSolo
-              options={[]}
+              options={existingTags}
               value={tags}
               onChange={(_, newTags) => {
-                setTags(newTags);
-                autoSave.saveField('tag_names', newTags);
+                const normalized = newTags.map((t) => (t.startsWith('#') ? t.slice(1) : t).trim()).filter(Boolean);
+                setTags(normalized);
+                autoSave.saveField('tag_names', normalized);
               }}
               renderTags={(val, getTagProps) =>
                 val.map((option, index) => (
@@ -450,7 +454,7 @@ export default function PTDetailDrawer({
                 ))
               }
               renderInput={(params) => (
-                <TextField {...params} size="small" label="Tags" placeholder="Add #tag and press Enter" />
+                <TextField {...params} size="small" label="Tags" placeholder="Select or type #tag" />
               )}
             />
 

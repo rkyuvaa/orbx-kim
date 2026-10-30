@@ -7,6 +7,7 @@ import {
   Paper,
   Typography,
   InputAdornment,
+  Tooltip,
   useTheme,
 } from '@mui/material';
 import {
@@ -16,10 +17,10 @@ import {
   AlertCircle,
   Tag as TagIcon,
   Plus,
-  CornerDownLeft,
+  Pin,
 } from 'lucide-react';
 import { format, addDays, nextDay } from 'date-fns';
-import { PTTaskCreate } from '@/api/personalTasksApi';
+import { PTTaskCreate, useGetPersonalTagsQuery } from '@/api/personalTasksApi';
 
 interface PTQuickCaptureProps {
   onQuickAdd: (task: PTTaskCreate) => Promise<void>;
@@ -39,6 +40,28 @@ export default function PTQuickCapture({ onQuickAdd, isLoading }: PTQuickCapture
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const [inputVal, setInputVal] = useState('');
+
+  // Fetch all existing personal tags previously typed by user
+  const { data: existingTags = [] } = useGetPersonalTagsQuery();
+
+  // Sticky tag pin state: whether to preserve tags for consecutive entries
+  const [keepTags, setKeepTags] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('kim_pt_keep_tags') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const handleToggleKeepTags = () => {
+    setKeepTags((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('kim_pt_keep_tags', String(next));
+      } catch {}
+      return next;
+    });
+  };
 
   // Natural Language Parser
   const parsed = useMemo<ParsedNLP | null>(() => {
@@ -143,9 +166,40 @@ export default function PTQuickCapture({ onQuickAdd, isLoading }: PTQuickCapture
     };
   }, [inputVal]);
 
+  // Check if user is currently typing a '#' tag
+  const hashMatch = inputVal.match(/#(\w*)$/);
+  const isTypingHash = Boolean(hashMatch);
+  const hashQuery = hashMatch ? hashMatch[1].toLowerCase() : '';
+
+  const matchingTags = useMemo(() => {
+    if (!isTypingHash) return [];
+    return existingTags.filter((t) => t.toLowerCase().includes(hashQuery));
+  }, [isTypingHash, hashQuery, existingTags]);
+
+  const handleSelectSuggestion = (tag: string) => {
+    const nextVal = inputVal.replace(/#\w*$/, `#${tag} `);
+    setInputVal(nextVal);
+  };
+
+  // Toggle tag from click on quick tag chip
+  const handleToggleTag = (tag: string) => {
+    const tagRegex = new RegExp(`(^|\\s)#${tag}\\b`, 'gi');
+    if (tagRegex.test(inputVal)) {
+      // Remove tag
+      const nextVal = inputVal.replace(tagRegex, ' ').replace(/\s+/g, ' ').trim();
+      setInputVal(nextVal);
+    } else {
+      // Append tag
+      const nextVal = inputVal.trim() ? `${inputVal.trim()} #${tag}` : `#${tag}`;
+      setInputVal(nextVal);
+    }
+  };
+
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!parsed || !parsed.title.trim()) return;
+
+    const submittedTags = parsed.tags;
 
     await onQuickAdd({
       title: parsed.title,
@@ -153,10 +207,16 @@ export default function PTQuickCapture({ onQuickAdd, isLoading }: PTQuickCapture
       due_time: parsed.dueTime,
       estimated_hours: parsed.estimatedHours || 0,
       priority: parsed.priority,
-      tag_names: parsed.tags.length > 0 ? parsed.tags : undefined,
+      tag_names: submittedTags.length > 0 ? submittedTags : undefined,
     });
 
-    setInputVal('');
+    if (keepTags && submittedTags.length > 0) {
+      // Auto-retain the tags for the next task entry!
+      const tagSuffix = submittedTags.map((t) => `#${t}`).join(' ');
+      setInputVal(`${tagSuffix} `);
+    } else {
+      setInputVal('');
+    }
   };
 
   const getPriorityColor = (p: string) => {
@@ -225,6 +285,57 @@ export default function PTQuickCapture({ onQuickAdd, isLoading }: PTQuickCapture
             }}
           />
 
+          {/* Sticky Tag Mode Pin Toggle */}
+          <Tooltip
+            title={
+              keepTags
+                ? 'Keep Tags: ON (Tags stay active for next task entry)'
+                : 'Keep Tags: OFF (Click to retain tags on next entry)'
+            }
+            arrow
+          >
+            <Button
+              type="button"
+              variant="outlined"
+              onClick={handleToggleKeepTags}
+              size="small"
+              startIcon={
+                <Pin
+                  size={14}
+                  style={{
+                    transform: keepTags ? 'rotate(45deg)' : 'none',
+                    transition: 'transform 0.15s ease',
+                  }}
+                />
+              }
+              sx={{
+                height: 38,
+                whiteSpace: 'nowrap',
+                px: 1.5,
+                borderRadius: 2,
+                textTransform: 'none',
+                fontWeight: 600,
+                fontSize: '0.8rem',
+                border: '1px solid',
+                borderColor: keepTags
+                  ? isDark ? '#16C47F' : '#16C47F'
+                  : isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)',
+                backgroundColor: keepTags
+                  ? isDark ? 'rgba(22, 196, 127, 0.15)' : 'rgba(22, 196, 127, 0.1)'
+                  : 'transparent',
+                color: keepTags
+                  ? isDark ? '#16C47F' : '#148C5B'
+                  : isDark ? '#94A3B8' : '#64748B',
+                '&:hover': {
+                  borderColor: isDark ? '#16C47F' : '#16C47F',
+                  backgroundColor: isDark ? 'rgba(22, 196, 127, 0.2)' : 'rgba(22, 196, 127, 0.15)',
+                },
+              }}
+            >
+              {keepTags ? 'Keep Tags: ON' : 'Keep Tags'}
+            </Button>
+          </Tooltip>
+
           <Button
             type="submit"
             variant="contained"
@@ -247,6 +358,116 @@ export default function PTQuickCapture({ onQuickAdd, isLoading }: PTQuickCapture
             Add Task
           </Button>
         </Box>
+
+        {/* Inline Typeahead when typing '#' */}
+        {isTypingHash && matchingTags.length > 0 && (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.75,
+              flexWrap: 'wrap',
+              mt: 1,
+              p: 1,
+              borderRadius: 1.5,
+              backgroundColor: isDark ? 'rgba(22, 196, 127, 0.08)' : 'rgba(22, 196, 127, 0.06)',
+              border: '1px dashed',
+              borderColor: isDark ? 'rgba(22, 196, 127, 0.3)' : 'rgba(22, 196, 127, 0.25)',
+            }}
+          >
+            <Typography variant="caption" sx={{ color: isDark ? '#16C47F' : '#148C5B', fontWeight: 700, mr: 0.5 }}>
+              Matching tag:
+            </Typography>
+            {matchingTags.slice(0, 8).map((tag) => (
+              <Chip
+                key={tag}
+                size="small"
+                label={`#${tag}`}
+                onClick={() => handleSelectSuggestion(tag)}
+                clickable
+                sx={{
+                  height: 22,
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  borderRadius: 1.5,
+                  cursor: 'pointer',
+                  backgroundColor: isDark ? '#16C47F' : '#16C47F',
+                  color: '#FFFFFF',
+                  '&:hover': {
+                    backgroundColor: isDark ? '#14B070' : '#12A66C',
+                  },
+                }}
+              />
+            ))}
+          </Box>
+        )}
+
+        {/* Quick Tag Selector Tray (Previously typed / existing tags) */}
+        {existingTags.length > 0 && (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.75,
+              flexWrap: 'wrap',
+              mt: 1.25,
+              pt: 1,
+              borderTop: '1px solid',
+              borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mr: 0.5 }}>
+              <TagIcon size={13} color={isDark ? '#94A3B8' : '#64748B'} />
+              <Typography
+                variant="caption"
+                sx={{
+                  color: isDark ? '#94A3B8' : '#64748B',
+                  fontWeight: 600,
+                  fontSize: '0.72rem',
+                }}
+              >
+                Tags:
+              </Typography>
+            </Box>
+
+            {existingTags.map((tag) => {
+              const isSelected = parsed?.tags.some((t) => t.toLowerCase() === tag.toLowerCase());
+              return (
+                <Chip
+                  key={tag}
+                  size="small"
+                  label={`#${tag}`}
+                  onClick={() => handleToggleTag(tag)}
+                  clickable
+                  variant={isSelected ? 'filled' : 'outlined'}
+                  sx={{
+                    height: 22,
+                    fontSize: '0.7rem',
+                    fontWeight: 600,
+                    borderRadius: 1.5,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    ...(isSelected
+                      ? {
+                          backgroundColor: isDark ? 'rgba(22, 196, 127, 0.22)' : 'rgba(22, 196, 127, 0.15)',
+                          color: isDark ? '#16C47F' : '#148C5B',
+                          borderColor: isDark ? '#16C47F' : '#16C47F',
+                          boxShadow: '0 1px 3px rgba(22, 196, 127, 0.2)',
+                        }
+                      : {
+                          borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)',
+                          color: isDark ? '#E2E8F0' : '#475569',
+                          '&:hover': {
+                            backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+                            borderColor: isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)',
+                          },
+                        }),
+                  }}
+                />
+              );
+            })}
+          </Box>
+        )}
 
         {/* Live Parsing Preview Chips */}
         {parsed && inputVal.trim() && (

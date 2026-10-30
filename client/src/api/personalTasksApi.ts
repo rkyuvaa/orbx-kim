@@ -204,18 +204,22 @@ export const personalTasksApi = baseApi.injectEndpoints({
         method: 'POST',
         body,
       }),
-      invalidatesTags: [{ type: 'PersonalTasks', id: 'LIST' }],
+      invalidatesTags: [
+        { type: 'PersonalTasks', id: 'LIST' },
+        { type: 'PersonalTasks', id: 'TAGS' },
+      ],
     }),
 
     updatePersonalTask: build.mutation<PTTask, { id: number; data: PTTaskUpdate }>({
       query: ({ id, data }) => ({
         url: `/tasks/personal/${id}`,
         method: 'PUT',
-        body: data,
+        body,
       }),
       invalidatesTags: (_res, _err, { id }) => [
         { type: 'PersonalTasks', id },
         { type: 'PersonalTasks', id: 'LIST' },
+        { type: 'PersonalTasks', id: 'TAGS' },
       ],
     }),
 
@@ -419,7 +423,7 @@ export const personalTasksApi = baseApi.injectEndpoints({
     // Tags & Search
     getPersonalTags: build.query<string[], void>({
       query: () => '/tasks/personal/tags',
-      providesTags: ['PersonalTasks'],
+      providesTags: [{ type: 'PersonalTasks', id: 'TAGS' }],
     }),
 
     searchPersonalTasks: build.query<PTTask[], string>({
