@@ -1598,8 +1598,21 @@ export default function VSWorkOrdersTab() {
                       <Box sx={{ mb: 2 }} />
                     )}
 
-                    {/* Workflow Actions */}
-                    <Box sx={{ mb: 1.5, p: 1.5, bgcolor: '#f8fafc', borderRadius: 1.5 }}>
+                    {/* Technician Assignment */}
+                    <AppDropdown
+                      label="Assigned Technician"
+                      value={selectedComplaint.assigned_to_id || ''}
+                      emptyLabel="Unassigned"
+                      allowEmpty
+                      options={users.map((u) => ({
+                        value: u.id,
+                        label: `${u.full_name} (${u.role})`,
+                      }))}
+                      onChange={(val) => handleAssignUser(selectedComplaint.id, Number(val))}
+                    />
+
+                    {/* Workflow Actions (last, after dropdown) */}
+                    <Box sx={{ mb: 0, mt: 1.5, p: 1.5, bgcolor: '#f8fafc', borderRadius: 1.5 }}>
                       <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" gutterBottom>
                         Actions
                       </Typography>
@@ -1657,18 +1670,6 @@ export default function VSWorkOrdersTab() {
                       </Box>
                     </Box>
 
-                    {/* Technician Assignment */}
-                    <AppDropdown
-                      label="Assigned Technician"
-                      value={selectedComplaint.assigned_to_id || ''}
-                      emptyLabel="Unassigned"
-                      allowEmpty
-                      options={users.map((u) => ({
-                        value: u.id,
-                        label: `${u.full_name} (${u.role})`,
-                      }))}
-                      onChange={(val) => handleAssignUser(selectedComplaint.id, Number(val))}
-                    />
                   </Paper>
                 </Grid>
               </Grid>
