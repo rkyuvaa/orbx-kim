@@ -818,8 +818,18 @@ export default function VSWorkOrdersTab() {
       return;
     }
 
+    const payload: VSComplaintUpdate = {
+      status: nextStatus,
+      est_delivery_date: estDeliveryDate || undefined,
+      can_data_collected: canDataCollected,
+      technician_remarks: technicianRemarks.trim() || undefined,
+      odometer_reading: odometerReading ? Number(odometerReading) : undefined,
+      service_type: serviceType,
+      service_hours: serviceHours,
+    };
+
     try {
-      const updated = await updateComplaint({ id: complaintId, body: { status: nextStatus } }).unwrap();
+      const updated = await updateComplaint({ id: complaintId, body: payload }).unwrap();
       setSelectedComplaint(updated);
       showToast(`Work order status updated to ${nextStatus}`, 'success');
       refetch();
@@ -2295,7 +2305,7 @@ export default function VSWorkOrdersTab() {
                 {formatDateTime(selectedComplaint.created_at)}
               </Typography>
             </Box>
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
               <Chip
                 label={selectedComplaint.severity}
                 sx={{
@@ -2309,62 +2319,6 @@ export default function VSWorkOrdersTab() {
                 color={STATUS_COLORS[selectedComplaint.status] || 'default'}
                 sx={{ fontWeight: 800 }}
               />
-
-              {/* Header Quick Action */}
-              {selectedComplaint.status === 'OPEN' && (
-                <Button
-                  size="small"
-                  variant="contained"
-                  color="warning"
-                  onClick={() => handleUpdateStatus(selectedComplaint.id, 'ACKNOWLEDGED')}
-                  sx={{ textTransform: 'none', fontWeight: 700, ml: 1, height: 32 }}
-                >
-                  Acknowledge
-                </Button>
-              )}
-              {selectedComplaint.status === 'ACKNOWLEDGED' && (
-                <Button
-                  size="small"
-                  variant="contained"
-                  color="primary"
-                  onClick={() => handleUpdateStatus(selectedComplaint.id, 'IN_PROGRESS')}
-                  sx={{ textTransform: 'none', fontWeight: 700, ml: 1, height: 32 }}
-                >
-                  Start Service
-                </Button>
-              )}
-              {selectedComplaint.status === 'IN_PROGRESS' && (
-                <Button
-                  size="small"
-                  variant="contained"
-                  color="success"
-                  onClick={() => handleUpdateStatus(selectedComplaint.id, 'RESOLVED')}
-                  sx={{ textTransform: 'none', fontWeight: 700, ml: 1, height: 32 }}
-                >
-                  Mark Resolved
-                </Button>
-              )}
-              {selectedComplaint.status === 'RESOLVED' && (
-                <Button
-                  size="small"
-                  variant="contained"
-                  onClick={() => {
-                    setCloseResolutionSummary(selectedComplaint.resolution_summary || '');
-                    setIsCloseDialogOpen(true);
-                  }}
-                  sx={{
-                    textTransform: 'none',
-                    fontWeight: 700,
-                    bgcolor: '#023020',
-                    color: '#fff',
-                    ml: 1,
-                    height: 32,
-                    '&:hover': { bgcolor: '#034732' },
-                  }}
-                >
-                  Verify OTP & Close
-                </Button>
-              )}
             </Box>
           </DialogTitle>
 
@@ -2480,66 +2434,6 @@ export default function VSWorkOrdersTab() {
                       }))}
                       onChange={(val) => handleAssignUser(selectedComplaint.id, Number(val))}
                     />
-
-                    {/* Workflow Actions (last, after dropdown) */}
-                    <Box sx={{ mb: 0, mt: 1.5, p: 1.5, bgcolor: '#f8fafc', borderRadius: 1.5 }}>
-                      <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" gutterBottom>
-                        Actions
-                      </Typography>
-                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                        {selectedComplaint.status === 'OPEN' && (
-                          <Button
-                            size="small"
-                            variant="contained"
-                            color="warning"
-                            onClick={() => handleUpdateStatus(selectedComplaint.id, 'ACKNOWLEDGED')}
-                            sx={{ textTransform: 'none', fontWeight: 700 }}
-                          >
-                            Acknowledge
-                          </Button>
-                        )}
-
-                        {(selectedComplaint.status === 'OPEN' || selectedComplaint.status === 'ACKNOWLEDGED') && (
-                          <Button
-                            size="small"
-                            variant="contained"
-                            color="primary"
-                            onClick={() => handleUpdateStatus(selectedComplaint.id, 'IN_PROGRESS')}
-                            sx={{ textTransform: 'none', fontWeight: 700 }}
-                          >
-                            Start Service (In Progress)
-                          </Button>
-                        )}
-
-                        {selectedComplaint.status === 'IN_PROGRESS' && (
-                          <Button
-                            size="small"
-                            variant="contained"
-                            color="success"
-                            onClick={() => handleUpdateStatus(selectedComplaint.id, 'RESOLVED')}
-                            sx={{ textTransform: 'none', fontWeight: 700 }}
-                          >
-                            Mark Resolved
-                          </Button>
-                        )}
-
-                        {selectedComplaint.status === 'RESOLVED' && (
-                          <Button
-                            size="small"
-                            variant="contained"
-                            color="inherit"
-                            onClick={() => {
-                              setCloseResolutionSummary(selectedComplaint.resolution_summary || '');
-                              setIsCloseDialogOpen(true);
-                            }}
-                            sx={{ textTransform: 'none', fontWeight: 700, bgcolor: '#0f172a', color: '#fff', '&:hover': { bgcolor: '#1e293b' } }}
-                          >
-                            Close Work Order & Feedback
-                          </Button>
-                        )}
-                      </Box>
-                    </Box>
-
                   </Paper>
                 </Grid>
               </Grid>
@@ -2734,26 +2628,6 @@ export default function VSWorkOrdersTab() {
                                 onChange={(e) => setTechnicianRemarks(e.target.value)}
                                 sx={{ mt: 1.5, '& .MuiOutlinedInput-root': { fontSize: 12.5 } }}
                               />
-
-                              {/* Save Workflow Button */}
-                              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1.5 }}>
-                                <Button
-                                  variant="contained"
-                                  size="small"
-                                  onClick={handleUpdateServiceWorkflow}
-                                  disabled={isUpdating}
-                                  startIcon={isUpdating ? <CircularProgress size={14} color="inherit" /> : <Save size={14} />}
-                                  sx={{
-                                    textTransform: 'none',
-                                    fontWeight: 700,
-                                    backgroundColor: '#023020',
-                                    '&:hover': { backgroundColor: '#034732' },
-                                    px: 2,
-                                  }}
-                                >
-                                  {isUpdating ? 'Saving...' : 'Save Workflow Details'}
-                                </Button>
-                              </Box>
 
                               {/* Row 4: Document Uploads */}
                               <Divider sx={{ my: 2, borderColor: '#E4EBE1' }} />
