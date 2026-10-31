@@ -284,22 +284,8 @@ export default function PTTaskTable({
           }}
         >
           <TableRow>
-            {onToggleSelect && (
-              <TableCell padding="checkbox">
-                <Checkbox
-                  size="small"
-                  checked={isAllSelected}
-                  indeterminate={isSomeSelected}
-                  onChange={(e) => {
-                    if (onSelectAll) {
-                      onSelectAll(e.target.checked ? tasks.map((t) => t.id) : []);
-                    }
-                  }}
-                />
-              </TableCell>
-            )}
-            <TableCell sx={{ width: 40 }}></TableCell>
-            <TableCell sx={{ width: 110 }}>ID</TableCell>
+            <TableCell sx={{ width: 44, pl: 2 }} align="center"></TableCell>
+            <TableCell sx={{ width: 80 }}>ID</TableCell>
             <TableCell>Task</TableCell>
             <TableCell sx={{ width: 130 }}>Priority</TableCell>
             <TableCell sx={{ width: 150 }}>Status</TableCell>
@@ -357,19 +343,8 @@ export default function PTTaskTable({
                   '&:last-child td, &:last-child th': { border: 0 },
                 }}
               >
-                {/* Selection Checkbox */}
-                {onToggleSelect && (
-                  <TableCell padding="checkbox">
-                    <Checkbox
-                      size="small"
-                      checked={isSelected}
-                      onChange={() => onToggleSelect(task.id)}
-                    />
-                  </TableCell>
-                )}
-
                 {/* Complete / Reopen Toggle */}
-                <TableCell padding="none" sx={{ pl: 1 }}>
+                <TableCell padding="none" sx={{ pl: 2, width: 44 }} align="center">
                   <IconButton
                     size="small"
                     onClick={() => onToggleComplete(task)}
@@ -388,18 +363,20 @@ export default function PTTaskTable({
                   </IconButton>
                 </TableCell>
 
-                {/* Task Number */}
-                <TableCell>
-                  <Chip
-                    label={task.task_number}
-                    size="small"
+                {/* Task Number (Subtle, compact monospace ID) */}
+                <TableCell sx={{ width: 80, py: 1 }}>
+                  <Typography
+                    variant="caption"
                     sx={{
-                      height: 22,
-                      fontSize: '0.72rem',
-                      fontWeight: 700,
-                      backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : '#E2E8F0',
+                      fontSize: '0.68rem',
+                      fontWeight: 500,
+                      color: isDark ? '#64748B' : '#94A3B8',
+                      letterSpacing: '0.01em',
+                      fontFamily: 'monospace',
                     }}
-                  />
+                  >
+                    {task.task_number}
+                  </Typography>
                 </TableCell>
 
                 {/* Title & Tags & Subtask Rollup (ONLY clicking task name opens sidepane) */}
