@@ -117,7 +117,7 @@ export default function PTSectionNav({
       >
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive = activeSection === item.id;
+          const isActive = activeSection === item.id || (item.id === 'all-tasks' && ['kanban', 'calendar'].includes(activeSection));
           return (
             <Box
               key={item.id}
