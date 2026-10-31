@@ -2,7 +2,7 @@ import json
 import urllib.request
 import uuid
 from datetime import UTC, date, datetime, timedelta
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy import func, or_
