@@ -1266,8 +1266,12 @@ def verify_otp(
             detail="No OTP sent yet. Please send OTP first.",
         )
 
-    # Check if OTP is expired
-    if datetime.now(UTC) > complaint.otp_expires_at:
+    # Check if OTP is expired - handle both naive and aware datetimes
+    from datetime import timezone
+    expires_at = complaint.otp_expires_at
+    if expires_at and expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if datetime.now(UTC) > expires_at:
         raise HTTPException(
             status_code=400,
             detail="OTP has expired. Please request a new OTP.",
