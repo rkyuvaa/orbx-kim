@@ -148,6 +148,9 @@ class VSComplaint(Base):
     resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     closed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     resolution_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    otp_code: Mapped[Optional[str]] = mapped_column(String(6), nullable=True)
+    otp_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    otp_verified: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -242,3 +245,4 @@ class VSServiceCost(Base):
 
     complaint: Mapped[Optional["VSComplaint"]] = relationship("VSComplaint", back_populates="costs")
     maintenance: Mapped[Optional["VSMaintenanceSchedule"]] = relationship("VSMaintenanceSchedule", back_populates="costs")
+
