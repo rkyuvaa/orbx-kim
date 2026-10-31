@@ -196,7 +196,7 @@ export default function MyTasksPage() {
         const matchesDesc = t.description ? t.description.toLowerCase().includes(rawQ) : false;
 
         // Tags search: matches #tag or tag name in tags string, tags_list array, or tag_names
-        const matchesTagsString = t.tags ? t.tags.toLowerCase().includes(q) : false;
+        const matchesTagsString = Array.isArray(t.tags) ? t.tags.some((tag: any) => tag.name && tag.name.toLowerCase().includes(q)) : typeof (t as any).tags === 'string' ? (t as any).tags.toLowerCase().includes(q) : false;
         const matchesTagsList = t.tags_list
           ? t.tags_list.some((tag) => tag.name.toLowerCase().includes(q))
           : false;

@@ -28,7 +28,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-    CircularProgress,
   TextField,
   Tooltip,
   Typography,
@@ -396,6 +395,10 @@ import {
   useUpdateVSComplaintMutation,
   useSendVSComplaintOTPMutation,
   useVerifyVSComplaintOTPMutation,
+  useUploadInitialChecklistMutation,
+  useUploadMasterChecklistMutation,
+  useUploadComplaints8DMutation,
+  useUploadVehicleImagesMutation,
   // Custom Fields
     useGetCustomFieldDefinitionsQuery,
     useGetCustomFieldDefinitionsForComplaintQuery,
@@ -2519,7 +2522,7 @@ export default function VSWorkOrdersTab() {
                                     size="small"
                                     fullWidth
                                     value={odometerReading}
-                                    onChange={(e) => setOdometerReading(e.target.value)}
+                                    onChange={(e) => setOdometerReading(e.target.value === '' ? '' : Number(e.target.value))}
                                     InputLabelProps={{ shrink: true }}
                                     InputProps={{
                                       startAdornment: (
