@@ -365,8 +365,34 @@ class VSComplaintOut(BaseModel):
     feedback: Optional[VSCustomerFeedbackOut] = None
     costs: List[VSServiceCostOut] = []
     custom_field_values: List[VSComplaintCustomFieldValueOut] = []
+    otp_code: Optional[str] = None
+    otp_expires_at: Optional[datetime] = None
+    otp_verified: bool = False
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ============================================================================
+# OTP (One-Time Password) for Complaints
+# ============================================================================
+
+class VSSendOTPRequest(BaseModel):
+    pass
+
+
+class VSSendOTPResponse(BaseModel):
+    success: bool
+    message: str
+    expires_at: datetime
+
+
+class VSVerifyOTPRequest(BaseModel):
+    otp_code: str = Field(..., min_length=6, max_length=6, pattern=r"^\d{6}$")
+
+
+class VSVerifyOTPResponse(BaseModel):
+    success: bool
+    message: str
 
 
 # ============================================================================
