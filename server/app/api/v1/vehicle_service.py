@@ -1484,6 +1484,24 @@ def add_service_cost(
     return VSServiceCostOut.model_validate(cost)
 
 
+@router.delete('/complaints/{complaint_id}/costs/{cost_id}', status_code=status.HTTP_204_NO_CONTENT)
+def delete_service_cost(
+    complaint_id: int,
+    cost_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    cost = db.query(VSServiceCost).filter(
+        VSServiceCost.id == cost_id,
+        VSServiceCost.complaint_id == complaint_id,
+    ).first()
+    if not cost:
+        raise HTTPException(status_code=404, detail='Service cost item not found')
+    db.delete(cost)
+    db.commit()
+    return None
+
+
 @router.delete("/complaints/{complaint_id}")
 def delete_complaint(
     complaint_id: int,

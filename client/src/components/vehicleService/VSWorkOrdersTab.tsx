@@ -72,6 +72,8 @@ import {
   Edit2,
   Eye,
   Trash2 as TrashIcon,
+  Receipt,
+  Save,
 } from 'lucide-react';
 
 import { useAppSelector } from '@/app/hooks';
@@ -385,6 +387,7 @@ function CustomFieldRenderer({ field, value, onChange, users, uploadFile, disabl
 import {
   useAddVSComplaintNoteMutation,
   useAddVSServiceCostMutation,
+  useDeleteVSServiceCostMutation,
   useCloseVSComplaintMutation,
   useCreateVSComplaintMutation,
   useDeleteVSComplaintMutation,
@@ -506,6 +509,7 @@ export default function VSWorkOrdersTab() {
   const [closeComplaint, { isLoading: isClosing }] = useCloseVSComplaintMutation();
   const [replaceComponent, { isLoading: isReplacing }] = useReplaceVSComponentMutation();
   const [addCost, { isLoading: isAddingCost }] = useAddVSServiceCostMutation();
+  const [deleteCost, { isLoading: isDeletingCost }] = useDeleteVSServiceCostMutation();
     const [sendOTP, { isLoading: isSendingOTP }] = useSendVSComplaintOTPMutation();
     const [verifyOTP, { isLoading: isVerifyingOTP }] = useVerifyVSComplaintOTPMutation();
         const [uploadInitialChecklist] = useUploadInitialChecklistMutation();
@@ -806,30 +810,32 @@ export default function VSWorkOrdersTab() {
     }, [manageCustomFieldValuesData]);
 
     const handleUpdateStatus = async (complaintId: number, nextStatus: string) => {
-        // Validate required custom fields for the next status
-        const requiredFields = getRequiredFieldsForStatus(manageCustomFields, nextStatus);
-        const validationErrors = validateRequiredFields(manageCustomFieldValues, requiredFields);
-        if (validationErrors.length > 0) {
-          alert(`Cannot change status: ${validationErrors.join('; ')}`);
-          return;
+    // Validate required custom fields for the next status
+    const requiredFields = getRequiredFieldsForStatus(manageCustomFields, nextStatus);
+    const validationErrors = validateRequiredFields(manageCustomFieldValues, requiredFields);
+    if (validationErrors.length > 0) {
+      showToast(`Cannot change status: ${validationErrors.join('; ')}`, 'warning');
+      return;
     }
 
-        try {
-          const updated = await updateComplaint({ id: complaintId, body: { status: nextStatus } }).unwrap();
-          setSelectedComplaint(updated);
-          refetch();
-        } catch (err: any) {
-          alert(err?.data?.detail || 'Failed to update status.');
-        }
-      };
+    try {
+      const updated = await updateComplaint({ id: complaintId, body: { status: nextStatus } }).unwrap();
+      setSelectedComplaint(updated);
+      showToast(`Work order status updated to ${nextStatus}`, 'success');
+      refetch();
+    } catch (err: any) {
+      showToast(err?.data?.detail || 'Failed to update status.', 'error');
+    }
+  };
 
   const handleAssignUser = async (complaintId: number, userId: number) => {
     try {
       const updated = await updateComplaint({ id: complaintId, body: { assigned_to_id: userId } }).unwrap();
       setSelectedComplaint(updated);
+      showToast('Technician assigned successfully.', 'success');
       refetch();
     } catch (err: any) {
-      alert(err?.data?.detail || 'Failed to assign technician.');
+      showToast(err?.data?.detail || 'Failed to assign technician.', 'error');
     }
   };
 
@@ -840,105 +846,106 @@ export default function VSWorkOrdersTab() {
       setNewNoteText('');
       const updated = await updateComplaint({ id: selectedComplaint.id, body: {} }).unwrap();
       setSelectedComplaint(updated);
+      showToast('Note added to changelog.', 'success');
       refetch();
     } catch (err: any) {
-      alert('Failed to add note.');
+      showToast('Failed to add note.', 'error');
     }
   };
 
   const handleCloseSubmit = async () => {
     if (!selectedComplaint || !closeResolutionSummary.trim()) {
-      alert('Please enter a resolution summary.');
+      showToast('Please enter a resolution summary.', 'warning');
       return;
     }
 
-      // Validate required custom fields for CLOSED status
-      const requiredFields = getRequiredFieldsForStatus(manageCustomFields, 'CLOSED');
-      const validationErrors = validateRequiredFields(manageCustomFieldValues, requiredFields);
-      if (validationErrors.length > 0) {
-        alert(`Cannot close work order: ${validationErrors.join('; ')}`);
-        return;
-      }
+    // Validate required custom fields for CLOSED status
+    const requiredFields = getRequiredFieldsForStatus(manageCustomFields, 'CLOSED');
+    const validationErrors = validateRequiredFields(manageCustomFieldValues, requiredFields);
+    if (validationErrors.length > 0) {
+      showToast(`Cannot close work order: ${validationErrors.join('; ')}`, 'warning');
+      return;
+    }
 
-        // Send OTP first
-        setOtpSending(true);
-        setOtpError(null);
-        try {
-          const response = await sendOTP({ id: selectedComplaint.id, body: {} }).unwrap();
-          // Store OTP expiration time
-          if (response.expires_at) {
-            setOtpExpiresAt(response.expires_at);
-          }
-          // Close the close dialog and open OTP dialog
-          setIsCloseDialogOpen(false);
-          setIsOTPDialogOpen(true);
-          setOtpCode('');
-        } catch (err: any) {
-          setOtpError(err?.data?.detail || 'Failed to send OTP. Please try again.');
-        } finally {
-          setOtpSending(false);
-        }
+    // Send OTP first
+    setOtpSending(true);
+    setOtpError(null);
+    try {
+      const response = await sendOTP({ id: selectedComplaint.id, body: {} }).unwrap();
+      if (response.expires_at) {
+        setOtpExpiresAt(response.expires_at);
+      }
+      setIsCloseDialogOpen(false);
+      setIsOTPDialogOpen(true);
+      setOtpCode('');
+      showToast('OTP sent to customer phone.', 'success');
+    } catch (err: any) {
+      setOtpError(err?.data?.detail || 'Failed to send OTP. Please try again.');
+      showToast(err?.data?.detail || 'Failed to send OTP.', 'error');
+    } finally {
+      setOtpSending(false);
+    }
+  };
+
+  const handleOTPSubmit = async () => {
+    if (!selectedComplaint || !otpCode.trim()) {
+      setOtpError('Please enter the OTP code.');
+      return;
+    }
+
+    if (otpCode.length !== 6) {
+      setOtpError('OTP must be 6 digits.');
+      return;
+    }
+
+    setOtpVerifying(true);
+    setOtpError(null);
+    try {
+      await verifyOTP({ id: selectedComplaint.id, body: { otp_code: otpCode.trim() } }).unwrap();
+
+      const payload: VSComplaintCloseRequest = {
+        resolution_summary: closeResolutionSummary.trim(),
+        rating: closeRating || undefined,
+        feedback_comment: closeFeedbackComment.trim() || undefined,
       };
 
-    // Handle OTP verification and then close complaint
-    const handleOTPSubmit = async () => {
-      if (!selectedComplaint || !otpCode.trim()) {
-        setOtpError('Please enter the OTP code.');
-        return;
-      }
+      const res = await closeComplaint({ id: selectedComplaint.id, body: payload }).unwrap();
+      setSelectedComplaint(res);
+      setIsOTPDialogOpen(false);
+      setOtpCode('');
+      setOtpExpiresAt(null);
+      showToast('Work order closed successfully with verified OTP!', 'success');
+      refetch();
+    } catch (err: any) {
+      setOtpError(err?.data?.detail || 'Invalid OTP. Please try again.');
+      showToast(err?.data?.detail || 'Invalid OTP.', 'error');
+    } finally {
+      setOtpVerifying(false);
+    }
+  };
 
-      if (otpCode.length !== 6) {
-        setOtpError('OTP must be 6 digits.');
-        return;
+  const handleResendOTP = async () => {
+    if (!selectedComplaint) return;
+    setOtpSending(true);
+    setOtpError(null);
+    try {
+      const response = await sendOTP({ id: selectedComplaint.id, body: {} }).unwrap();
+      if (response.expires_at) {
+        setOtpExpiresAt(response.expires_at);
       }
-
-      setOtpVerifying(true);
-      setOtpError(null);
-      try {
-        // Verify OTP
-        await verifyOTP({ id: selectedComplaint.id, body: { otp_code: otpCode.trim() } }).unwrap();
-      
-        // OTP verified, now close the complaint
-        const payload: VSComplaintCloseRequest = {
-          resolution_summary: closeResolutionSummary.trim(),
-          rating: closeRating || undefined,
-          feedback_comment: closeFeedbackComment.trim() || undefined,
-        };
-
-        const res = await closeComplaint({ id: selectedComplaint.id, body: payload }).unwrap();
-        setSelectedComplaint(res);
-        setIsOTPDialogOpen(false);
-        setOtpCode('');
-        setOtpExpiresAt(null);
-        refetch();
-      } catch (err: any) {
-        setOtpError(err?.data?.detail || 'Invalid OTP. Please try again.');
-      } finally {
-        setOtpVerifying(false);
-      }
-    };
-
-    // Resend OTP
-    const handleResendOTP = async () => {
-      if (!selectedComplaint) return;
-      setOtpSending(true);
-      setOtpError(null);
-      try {
-        const response = await sendOTP({ id: selectedComplaint.id, body: {} }).unwrap();
-        if (response.expires_at) {
-          setOtpExpiresAt(response.expires_at);
-        }
-        setOtpCode('');
-      } catch (err: any) {
-        setOtpError(err?.data?.detail || 'Failed to resend OTP. Please try again.');
-      } finally {
-        setOtpSending(false);
-      }
-    };
+      setOtpCode('');
+      showToast('A new OTP has been sent.', 'success');
+    } catch (err: any) {
+      setOtpError(err?.data?.detail || 'Failed to resend OTP. Please try again.');
+      showToast(err?.data?.detail || 'Failed to resend OTP.', 'error');
+    } finally {
+      setOtpSending(false);
+    }
+  };
 
   const handleReplaceComponentSubmit = async () => {
     if (!selectedComplaint || !replaceComponentId || !replaceNewSerial.trim()) {
-      alert('Please select component and specify new serial number.');
+      showToast('Please select component and specify new serial number.', 'warning');
       return;
     }
 
@@ -962,15 +969,16 @@ export default function VSWorkOrdersTab() {
       // Refresh complaint
       const updated = await updateComplaint({ id: selectedComplaint.id, body: {} }).unwrap();
       setSelectedComplaint(updated);
+      showToast('Component replaced successfully.', 'success');
       refetch();
     } catch (err: any) {
-      alert(err?.data?.detail || 'Failed to record component replacement.');
+      showToast(err?.data?.detail || 'Failed to record component replacement.', 'error');
     }
   };
 
   const handleAddCostSubmit = async () => {
     if (!selectedComplaint || !costItemName.trim() || !costUnitPrice) {
-      alert('Please enter part/labor name and unit price.');
+      showToast('Please enter part/labor name and unit price.', 'warning');
       return;
     }
 
@@ -987,214 +995,260 @@ export default function VSWorkOrdersTab() {
       setCostItemName('');
       setCostQty(1);
       setCostUnitPrice('');
+      showToast('Cost item added successfully.', 'success');
 
       // Refresh complaint
       const updated = await updateComplaint({ id: selectedComplaint.id, body: {} }).unwrap();
       setSelectedComplaint(updated);
+      refetch();
     } catch (err: any) {
-      alert('Failed to add cost item.');
+      showToast(err?.data?.detail || 'Failed to add cost item.', 'error');
     }
   };
 
-    // =====================================================================
-    // Service Workflow Handlers
-    // =====================================================================
+  const handleDeleteCost = async (costId: number) => {
+    if (!selectedComplaint) return;
+    try {
+      await deleteCost({ complaintId: selectedComplaint.id, costId }).unwrap();
+      showToast('Cost item removed.', 'success');
+      const updated = await updateComplaint({ id: selectedComplaint.id, body: {} }).unwrap();
+      setSelectedComplaint(updated);
+      refetch();
+    } catch (err: any) {
+      showToast(err?.data?.detail || 'Failed to remove cost item.', 'error');
+    }
+  };
 
-    const handleUpdateServiceWorkflow = async () => {
-      if (!selectedComplaint) return;
+  // =====================================================================
+  // Service Workflow Handlers
+  // =====================================================================
 
-      const payload: VSComplaintUpdate = {
-        est_delivery_date: estDeliveryDate || undefined,
-        can_data_collected: canDataCollected,
-        technician_remarks: technicianRemarks.trim() || undefined,
-        odometer_reading: odometerReading ? Number(odometerReading) : undefined,
-        service_type: serviceType,
-        timer_started_at: timerRunning ? new Date().toISOString() : undefined,
-        timer_ended_at: !timerRunning && timerStartTime ? new Date().toISOString() : undefined,
-        service_hours: serviceHours,
-      };
+  const handleUpdateServiceWorkflow = async () => {
+    if (!selectedComplaint) return;
 
-      try {
-        const updated = await updateComplaint({ id: selectedComplaint.id, body: payload }).unwrap();
-        setSelectedComplaint(updated);
-      } catch (err: any) {
-        alert(err?.data?.detail || 'Failed to update service workflow fields.');
-      }
+    const payload: VSComplaintUpdate = {
+      est_delivery_date: estDeliveryDate || undefined,
+      can_data_collected: canDataCollected,
+      technician_remarks: technicianRemarks.trim() || undefined,
+      odometer_reading: odometerReading ? Number(odometerReading) : undefined,
+      service_type: serviceType,
+      timer_started_at: timerRunning ? new Date().toISOString() : undefined,
+      timer_ended_at: !timerRunning && timerStartTime ? new Date().toISOString() : undefined,
+      service_hours: serviceHours,
     };
 
-    const handleTimerStart = async () => {
-      if (!selectedComplaint) return;
-    
-      const now = new Date();
-      setTimerStartTime(now);
-      setTimerRunning(true);
-      setTimerInterval(setInterval(() => {
-        if (timerStartTime) {
-          const elapsed = (Date.now() - timerStartTime.getTime()) / 1000 / 60 / 60;
-          setServiceHours(Number(elapsed.toFixed(2)));
-        }
-      }, 1000));
+    try {
+      const updated = await updateComplaint({ id: selectedComplaint.id, body: payload }).unwrap();
+      setSelectedComplaint(updated);
+      showToast('Service workflow details saved successfully.', 'success');
+      refetch();
+    } catch (err: any) {
+      showToast(err?.data?.detail || 'Failed to update service workflow fields.', 'error');
+    }
+  };
 
-      // Update backend
-      const payload: VSComplaintUpdate = {
-        timer_started_at: now.toISOString(),
-        timer_ended_at: null,
-        service_hours: 0,
-      };
-      try {
-        await updateComplaint({ id: selectedComplaint.id, body: payload }).unwrap();
-      } catch (err: any) {
-        console.error('Failed to start timer:', err);
+  const handleTimerStart = async () => {
+    if (!selectedComplaint) return;
+  
+    const now = new Date();
+    setTimerStartTime(now);
+    setTimerRunning(true);
+    setTimerInterval(setInterval(() => {
+      if (timerStartTime) {
+        const elapsed = (Date.now() - timerStartTime.getTime()) / 1000 / 60 / 60;
+        setServiceHours(Number(elapsed.toFixed(2)));
       }
+    }, 1000));
+
+    // Update backend
+    const payload: VSComplaintUpdate = {
+      timer_started_at: now.toISOString(),
+      timer_ended_at: null,
+      service_hours: 0,
     };
+    try {
+      await updateComplaint({ id: selectedComplaint.id, body: payload }).unwrap();
+    } catch (err: any) {
+      console.error('Failed to start timer:', err);
+    }
+  };
 
-    const handleTimerStop = async () => {
-      if (!selectedComplaint || !timerStartTime) return;
+  const handleTimerStop = async () => {
+    if (!selectedComplaint || !timerStartTime) return;
 
-      const now = new Date();
-      const elapsedHours = (now.getTime() - timerStartTime.getTime()) / 1000 / 60 / 60;
-      const finalHours = Number(elapsedHours.toFixed(2));
+    const now = new Date();
+    const elapsedHours = (now.getTime() - timerStartTime.getTime()) / 1000 / 60 / 60;
+    const finalHours = Number(elapsedHours.toFixed(2));
 
-      clearInterval(timerInterval!);
-      setTimerInterval(null);
+    clearInterval(timerInterval!);
+    setTimerInterval(null);
+    setTimerRunning(false);
+    setServiceHours(finalHours);
+    setTimerStartTime(null);
+
+    // Update backend
+    const payload: VSComplaintUpdate = {
+      timer_ended_at: now.toISOString(),
+      service_hours: finalHours,
+    };
+    try {
+      await updateComplaint({ id: selectedComplaint.id, body: payload }).unwrap();
+      showToast(`Service timer stopped. Recorded: ${finalHours} hrs`, 'info');
+      refetch();
+    } catch (err: any) {
+      console.error('Failed to stop timer:', err);
+    }
+  };
+
+  const handleInitialChecklistUpload = async (file: File) => {
+    if (!selectedComplaint) return;
+    setUploadingInitialChecklist(true);
+    try {
+      await uploadInitialChecklist({ complaintId: selectedComplaint.id, file }).unwrap();
+      const updated = await updateComplaint({ id: selectedComplaint.id, body: {} }).unwrap();
+      setSelectedComplaint(updated);
+      setInitialChecklistFile(null);
+      showToast('Initial Checklist uploaded successfully.', 'success');
+      refetch();
+    } catch (err: any) {
+      showToast(err?.data?.detail || 'Failed to upload Initial Checklist.', 'error');
+    } finally {
+      setUploadingInitialChecklist(false);
+    }
+  };
+
+  const handleMasterChecklistUpload = async (file: File) => {
+    if (!selectedComplaint) return;
+    setUploadingMasterChecklist(true);
+    try {
+      await uploadMasterChecklist({ complaintId: selectedComplaint.id, file }).unwrap();
+      const updated = await updateComplaint({ id: selectedComplaint.id, body: {} }).unwrap();
+      setSelectedComplaint(updated);
+      setMasterChecklistFile(null);
+      showToast('Master Checklist uploaded successfully.', 'success');
+      refetch();
+    } catch (err: any) {
+      showToast(err?.data?.detail || 'Failed to upload Master Checklist.', 'error');
+    } finally {
+      setUploadingMasterChecklist(false);
+    }
+  };
+
+  const handleComplaints8DUpload = async (file: File) => {
+    if (!selectedComplaint) return;
+    setUploadingComplaints8d(true);
+    try {
+      await uploadComplaints8D({ complaintId: selectedComplaint.id, file }).unwrap();
+      const updated = await updateComplaint({ id: selectedComplaint.id, body: {} }).unwrap();
+      setSelectedComplaint(updated);
+      setComplaints8dFile(null);
+      showToast('Complaints 8D Report uploaded successfully.', 'success');
+      refetch();
+    } catch (err: any) {
+      showToast(err?.data?.detail || 'Failed to upload Complaints 8D Report.', 'error');
+    } finally {
+      setUploadingComplaints8d(false);
+    }
+  };
+
+  const handleVehicleImagesUpload = async (files: File[]) => {
+    if (!selectedComplaint) return;
+    setUploadingVehicleImages(true);
+    try {
+      await uploadVehicleImages({ complaintId: selectedComplaint.id, files }).unwrap();
+      const updated = await updateComplaint({ id: selectedComplaint.id, body: {} }).unwrap();
+      setSelectedComplaint(updated);
+      setVehicleImagesFiles([]);
+      showToast(`${files.length} vehicle image(s) uploaded successfully.`, 'success');
+      refetch();
+    } catch (err: any) {
+      showToast(err?.data?.detail || 'Failed to upload Vehicle Images.', 'error');
+    } finally {
+      setUploadingVehicleImages(false);
+    }
+  };
+
+  const handleDeleteVehicleImage = async (imageUrl: string) => {
+    if (!selectedComplaint) return;
+    try {
+      const currentImages = selectedComplaint.vehicle_images ? JSON.parse(selectedComplaint.vehicle_images) : [];
+      const updatedImages = currentImages.filter((img: string) => img !== imageUrl);
+      
+      const payload: VSComplaintUpdate = {
+        vehicle_images: JSON.stringify(updatedImages),
+      };
+      const updated = await updateComplaint({ id: selectedComplaint.id, body: payload }).unwrap();
+      setSelectedComplaint(updated);
+      showToast('Image removed.', 'success');
+      refetch();
+    } catch (err: any) {
+      showToast('Failed to delete image.', 'error');
+    }
+  };
+
+  const handleDeleteDocument = async (field: 'initial_checklist_url' | 'master_checklist_url' | 'complaints_8d_url') => {
+    if (!selectedComplaint) return;
+    try {
+      const payload: VSComplaintUpdate = {
+        [field]: null,
+      };
+      const updated = await updateComplaint({ id: selectedComplaint.id, body: payload }).unwrap();
+      setSelectedComplaint(updated);
+      showToast('Document removed.', 'success');
+      refetch();
+    } catch (err: any) {
+      showToast('Failed to delete document.', 'error');
+    }
+  };
+
+  // Load service workflow data when complaint is selected
+  React.useEffect(() => {
+    if (selectedComplaint) {
+      setEstDeliveryDate(selectedComplaint.est_delivery_date || '');
+      setCanDataCollected(selectedComplaint.can_data_collected || false);
+      setTechnicianRemarks(selectedComplaint.technician_remarks || '');
+      setOdometerReading(selectedComplaint.odometer_reading || '');
+      setServiceType(selectedComplaint.service_type || 'GENERAL');
+      setTimerRunning(!!selectedComplaint.timer_started_at && !selectedComplaint.timer_ended_at);
+      setServiceHours(selectedComplaint.service_hours || null);
+      setInitialChecklistFile(null);
+      setMasterChecklistFile(null);
+      setComplaints8dFile(null);
+      setVehicleImagesFiles([]);
+      setCostItemName('');
+      setCostQty(1);
+      setCostUnitPrice('');
+      
+      if (selectedComplaint.timer_started_at && !selectedComplaint.timer_ended_at) {
+        setTimerStartTime(new Date(selectedComplaint.timer_started_at));
+      }
+    } else {
+      setEstDeliveryDate('');
+      setCanDataCollected(false);
+      setTechnicianRemarks('');
+      setOdometerReading('');
+      setServiceType('GENERAL');
       setTimerRunning(false);
-      setServiceHours(finalHours);
       setTimerStartTime(null);
+      setServiceHours(null);
+      setInitialChecklistFile(null);
+      setMasterChecklistFile(null);
+      setComplaints8dFile(null);
+      setVehicleImagesFiles([]);
+      setCostItemName('');
+      setCostQty(1);
+      setCostUnitPrice('');
+    }
+  }, [selectedComplaint]);
 
-      // Update backend
-      const payload: VSComplaintUpdate = {
-        timer_ended_at: now.toISOString(),
-        service_hours: finalHours,
-      };
-      try {
-        await updateComplaint({ id: selectedComplaint.id, body: payload }).unwrap();
-      } catch (err: any) {
-        console.error('Failed to stop timer:', err);
-      }
+  // Cleanup timer interval on unmount
+  React.useEffect(() => {
+    return () => {
+      if (timerInterval) clearInterval(timerInterval);
     };
+  }, [timerInterval]);
 
-    const handleInitialChecklistUpload = async (file: File) => {
-      if (!selectedComplaint) return;
-      setUploadingInitialChecklist(true);
-      try {
-        const result = await uploadInitialChecklist({ complaintId: selectedComplaint.id, file }).unwrap();
-        // Refresh to get updated URL
-        const updated = await updateComplaint({ id: selectedComplaint.id, body: {} }).unwrap();
-        setSelectedComplaint(updated);
-      } catch (err: any) {
-        alert(err?.data?.detail || 'Failed to upload Initial Checklist.');
-      } finally {
-        setUploadingInitialChecklist(false);
-      }
-    };
-
-    const handleMasterChecklistUpload = async (file: File) => {
-      if (!selectedComplaint) return;
-      setUploadingMasterChecklist(true);
-      try {
-        const result = await uploadMasterChecklist({ complaintId: selectedComplaint.id, file }).unwrap();
-        const updated = await updateComplaint({ id: selectedComplaint.id, body: {} }).unwrap();
-        setSelectedComplaint(updated);
-      } catch (err: any) {
-        alert(err?.data?.detail || 'Failed to upload Master Checklist.');
-      } finally {
-        setUploadingMasterChecklist(false);
-      }
-    };
-
-    const handleComplaints8DUpload = async (file: File) => {
-      if (!selectedComplaint) return;
-      setUploadingComplaints8d(true);
-      try {
-        const result = await uploadComplaints8D({ complaintId: selectedComplaint.id, file }).unwrap();
-        const updated = await updateComplaint({ id: selectedComplaint.id, body: {} }).unwrap();
-        setSelectedComplaint(updated);
-      } catch (err: any) {
-        alert(err?.data?.detail || 'Failed to upload Complaints 8D Report.');
-      } finally {
-        setUploadingComplaints8d(false);
-      }
-    };
-
-    const handleVehicleImagesUpload = async (files: File[]) => {
-      if (!selectedComplaint) return;
-      setUploadingVehicleImages(true);
-      try {
-        const result = await uploadVehicleImages({ complaintId: selectedComplaint.id, files }).unwrap();
-        const updated = await updateComplaint({ id: selectedComplaint.id, body: {} }).unwrap();
-        setSelectedComplaint(updated);
-        setVehicleImagesFiles([]);
-      } catch (err: any) {
-        alert(err?.data?.detail || 'Failed to upload Vehicle Images.');
-      } finally {
-        setUploadingVehicleImages(false);
-      }
-    };
-
-    const handleDeleteVehicleImage = async (imageUrl: string) => {
-      if (!selectedComplaint) return;
-      try {
-        const currentImages = selectedComplaint.vehicle_images ? JSON.parse(selectedComplaint.vehicle_images) : [];
-        const updatedImages = currentImages.filter((img: string) => img !== imageUrl);
-      
-        const payload: VSComplaintUpdate = {
-          vehicle_images: JSON.stringify(updatedImages),
-        };
-        const updated = await updateComplaint({ id: selectedComplaint.id, body: payload }).unwrap();
-        setSelectedComplaint(updated);
-      } catch (err: any) {
-        alert('Failed to delete image.');
-      }
-    };
-
-    const handleDeleteDocument = async (field: 'initial_checklist_url' | 'master_checklist_url' | 'complaints_8d_url') => {
-      if (!selectedComplaint) return;
-      try {
-        const payload: VSComplaintUpdate = {
-          [field]: null,
-        };
-        const updated = await updateComplaint({ id: selectedComplaint.id, body: payload }).unwrap();
-        setSelectedComplaint(updated);
-      } catch (err: any) {
-        alert('Failed to delete document.');
-      }
-    };
-
-    // Load service workflow data when complaint is selected
-    React.useEffect(() => {
-      if (selectedComplaint) {
-        setEstDeliveryDate(selectedComplaint.est_delivery_date || '');
-        setCanDataCollected(selectedComplaint.can_data_collected || false);
-        setTechnicianRemarks(selectedComplaint.technician_remarks || '');
-        setOdometerReading(selectedComplaint.odometer_reading || '');
-        setServiceType(selectedComplaint.service_type || 'GENERAL');
-        setTimerRunning(!!selectedComplaint.timer_started_at && !selectedComplaint.timer_ended_at);
-        setServiceHours(selectedComplaint.service_hours || null);
-      
-        if (selectedComplaint.timer_started_at && !selectedComplaint.timer_ended_at) {
-          setTimerStartTime(new Date(selectedComplaint.timer_started_at));
-        }
-      } else {
-        setEstDeliveryDate('');
-        setCanDataCollected(false);
-        setTechnicianRemarks('');
-        setOdometerReading('');
-        setServiceType('GENERAL');
-        setTimerRunning(false);
-        setTimerStartTime(null);
-        setServiceHours(null);
-        setVehicleImagesFiles([]);
-      }
-    }, [selectedComplaint]);
-
-    // Cleanup timer interval on unmount
-    React.useEffect(() => {
-      return () => {
-        if (timerInterval) clearInterval(timerInterval);
-      };
-    }, [timerInterval]);
-
-    const handleSaveCustomFields = async () => {
+  const handleSaveCustomFields = async () => {
     if (!selectedComplaint) return;
 
     // Validate required fields for current status
@@ -1202,27 +1256,28 @@ export default function VSWorkOrdersTab() {
     const requiredFields = getRequiredFieldsForStatus(manageCustomFields, currentStatus);
     const validationErrors = validateRequiredFields(manageCustomFieldValues, requiredFields);
     if (validationErrors.length > 0) {
-      alert(`Cannot save: ${validationErrors.join('; ')}`);
+      showToast(`Cannot save: ${validationErrors.join('; ')}`, 'warning');
       return;
     }
 
     try {
       await upsertCustomFieldValuesForComplaint({
-            complaint_id: selectedComplaint.id,
-            body: {
-              values: Object.entries(manageCustomFieldValues).map(([field_id, value]) => ({
-                field_id: Number(field_id),
-                value: String(value),
-              })),
-            },
-          }).unwrap();
+        complaint_id: selectedComplaint.id,
+        body: {
+          values: Object.entries(manageCustomFieldValues).map(([field_id, value]) => ({
+            field_id: Number(field_id),
+            value: String(value),
+          })),
+        },
+      }).unwrap();
 
-          // Refresh the complaint to get updated values
-          const updated = await updateComplaint({ id: selectedComplaint.id, body: {} }).unwrap();
-          setSelectedComplaint(updated);
-        } catch (err: any) {
-          alert(err?.data?.detail || 'Failed to save custom fields.');
-        }
+      const updated = await updateComplaint({ id: selectedComplaint.id, body: {} }).unwrap();
+      setSelectedComplaint(updated);
+      showToast('Custom fields saved successfully.', 'success');
+      refetch();
+    } catch (err: any) {
+      showToast(err?.data?.detail || 'Failed to save custom fields.', 'error');
+    }
   };
 
   return (
@@ -2240,7 +2295,7 @@ export default function VSWorkOrdersTab() {
                 {formatDateTime(selectedComplaint.created_at)}
               </Typography>
             </Box>
-            <Box sx={{ display: 'flex', gap: 1 }}>
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
               <Chip
                 label={selectedComplaint.severity}
                 sx={{
@@ -2254,6 +2309,62 @@ export default function VSWorkOrdersTab() {
                 color={STATUS_COLORS[selectedComplaint.status] || 'default'}
                 sx={{ fontWeight: 800 }}
               />
+
+              {/* Header Quick Action */}
+              {selectedComplaint.status === 'OPEN' && (
+                <Button
+                  size="small"
+                  variant="contained"
+                  color="warning"
+                  onClick={() => handleUpdateStatus(selectedComplaint.id, 'ACKNOWLEDGED')}
+                  sx={{ textTransform: 'none', fontWeight: 700, ml: 1, height: 32 }}
+                >
+                  Acknowledge
+                </Button>
+              )}
+              {selectedComplaint.status === 'ACKNOWLEDGED' && (
+                <Button
+                  size="small"
+                  variant="contained"
+                  color="primary"
+                  onClick={() => handleUpdateStatus(selectedComplaint.id, 'IN_PROGRESS')}
+                  sx={{ textTransform: 'none', fontWeight: 700, ml: 1, height: 32 }}
+                >
+                  Start Service
+                </Button>
+              )}
+              {selectedComplaint.status === 'IN_PROGRESS' && (
+                <Button
+                  size="small"
+                  variant="contained"
+                  color="success"
+                  onClick={() => handleUpdateStatus(selectedComplaint.id, 'RESOLVED')}
+                  sx={{ textTransform: 'none', fontWeight: 700, ml: 1, height: 32 }}
+                >
+                  Mark Resolved
+                </Button>
+              )}
+              {selectedComplaint.status === 'RESOLVED' && (
+                <Button
+                  size="small"
+                  variant="contained"
+                  onClick={() => {
+                    setCloseResolutionSummary(selectedComplaint.resolution_summary || '');
+                    setIsCloseDialogOpen(true);
+                  }}
+                  sx={{
+                    textTransform: 'none',
+                    fontWeight: 700,
+                    bgcolor: '#023020',
+                    color: '#fff',
+                    ml: 1,
+                    height: 32,
+                    '&:hover': { bgcolor: '#034732' },
+                  }}
+                >
+                  Verify OTP & Close
+                </Button>
+              )}
             </Box>
           </DialogTitle>
 
@@ -2623,6 +2734,26 @@ export default function VSWorkOrdersTab() {
                                 onChange={(e) => setTechnicianRemarks(e.target.value)}
                                 sx={{ mt: 1.5, '& .MuiOutlinedInput-root': { fontSize: 12.5 } }}
                               />
+
+                              {/* Save Workflow Button */}
+                              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1.5 }}>
+                                <Button
+                                  variant="contained"
+                                  size="small"
+                                  onClick={handleUpdateServiceWorkflow}
+                                  disabled={isUpdating}
+                                  startIcon={isUpdating ? <CircularProgress size={14} color="inherit" /> : <Save size={14} />}
+                                  sx={{
+                                    textTransform: 'none',
+                                    fontWeight: 700,
+                                    backgroundColor: '#023020',
+                                    '&:hover': { backgroundColor: '#034732' },
+                                    px: 2,
+                                  }}
+                                >
+                                  {isUpdating ? 'Saving...' : 'Save Workflow Details'}
+                                </Button>
+                              </Box>
 
                               {/* Row 4: Document Uploads */}
                               <Divider sx={{ my: 2, borderColor: '#E4EBE1' }} />
@@ -3004,6 +3135,121 @@ export default function VSWorkOrdersTab() {
                               </Grid>
                             </Paper>
 
+                            {/* =====================================================================
+                                PARTS & LABOR / SERVICE COSTS SECTION
+                            ====================================================================== */}
+                            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, border: '1px solid #E4EBE1' }}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <Receipt size={18} color="#023020" />
+                                  <Typography variant="subtitle2" fontWeight={800} color="#023020">
+                                    Parts & Labor (Service Costs)
+                                  </Typography>
+                                </Box>
+                                <Chip
+                                  size="small"
+                                  label={`Total: ₹${(selectedComplaint.costs || []).reduce((sum, c) => sum + (c.total_price || 0), 0).toLocaleString()}`}
+                                  sx={{ fontWeight: 800, bgcolor: '#ECFDF5', color: '#065F46', border: '1px solid #A7F3D0' }}
+                                />
+                              </Box>
+
+                              {/* Existing Costs Table */}
+                              {selectedComplaint.costs && selectedComplaint.costs.length > 0 ? (
+                                <TableContainer component={Box} sx={{ mb: 2, border: '1px solid #F1F5F9', borderRadius: 1.5, overflow: 'hidden' }}>
+                                  <Table size="small">
+                                    <TableHead sx={{ bgcolor: '#F8FAFC' }}>
+                                      <TableRow>
+                                        <TableCell sx={{ fontWeight: 700, fontSize: 11.5, color: '#475569' }}>Item / Description</TableCell>
+                                        <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11.5, color: '#475569' }}>Qty</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11.5, color: '#475569' }}>Unit Price (₹)</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11.5, color: '#475569' }}>Total (₹)</TableCell>
+                                        <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11.5, color: '#475569', width: 48 }}>Action</TableCell>
+                                      </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                      {selectedComplaint.costs.map((item) => (
+                                        <TableRow key={item.id} hover>
+                                          <TableCell sx={{ fontSize: 12, fontWeight: 600, color: '#1E293B' }}>{item.item_name}</TableCell>
+                                          <TableCell align="center" sx={{ fontSize: 12 }}>{item.quantity}</TableCell>
+                                          <TableCell align="right" sx={{ fontSize: 12 }}>₹{Number(item.unit_price).toLocaleString()}</TableCell>
+                                          <TableCell align="right" sx={{ fontSize: 12, fontWeight: 700, color: '#023020' }}>
+                                            ₹{Number(item.total_price).toLocaleString()}
+                                          </TableCell>
+                                          <TableCell align="center">
+                                            <Tooltip title="Delete item">
+                                              <IconButton
+                                                size="small"
+                                                onClick={() => handleDeleteCost(item.id)}
+                                                disabled={isDeletingCost}
+                                                sx={{ color: '#EF4444', p: 0.5, '&:hover': { bgcolor: '#FEE2E2' } }}
+                                              >
+                                                <TrashIcon size={14} />
+                                              </IconButton>
+                                            </Tooltip>
+                                          </TableCell>
+                                        </TableRow>
+                                      ))}
+                                    </TableBody>
+                                  </Table>
+                                </TableContainer>
+                              ) : (
+                                <Box sx={{ p: 2, mb: 2, bgcolor: '#F8FAFC', borderRadius: 1.5, textAlign: 'center' }}>
+                                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: 12 }}>
+                                    No parts or labor charges logged yet. Use the form below to record billable items.
+                                  </Typography>
+                                </Box>
+                              )}
+
+                              {/* Add Cost Form Row */}
+                              <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: { xs: 'wrap', sm: 'nowrap' } }}>
+                                <TextField
+                                  size="small"
+                                  label="Part / Labor Item Name"
+                                  placeholder="e.g. Brake Pads, Wire Harness, Diagnostic Fee"
+                                  value={costItemName}
+                                  onChange={(e) => setCostItemName(e.target.value)}
+                                  sx={{ flex: 3, '& .MuiOutlinedInput-root': { fontSize: 12.5 } }}
+                                />
+                                <TextField
+                                  size="small"
+                                  type="number"
+                                  label="Qty"
+                                  value={costQty}
+                                  onChange={(e) => setCostQty(Math.max(1, Number(e.target.value)))}
+                                  sx={{ flex: 1, minWidth: 70, '& .MuiOutlinedInput-root': { fontSize: 12.5 } }}
+                                  inputProps={{ min: 1 }}
+                                />
+                                <TextField
+                                  size="small"
+                                  type="number"
+                                  label="Unit Price (₹)"
+                                  placeholder="0.00"
+                                  value={costUnitPrice}
+                                  onChange={(e) => setCostUnitPrice(e.target.value === '' ? '' : Number(e.target.value))}
+                                  sx={{ flex: 1.5, minWidth: 100, '& .MuiOutlinedInput-root': { fontSize: 12.5 } }}
+                                  inputProps={{ min: 0 }}
+                                />
+                                <Button
+                                  variant="contained"
+                                  size="small"
+                                  onClick={handleAddCostSubmit}
+                                  disabled={isAddingCost || !costItemName.trim() || !costUnitPrice}
+                                  startIcon={<Plus size={14} />}
+                                  sx={{
+                                    textTransform: 'none',
+                                    fontWeight: 700,
+                                    backgroundColor: '#023020',
+                                    '&:hover': { backgroundColor: '#034732' },
+                                    height: 40,
+                                    px: 2,
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  {isAddingCost ? 'Adding...' : 'Add Cost'}
+                                </Button>
+                              </Box>
+                            </Paper>
+
                                           {/* Custom Fields for Manage Dialog */}
                             {manageCustomFields.length > 0 && (
                               <Box sx={{ mt: 1 }}>
@@ -3219,23 +3465,132 @@ export default function VSWorkOrdersTab() {
             </Paper>
           </DialogContent>
 
-                    <DialogActions sx={{ p: 2, px: 3, borderTop: '1px solid #E4EBE1' }}>
-                      {manageCustomFields.length > 0 && (
+                    <DialogActions
+                      sx={{
+                        p: 2,
+                        px: 3,
+                        borderTop: '1px solid #E4EBE1',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                        gap: 1.5,
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Chip
+                          size="small"
+                          label={`Status: ${selectedComplaint.status}`}
+                          color={STATUS_COLORS[selectedComplaint.status] || 'default'}
+                          sx={{ fontWeight: 700 }}
+                        />
+                        {selectedComplaint.costs && selectedComplaint.costs.length > 0 && (
+                          <Typography variant="body2" sx={{ fontWeight: 700, color: '#023020' }}>
+                            Total Cost: ₹{selectedComplaint.costs.reduce((sum, c) => sum + (c.total_price || 0), 0).toLocaleString()}
+                          </Typography>
+                        )}
+                      </Box>
+
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                        {manageCustomFields.length > 0 && (
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            onClick={handleSaveCustomFields}
+                            sx={{
+                              textTransform: 'none',
+                              fontWeight: 600,
+                              borderColor: '#023020',
+                              color: '#023020',
+                              borderRadius: '8px',
+                            }}
+                          >
+                            Save Custom Fields
+                          </Button>
+                        )}
+
                         <Button
-                          variant="contained"
-                          onClick={handleSaveCustomFields}
-                          sx={{ textTransform: 'none', fontWeight: 600, backgroundColor: '#023020', '&:hover': { backgroundColor: '#034732' }, borderRadius: '8px' }}
+                          variant="outlined"
+                          size="small"
+                          onClick={handleUpdateServiceWorkflow}
+                          disabled={isUpdating}
+                          startIcon={isUpdating ? <CircularProgress size={14} color="inherit" /> : <Save size={14} />}
+                          sx={{
+                            textTransform: 'none',
+                            fontWeight: 600,
+                            borderColor: '#023020',
+                            color: '#023020',
+                            borderRadius: '8px',
+                          }}
                         >
-                          Save Custom Fields
+                          {isUpdating ? 'Saving...' : 'Save Workflow'}
                         </Button>
-                      )}
-                      <Button
-                        onClick={() => setSelectedComplaint(null)}
-                        variant="outlined"
-                        sx={{ textTransform: 'none', fontWeight: 600, borderColor: '#E4EBE1', color: '#64748B' }}
-                      >
-                        Close
-                      </Button>
+
+                        {selectedComplaint.status === 'OPEN' && (
+                          <Button
+                            size="small"
+                            variant="contained"
+                            color="warning"
+                            onClick={() => handleUpdateStatus(selectedComplaint.id, 'ACKNOWLEDGED')}
+                            sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '8px' }}
+                          >
+                            Acknowledge
+                          </Button>
+                        )}
+
+                        {(selectedComplaint.status === 'OPEN' || selectedComplaint.status === 'ACKNOWLEDGED') && (
+                          <Button
+                            size="small"
+                            variant="contained"
+                            color="primary"
+                            onClick={() => handleUpdateStatus(selectedComplaint.id, 'IN_PROGRESS')}
+                            sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '8px' }}
+                          >
+                            Start Service
+                          </Button>
+                        )}
+
+                        {selectedComplaint.status === 'IN_PROGRESS' && (
+                          <Button
+                            size="small"
+                            variant="contained"
+                            color="success"
+                            onClick={() => handleUpdateStatus(selectedComplaint.id, 'RESOLVED')}
+                            sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '8px' }}
+                          >
+                            Mark Resolved
+                          </Button>
+                        )}
+
+                        {selectedComplaint.status === 'RESOLVED' && (
+                          <Button
+                            size="small"
+                            variant="contained"
+                            onClick={() => {
+                              setCloseResolutionSummary(selectedComplaint.resolution_summary || '');
+                              setIsCloseDialogOpen(true);
+                            }}
+                            sx={{
+                              textTransform: 'none',
+                              fontWeight: 700,
+                              bgcolor: '#023020',
+                              color: '#fff',
+                              borderRadius: '8px',
+                              '&:hover': { bgcolor: '#034732' },
+                            }}
+                          >
+                            Verify OTP & Close Work Order
+                          </Button>
+                        )}
+
+                        <Button
+                          onClick={() => setSelectedComplaint(null)}
+                          variant="outlined"
+                          sx={{ textTransform: 'none', fontWeight: 600, borderColor: '#CBD5E1', color: '#64748B', borderRadius: '8px' }}
+                        >
+                          Close
+                        </Button>
+                      </Box>
                     </DialogActions>
         </Dialog>
       )}
@@ -3321,6 +3676,13 @@ export default function VSWorkOrdersTab() {
                       <TextField
                         key={i}
                         value={otpCode[i] || ''}
+                        onPaste={(e) => {
+                          const paste = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+                          if (paste) {
+                            setOtpCode(paste);
+                            e.preventDefault();
+                          }
+                        }}
                         onChange={(e) => {
                           const val = e.target.value.replace(/\D/g, '');
                           if (val.length <= 1) {

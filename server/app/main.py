@@ -275,6 +275,12 @@ async def request_logging(request: Request, call_next):
 
 app.include_router(api_router, prefix=settings.api_v1_prefix)
 
+import os
+from fastapi.staticfiles import StaticFiles
+
+os.makedirs("uploads", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
 @app.on_event("startup")
 async def startup_event():
     from app.services.scheduler import start_scheduler
