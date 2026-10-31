@@ -2434,6 +2434,32 @@ export default function VSWorkOrdersTab() {
                       }))}
                       onChange={(val) => handleAssignUser(selectedComplaint.id, Number(val))}
                     />
+
+                    {/* Quick Action buttons below Assigned Technician */}
+                    {(selectedComplaint.status === 'OPEN' || selectedComplaint.status === 'ACKNOWLEDGED') && (
+                      <Box sx={{ mt: 1.5, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                        {selectedComplaint.status === 'OPEN' && (
+                          <Button
+                            size="small"
+                            variant="contained"
+                            color="warning"
+                            onClick={() => handleUpdateStatus(selectedComplaint.id, 'ACKNOWLEDGED')}
+                            sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '8px' }}
+                          >
+                            Acknowledge
+                          </Button>
+                        )}
+                        <Button
+                          size="small"
+                          variant="contained"
+                          color="primary"
+                          onClick={() => handleUpdateStatus(selectedComplaint.id, 'IN_PROGRESS')}
+                          sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '8px' }}
+                        >
+                          Start Service
+                        </Button>
+                      </Box>
+                    )}
                   </Paper>
                 </Grid>
               </Grid>
@@ -3399,30 +3425,6 @@ export default function VSWorkOrdersTab() {
                         >
                           {isUpdating ? 'Saving...' : 'Save Workflow'}
                         </Button>
-
-                        {selectedComplaint.status === 'OPEN' && (
-                          <Button
-                            size="small"
-                            variant="contained"
-                            color="warning"
-                            onClick={() => handleUpdateStatus(selectedComplaint.id, 'ACKNOWLEDGED')}
-                            sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '8px' }}
-                          >
-                            Acknowledge
-                          </Button>
-                        )}
-
-                        {(selectedComplaint.status === 'OPEN' || selectedComplaint.status === 'ACKNOWLEDGED') && (
-                          <Button
-                            size="small"
-                            variant="contained"
-                            color="primary"
-                            onClick={() => handleUpdateStatus(selectedComplaint.id, 'IN_PROGRESS')}
-                            sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '8px' }}
-                          >
-                            Start Service
-                          </Button>
-                        )}
 
                         {selectedComplaint.status === 'IN_PROGRESS' && (
                           <Button
