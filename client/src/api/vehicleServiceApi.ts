@@ -32,6 +32,10 @@ import type {
   VSComplaintCustomFieldValue,
   VSComplaintCustomFieldValueCreate,
   VSComplaintCustomFieldValueBulkSave,
+  VSSendOTPRequest,
+  VSSendOTPResponse,
+  VSVerifyOTPRequest,
+  VSVerifyOTPResponse,
 } from '@/types/vehicleService';
 
 export const vehicleServiceApi = baseApi.injectEndpoints({
@@ -159,7 +163,21 @@ export const vehicleServiceApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ['VSComplaints', 'VSVehicles', 'VSDashboard'],
     }),
-    addVSServiceCost: build.mutation<
+        sendVSComplaintOTP: build.mutation<VSSendOTPResponse, { id: number; body: VSSendOTPRequest }>({
+          query: ({ id, body }) => ({
+            url: `/vehicle-service/complaints/${id}/send-otp`,
+            method: 'POST',
+            body,
+          }),
+        }),
+        verifyVSComplaintOTP: build.mutation<VSVerifyOTPResponse, { id: number; body: VSVerifyOTPRequest }>({
+          query: ({ id, body }) => ({
+            url: `/vehicle-service/complaints/${id}/verify-otp`,
+            method: 'POST',
+            body,
+          }),
+        }),
+        addVSServiceCost: build.mutation<
       VSServiceCost,
       { complaintId: number; body: { item_name: string; quantity: number; unit_price: number } }
     >({
@@ -366,4 +384,6 @@ export const {
   useGetCustomFieldValuesForComplaintQuery,
   useUpsertCustomFieldValuesForComplaintMutation,
   useUploadCustomFieldFileMutation,
-} = vehicleServiceApi;
+    useSendVSComplaintOTPMutation,
+    useVerifyVSComplaintOTPMutation,
+  } = vehicleServiceApi;

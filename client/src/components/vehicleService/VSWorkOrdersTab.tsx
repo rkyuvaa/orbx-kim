@@ -109,6 +109,30 @@ function validateRequiredFields(values: Record<string, any>, requiredFields: VSC
   return errors;
 }
 
+// OTP Countdown Component
+function OTPCountdown({ expiresAt }: { expiresAt: string }) {
+  const [timeLeft, setTimeLeft] = useState<string>('');
+
+  useEffect(() => {
+    const updateTimer = () => {
+      const diff = new Date(expiresAt).getTime() - Date.now();
+      if (diff <= 0) {
+        setTimeLeft('Expired');
+        return;
+      }
+      const minutes = Math.floor(diff / 60000);
+      const seconds = Math.floor((diff % 60000) / 1000);
+      setTimeLeft(`${minutes}:${seconds.toString().padStart(2, '0')}`);
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [expiresAt]);
+
+  return <span>{timeLeft}</span>;
+}
+
 // Custom Field Renderer Component
 interface CustomFieldRendererProps {
   field: VSCustomFieldDefinition;
@@ -360,6 +384,8 @@ import {
   useGetVSVehiclesQuery,
   useReplaceVSComponentMutation,
   useUpdateVSComplaintMutation,
+  useSendVSComplaintOTPMutation,
+  useVerifyVSComplaintOTPMutation,
   // Custom Fields
     useGetCustomFieldDefinitionsQuery,
     useGetCustomFieldDefinitionsForComplaintQuery,
@@ -466,6 +492,8 @@ export default function VSWorkOrdersTab() {
   const [closeComplaint, { isLoading: isClosing }] = useCloseVSComplaintMutation();
   const [replaceComponent, { isLoading: isReplacing }] = useReplaceVSComponentMutation();
   const [addCost, { isLoading: isAddingCost }] = useAddVSServiceCostMutation();
+    const [sendOTP, { isLoading: isSendingOTP }] = useSendVSComplaintOTPMutation();
+    const [verifyOTP, { isLoading: isVerifyingOTP }] = useVerifyVSComplaintOTPMutation();
 
   // 3-dot Action Menu state
   const [actionMenuAnchor, setActionMenuAnchor] = useState<null | HTMLElement>(null);
@@ -530,7 +558,15 @@ export default function VSWorkOrdersTab() {
   const [closeRating, setCloseRating] = useState<number | null>(5);
   const [closeFeedbackComment, setCloseFeedbackComment] = useState('');
 
-    // Custom Fields state
+    // OTP Verification state
+    const [isOTPDialogOpen, setIsOTPDialogOpen] = useState(false);
+    const [otpCode, setOtpCode] = useState('');
+    const [otpSending, setOtpSending] = useState(false);
+    const [otpVerifying, setOtpVerifying] = useState(false);
+    const [otpExpiresAt, setOtpExpiresAt] = useState<string | null>(null);
+    const [otpError, setOtpError] = useState<string | null>(null);
+
+      // Custom Fields state
     const [newCustomFieldValues, setNewCustomFieldValues] = useState<Record<string, any>>({});
     const [manageCustomFieldValues, setManageCustomFieldValues] = useState<Record<string, any>>({});
 
@@ -785,19 +821,79 @@ export default function VSWorkOrdersTab() {
         return;
       }
 
-      const payload: VSComplaintCloseRequest = {
-        resolution_summary: closeResolutionSummary.trim(),
-        rating: closeRating || undefined,
-        feedback_comment: closeFeedbackComment.trim() || undefined,
+        // Send OTP first
+        setOtpSending(true);
+        setOtpError(null);
+        try {
+          const response = await sendOTP({ id: selectedComplaint.id, body: {} }).unwrap();
+          // Store OTP expiration time
+          if (response.expires_at) {
+            setOtpExpiresAt(response.expires_at);
+          }
+          // Close the close dialog and open OTP dialog
+          setIsCloseDialogOpen(false);
+          setIsOTPDialogOpen(true);
+          setOtpCode('');
+        } catch (err: any) {
+          setOtpError(err?.data?.detail || 'Failed to send OTP. Please try again.');
+        } finally {
+          setOtpSending(false);
+        }
       };
 
+    // Handle OTP verification and then close complaint
+    const handleOTPSubmit = async () => {
+      if (!selectedComplaint || !otpCode.trim()) {
+        setOtpError('Please enter the OTP code.');
+        return;
+      }
+
+      if (otpCode.length !== 6) {
+        setOtpError('OTP must be 6 digits.');
+        return;
+      }
+
+      setOtpVerifying(true);
+      setOtpError(null);
       try {
+        // Verify OTP
+        await verifyOTP({ id: selectedComplaint.id, body: { otp_code: otpCode.trim() } }).unwrap();
+      
+        // OTP verified, now close the complaint
+        const payload: VSComplaintCloseRequest = {
+          resolution_summary: closeResolutionSummary.trim(),
+          rating: closeRating || undefined,
+          feedback_comment: closeFeedbackComment.trim() || undefined,
+        };
+
         const res = await closeComplaint({ id: selectedComplaint.id, body: payload }).unwrap();
         setSelectedComplaint(res);
-        setIsCloseDialogOpen(false);
+        setIsOTPDialogOpen(false);
+        setOtpCode('');
+        setOtpExpiresAt(null);
         refetch();
       } catch (err: any) {
-        alert(err?.data?.detail || 'Failed to close work order.');
+        setOtpError(err?.data?.detail || 'Invalid OTP. Please try again.');
+      } finally {
+        setOtpVerifying(false);
+      }
+    };
+
+    // Resend OTP
+    const handleResendOTP = async () => {
+      if (!selectedComplaint) return;
+      setOtpSending(true);
+      setOtpError(null);
+      try {
+        const response = await sendOTP({ id: selectedComplaint.id, body: {} }).unwrap();
+        if (response.expires_at) {
+          setOtpExpiresAt(response.expires_at);
+        }
+        setOtpCode('');
+      } catch (err: any) {
+        setOtpError(err?.data?.detail || 'Failed to resend OTP. Please try again.');
+      } finally {
+        setOtpSending(false);
       }
     };
 
@@ -2422,17 +2518,109 @@ export default function VSWorkOrdersTab() {
             variant="contained"
             color="success"
             onClick={handleCloseSubmit}
-            disabled={isClosing}
+                    disabled={isClosing || isSendingOTP}
             sx={{ textTransform: 'none', fontWeight: 700 }}
           >
-            {isClosing ? 'Closing...' : 'Confirm Closure'}
+                    {isClosing ? 'Closing...' : isSendingOTP ? 'Sending OTP...' : 'Confirm Closure'}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* =====================================================================
-          REPLACE COMPONENT SERIAL MODAL
+                  OTP VERIFICATION MODAL
       ====================================================================== */}
+              <Dialog open={isOTPDialogOpen} onClose={() => { setIsOTPDialogOpen(false); setOtpCode(''); setOtpError(null); setOtpExpiresAt(null); }} maxWidth="xs" fullWidth>
+                <DialogTitle sx={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <ShieldAlert size={20} color="#023020" />
+                  Verify OTP to Close Work Order
+                </DialogTitle>
+                <DialogContent dividers>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    A 6-digit OTP has been sent to the customer's registered phone number. Please enter it below to confirm work order closure.
+                  </Typography>
+          
+                  {otpError && (
+                    <Alert severity="error" sx={{ mb: 2, borderRadius: 1 }}>
+                      {otpError}
+                    </Alert>
+                  )}
+
+                  <Box sx={{ display: 'flex', gap: 1, mb: 2, justifyContent: 'center' }}>
+                    {[...Array(6)].map((_, i) => (
+                      <TextField
+                        key={i}
+                        value={otpCode[i] || ''}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, '');
+                          if (val.length <= 1) {
+                            setOtpCode(prev => prev.slice(0, i) + val + prev.slice(i + 1));
+                            if (val && i < 5) {
+                              // Auto-focus next input
+                              const nextInput = document.querySelector(`input[data-otp-index="${i + 1}"]`);
+                              (nextInput as HTMLInputElement)?.focus();
+                            }
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Backspace' && !otpCode[i] && i > 0) {
+                            const prevInput = document.querySelector(`input[data-otp-index="${i - 1}"]`);
+                            (prevInput as HTMLInputElement)?.focus();
+                          }
+                        }}
+                        inputProps={{
+                          maxLength: 1,
+                          'data-otp-index': i,
+                          style: { textAlign: 'center', fontSize: 24, fontWeight: 700 },
+                        }}
+                        size="small"
+                        sx={{
+                          width: 48,
+                          height: 56,
+                          '& .MuiOutlinedInput-root': {
+                            padding: 0,
+                            '& input': { textAlign: 'center' },
+                          },
+                        }}
+                      />
+                    ))}
+                  </Box>
+
+                  {otpExpiresAt && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 2 }}>
+                      <Clock size={16} color="#f59e0b" />
+                      <Typography variant="caption" sx={{ fontWeight: 600, color: '#92400e' }}>
+                        OTP expires in: <OTPCountdown expiresAt={otpExpiresAt} />
+                      </Typography>
+                    </Box>
+                  )}
+
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'center' }}>
+                    <Button
+                      variant="contained"
+                      color="success"
+                      fullWidth
+                      onClick={handleOTPSubmit}
+                      disabled={otpVerifying || otpCode.length !== 6}
+                      sx={{ textTransform: 'none', fontWeight: 700, py: 1 }}
+                    >
+                      {otpVerifying ? 'Verifying...' : 'Verify & Close Work Order'}
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      fullWidth
+                      onClick={handleResendOTP}
+                      disabled={otpSending}
+                      sx={{ textTransform: 'none', fontWeight: 600 }}
+                    >
+                      {otpSending ? 'Sending...' : 'Resend OTP'}
+                    </Button>
+                  </Box>
+                </DialogContent>
+              </Dialog>
+
+              {/* =====================================================================
+                  REPLACE COMPONENT SERIAL MODAL
+              ====================================================================== */}
       <Dialog open={isReplaceDialogOpen} onClose={() => setIsReplaceDialogOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ fontWeight: 800 }}>Replace Component Serial</DialogTitle>
         <DialogContent dividers>

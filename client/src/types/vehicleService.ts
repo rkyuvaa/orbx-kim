@@ -493,6 +493,25 @@ export interface VSComplaintCustomFieldValueBulkSave {
   values: VSComplaintCustomFieldValueCreate[];
 }
 
+// OTP Types for Vehicle Service Complaints
+export interface VSSendOTPRequest {
+}
+
+export interface VSSendOTPResponse {
+  success: boolean;
+  message: string;
+  expires_at: string;
+}
+
+export interface VSVerifyOTPRequest {
+  otp_code: string;
+}
+
+export interface VSVerifyOTPResponse {
+  success: boolean;
+  message: string;
+}
+
 // Update VSComplaint to include custom_field_values
 export interface VSComplaint {
   id: number;
