@@ -81,6 +81,9 @@ import PTTimeReports from '@/components/personalTasks/PTTimeReports';
 import PTArchiveView from '@/components/personalTasks/PTArchiveView';
 import PTWeeklyReview from '@/components/personalTasks/PTWeeklyReview';
 import PTSettingsDrawer from '@/components/personalTasks/PTSettingsDrawer';
+import PTAssignTaskModal from '@/components/personalTasks/PTAssignTaskModal';
+import { useAppSelector } from '@/app/hooks';
+import { useUsersQuery } from '@/api/mastersApi';
 
 export default function MyTasksPage() {
   const theme = useTheme();
@@ -92,10 +95,17 @@ export default function MyTasksPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
+  const currentUser = useAppSelector((state) => state.auth.user);
+  const { data: users = [] } = useUsersQuery();
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
+
   // Search and Filters
   const [searchQ, setSearchQ] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
-  const [taskScopeFilter, setTaskScopeFilter] = useState<'open' | 'all'>('open');
+  const [assigneeFilter, setAssigneeFilter] = useState<number | ''>('');
+  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [dueDateFilter, setDueDateFilter] = useState<string>('');
+  const [taskScopeFilter, setTaskScopeFilter] = useState<'open' | 'all' | 'assigned'>('open');
   const [selectedTaskIds, setSelectedTaskIds] = useState<number[]>([]);
 
   // 10-Second Undo State
@@ -210,7 +220,30 @@ export default function MyTasksPage() {
       list = list.filter((t) => t.priority === priorityFilter);
     }
 
+    // Assignee filter
+    if (assigneeFilter) {
+      list = list.filter((t) => t.assignee_id === assigneeFilter);
+    }
+
+    // Status filter
+    if (statusFilter) {
+      list = list.filter((t) => {
+        const sName = t.status_name || (t.is_completed ? 'Completed' : 'To Do');
+        return sName.toLowerCase() === statusFilter.toLowerCase();
+      });
+    }
+
+    // Due Date filter
+    if (dueDateFilter) {
+      list = list.filter((t) => t.due_date && t.due_date.split('T')[0] === dueDateFilter);
+    }
+
     const todayStr = new Date().toISOString().split('T')[0];
+
+    // Personal / assigned-to-me isolation for daily personal views
+    if (['my-day', 'upcoming', 'overdue'].includes(activeSection)) {
+      list = list.filter((t) => !t.assignee_id || t.assignee_id === currentUser?.id);
+    }
 
     switch (activeSection) {
       case 'my-day':
@@ -241,11 +274,28 @@ export default function MyTasksPage() {
       default:
         // 'all-tasks', 'kanban', 'calendar', and others
         if (taskScopeFilter === 'open') {
-          return list.filter((t) => !t.is_completed && !t.cancelled_at && !t.is_archived && !t.is_deleted);
+          return list.filter(
+            (t) =>
+              (!t.assignee_id || t.assignee_id === currentUser?.id) &&
+              !t.is_completed &&
+              !t.cancelled_at &&
+              !t.is_archived &&
+              !t.is_deleted
+          );
+        }
+        if (taskScopeFilter === 'assigned') {
+          return list.filter(
+            (t) =>
+              t.created_by === currentUser?.id &&
+              t.assignee_id &&
+              t.assignee_id !== currentUser?.id &&
+              !t.is_archived &&
+              !t.is_deleted
+          );
         }
         return list.filter((t) => !t.is_archived && !t.is_deleted);
     }
-  }, [tasks, activeSection, searchQ, priorityFilter, taskScopeFilter]);
+  }, [tasks, activeSection, searchQ, priorityFilter, assigneeFilter, statusFilter, dueDateFilter, taskScopeFilter, currentUser?.id]);
 
   // Handlers
   const handleOpenTask = (task: PTTask) => {
@@ -532,7 +582,11 @@ export default function MyTasksPage() {
         }}
       >
         {/* Sticky Quick Capture Bar */}
-        <PTQuickCapture onQuickAdd={handleQuickAdd} isLoading={isCreating} />
+        <PTQuickCapture
+          onQuickAdd={handleQuickAdd}
+          isLoading={isCreating}
+          onOpenAssignTask={() => setAssignModalOpen(true)}
+        />
 
         {/* Filters and View Switcher for Table, Kanban, and Calendar */}
         {['all-tasks', 'upcoming', 'overdue', 'completed', 'kanban', 'calendar'].includes(activeSection) && (
@@ -625,16 +679,65 @@ export default function MyTasksPage() {
                   <ToggleButton value="all">
                     All Tasks
                   </ToggleButton>
+                  <ToggleButton value="assigned">
+                    Assigned
+                  </ToggleButton>
                 </ToggleButtonGroup>
               )}
 
-              {(searchQ || priorityFilter || (['all-tasks', 'kanban', 'calendar'].includes(activeSection) && taskScopeFilter !== 'open')) && (
+              {taskScopeFilter === 'assigned' && ['all-tasks', 'kanban', 'calendar'].includes(activeSection) && (
+                <>
+                  <Select
+                    size="small"
+                    displayEmpty
+                    value={assigneeFilter}
+                    onChange={(e) => setAssigneeFilter(e.target.value as any)}
+                    sx={{ width: { xs: '100%', sm: 160 }, minWidth: 160 }}
+                  >
+                    <MenuItem value="">All Assignees</MenuItem>
+                    {users
+                      .filter((u) => u.id !== currentUser?.id)
+                      .map((u) => (
+                        <MenuItem key={u.id} value={u.id}>
+                          {u.full_name}
+                        </MenuItem>
+                      ))}
+                  </Select>
+
+                  <Select
+                    size="small"
+                    displayEmpty
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    sx={{ width: { xs: '100%', sm: 130 }, minWidth: 130 }}
+                  >
+                    <MenuItem value="">All Statuses</MenuItem>
+                    <MenuItem value="To Do">To Do</MenuItem>
+                    <MenuItem value="In Progress">In Progress</MenuItem>
+                    <MenuItem value="On Hold">On Hold</MenuItem>
+                    <MenuItem value="Completed">Completed</MenuItem>
+                  </Select>
+
+                  <TextField
+                    size="small"
+                    type="date"
+                    value={dueDateFilter}
+                    onChange={(e) => setDueDateFilter(e.target.value)}
+                    sx={{ width: { xs: '100%', sm: 140 } }}
+                  />
+                </>
+              )}
+
+              {(searchQ || priorityFilter || assigneeFilter || statusFilter || dueDateFilter || (['all-tasks', 'kanban', 'calendar'].includes(activeSection) && taskScopeFilter !== 'open')) && (
                 <Button
                   size="small"
                   variant="text"
                   onClick={() => {
                     setSearchQ('');
                     setPriorityFilter('');
+                    setAssigneeFilter('');
+                    setStatusFilter('');
+                    setDueDateFilter('');
                     setTaskScopeFilter('open');
                   }}
                   sx={{ textTransform: 'none', color: '#64748B' }}
@@ -760,16 +863,21 @@ export default function MyTasksPage() {
         {['all-tasks', 'upcoming', 'overdue', 'completed'].includes(activeSection) && (
           <PTTaskTable
             tasks={displayedTasks}
+            isAssignedView={taskScopeFilter === 'assigned'}
             isLoading={isTasksLoading}
             emptyTitle={
-              activeSection === 'overdue'
+              taskScopeFilter === 'assigned'
+                ? 'No Assigned Tasks'
+                : activeSection === 'overdue'
                 ? 'No Overdue Tasks!'
                 : activeSection === 'completed'
                 ? 'No Completed Tasks Yet'
                 : 'No Tasks Found'
             }
             emptyHint={
-              activeSection === 'overdue'
+              taskScopeFilter === 'assigned'
+                ? 'Tasks you delegate to other registered users will appear here.'
+                : activeSection === 'overdue'
                 ? 'All your scheduled commitments are in good standing.'
                 : 'Use Quick Capture above to add a new task.'
             }
@@ -991,6 +1099,13 @@ export default function MyTasksPage() {
           </Button>
         </Paper>
       )}
+
+      {/* Assign Task Modal */}
+      <PTAssignTaskModal
+        open={assignModalOpen}
+        onClose={() => setAssignModalOpen(false)}
+        onSuccess={() => refetchTasks()}
+      />
 
       {/* 6. Undo 10-Second Toast */}
       <Snackbar

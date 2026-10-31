@@ -9,6 +9,7 @@ import {
   TableRow,
   Paper,
   Checkbox,
+  Avatar,
   Typography,
   Chip,
   IconButton,
@@ -54,6 +55,7 @@ import { isPast, isToday, parseISO, addDays, format } from 'date-fns';
 
 interface PTTaskTableProps {
   tasks: PTTask[];
+  isAssignedView?: boolean;
   isLoading?: boolean;
   emptyTitle?: string;
   emptyHint?: string;
@@ -74,6 +76,7 @@ interface PTTaskTableProps {
 
 export default function PTTaskTable({
   tasks,
+  isAssignedView = false,
   isLoading,
   emptyTitle = 'No Tasks Found',
   emptyHint = 'Tasks created or planned will appear here.',
@@ -287,6 +290,8 @@ export default function PTTaskTable({
             <TableCell sx={{ width: 44, pl: 2 }} align="center"></TableCell>
             <TableCell sx={{ width: 80 }}>ID</TableCell>
             <TableCell>Task</TableCell>
+            {isAssignedView && <TableCell sx={{ width: 160 }}>Assigned To</TableCell>}
+            {isAssignedView && <TableCell sx={{ width: 130 }}>Assigned Date</TableCell>}
             <TableCell sx={{ width: 130 }}>Priority</TableCell>
             <TableCell sx={{ width: 150 }}>Status</TableCell>
             <TableCell sx={{ width: 150 }}>Due Date</TableCell>
@@ -532,6 +537,42 @@ export default function PTTaskTable({
                     )}
                   </Box>
                 </TableCell>
+
+                {/* Assigned To */}
+                {isAssignedView && (
+                  <TableCell>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Avatar
+                        sx={{
+                          width: 24,
+                          height: 24,
+                          fontSize: '0.7rem',
+                          fontWeight: 700,
+                          backgroundColor: isDark ? '#16C47F' : '#203020',
+                          color: '#FFFFFF',
+                        }}
+                      >
+                        {(task.assignee_name || (task.assignees && task.assignees[0]?.full_name) || '?').charAt(0).toUpperCase()}
+                      </Avatar>
+                      <Typography variant="body2" sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                        {task.assignee_name || (task.assignees && task.assignees[0]?.full_name) || 'Assigned'}
+                      </Typography>
+                    </Box>
+                  </TableCell>
+                )}
+
+                {/* Assigned Date */}
+                {isAssignedView && (
+                  <TableCell>
+                    <Typography variant="body2" sx={{ fontSize: '0.78rem', color: isDark ? '#94A3B8' : '#64748B' }}>
+                      {task.assigned_at
+                        ? format(parseISO(task.assigned_at), 'dd/MM/yyyy')
+                        : task.created_at
+                        ? format(parseISO(task.created_at), 'dd/MM/yyyy')
+                        : '—'}
+                    </Typography>
+                  </TableCell>
+                )}
 
                 {/* Priority (Direct Editable Menu) */}
                 <TableCell>

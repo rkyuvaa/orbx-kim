@@ -28,6 +28,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+    CircularProgress,
   TextField,
   Tooltip,
   Typography,
@@ -63,6 +64,15 @@ import {
   Wrench,
   X,
   Zap,
+  Calendar,
+  CheckSquare,
+  Timer,
+  Gauge,
+  FileImage,
+  FileQuestion,
+  Edit2,
+  Eye,
+  Trash2 as TrashIcon,
 } from 'lucide-react';
 
 import { useAppSelector } from '@/app/hooks';
@@ -397,6 +407,7 @@ import type {
   VSComplaint,
   VSComplaintCloseRequest,
   VSComplaintCreate,
+  VSComplaintUpdate,
   VSKit,
   VSVehicle,
   VSCustomFieldDefinition,
@@ -494,8 +505,12 @@ export default function VSWorkOrdersTab() {
   const [addCost, { isLoading: isAddingCost }] = useAddVSServiceCostMutation();
     const [sendOTP, { isLoading: isSendingOTP }] = useSendVSComplaintOTPMutation();
     const [verifyOTP, { isLoading: isVerifyingOTP }] = useVerifyVSComplaintOTPMutation();
+        const [uploadInitialChecklist] = useUploadInitialChecklistMutation();
+        const [uploadMasterChecklist] = useUploadMasterChecklistMutation();
+        const [uploadComplaints8D] = useUploadComplaints8DMutation();
+        const [uploadVehicleImages] = useUploadVehicleImagesMutation();
 
-  // 3-dot Action Menu state
+      // 3-dot Action Menu state
   const [actionMenuAnchor, setActionMenuAnchor] = useState<null | HTMLElement>(null);
   const [actionTargetComplaint, setActionTargetComplaint] = useState<VSComplaint | null>(null);
 
@@ -569,6 +584,27 @@ export default function VSWorkOrdersTab() {
       // Custom Fields state
     const [newCustomFieldValues, setNewCustomFieldValues] = useState<Record<string, any>>({});
     const [manageCustomFieldValues, setManageCustomFieldValues] = useState<Record<string, any>>({});
+
+    // Service Workflow state
+    const [estDeliveryDate, setEstDeliveryDate] = useState<string | ''>('');
+    const [canDataCollected, setCanDataCollected] = useState(false);
+    const [technicianRemarks, setTechnicianRemarks] = useState('');
+    const [odometerReading, setOdometerReading] = useState<number | ''>('');
+    const [serviceType, setServiceType] = useState<'FREE' | 'GENERAL' | 'PAID'>('GENERAL');
+    const [timerRunning, setTimerRunning] = useState(false);
+    const [timerStartTime, setTimerStartTime] = useState<Date | null>(null);
+    const [serviceHours, setServiceHours] = useState<number | null>(null);
+    const [timerInterval, setTimerInterval] = useState<NodeJS.Timeout | null>(null);
+
+    // File upload states
+    const [initialChecklistFile, setInitialChecklistFile] = useState<File | null>(null);
+    const [masterChecklistFile, setMasterChecklistFile] = useState<File | null>(null);
+    const [complaints8dFile, setComplaints8dFile] = useState<File | null>(null);
+    const [vehicleImagesFiles, setVehicleImagesFiles] = useState<File[]>([]);
+    const [uploadingInitialChecklist, setUploadingInitialChecklist] = useState(false);
+    const [uploadingMasterChecklist, setUploadingMasterChecklist] = useState(false);
+    const [uploadingComplaints8d, setUploadingComplaints8d] = useState(false);
+    const [uploadingVehicleImages, setUploadingVehicleImages] = useState(false);
 
     // Component Replacement inside Complaint Dialog
   const [isReplaceDialogOpen, setIsReplaceDialogOpen] = useState(false);
@@ -957,7 +993,205 @@ export default function VSWorkOrdersTab() {
     }
   };
 
-  const handleSaveCustomFields = async () => {
+    // =====================================================================
+    // Service Workflow Handlers
+    // =====================================================================
+
+    const handleUpdateServiceWorkflow = async () => {
+      if (!selectedComplaint) return;
+
+      const payload: VSComplaintUpdate = {
+        est_delivery_date: estDeliveryDate || undefined,
+        can_data_collected: canDataCollected,
+        technician_remarks: technicianRemarks.trim() || undefined,
+        odometer_reading: odometerReading ? Number(odometerReading) : undefined,
+        service_type: serviceType,
+        timer_started_at: timerRunning ? new Date().toISOString() : undefined,
+        timer_ended_at: !timerRunning && timerStartTime ? new Date().toISOString() : undefined,
+        service_hours: serviceHours,
+      };
+
+      try {
+        const updated = await updateComplaint({ id: selectedComplaint.id, body: payload }).unwrap();
+        setSelectedComplaint(updated);
+      } catch (err: any) {
+        alert(err?.data?.detail || 'Failed to update service workflow fields.');
+      }
+    };
+
+    const handleTimerStart = async () => {
+      if (!selectedComplaint) return;
+    
+      const now = new Date();
+      setTimerStartTime(now);
+      setTimerRunning(true);
+      setTimerInterval(setInterval(() => {
+        if (timerStartTime) {
+          const elapsed = (Date.now() - timerStartTime.getTime()) / 1000 / 60 / 60;
+          setServiceHours(Number(elapsed.toFixed(2)));
+        }
+      }, 1000));
+
+      // Update backend
+      const payload: VSComplaintUpdate = {
+        timer_started_at: now.toISOString(),
+        timer_ended_at: null,
+        service_hours: 0,
+      };
+      try {
+        await updateComplaint({ id: selectedComplaint.id, body: payload }).unwrap();
+      } catch (err: any) {
+        console.error('Failed to start timer:', err);
+      }
+    };
+
+    const handleTimerStop = async () => {
+      if (!selectedComplaint || !timerStartTime) return;
+
+      const now = new Date();
+      const elapsedHours = (now.getTime() - timerStartTime.getTime()) / 1000 / 60 / 60;
+      const finalHours = Number(elapsedHours.toFixed(2));
+
+      clearInterval(timerInterval!);
+      setTimerInterval(null);
+      setTimerRunning(false);
+      setServiceHours(finalHours);
+      setTimerStartTime(null);
+
+      // Update backend
+      const payload: VSComplaintUpdate = {
+        timer_ended_at: now.toISOString(),
+        service_hours: finalHours,
+      };
+      try {
+        await updateComplaint({ id: selectedComplaint.id, body: payload }).unwrap();
+      } catch (err: any) {
+        console.error('Failed to stop timer:', err);
+      }
+    };
+
+    const handleInitialChecklistUpload = async (file: File) => {
+      if (!selectedComplaint) return;
+      setUploadingInitialChecklist(true);
+      try {
+        const result = await uploadInitialChecklist({ complaintId: selectedComplaint.id, file }).unwrap();
+        // Refresh to get updated URL
+        const updated = await updateComplaint({ id: selectedComplaint.id, body: {} }).unwrap();
+        setSelectedComplaint(updated);
+      } catch (err: any) {
+        alert(err?.data?.detail || 'Failed to upload Initial Checklist.');
+      } finally {
+        setUploadingInitialChecklist(false);
+      }
+    };
+
+    const handleMasterChecklistUpload = async (file: File) => {
+      if (!selectedComplaint) return;
+      setUploadingMasterChecklist(true);
+      try {
+        const result = await uploadMasterChecklist({ complaintId: selectedComplaint.id, file }).unwrap();
+        const updated = await updateComplaint({ id: selectedComplaint.id, body: {} }).unwrap();
+        setSelectedComplaint(updated);
+      } catch (err: any) {
+        alert(err?.data?.detail || 'Failed to upload Master Checklist.');
+      } finally {
+        setUploadingMasterChecklist(false);
+      }
+    };
+
+    const handleComplaints8DUpload = async (file: File) => {
+      if (!selectedComplaint) return;
+      setUploadingComplaints8d(true);
+      try {
+        const result = await uploadComplaints8D({ complaintId: selectedComplaint.id, file }).unwrap();
+        const updated = await updateComplaint({ id: selectedComplaint.id, body: {} }).unwrap();
+        setSelectedComplaint(updated);
+      } catch (err: any) {
+        alert(err?.data?.detail || 'Failed to upload Complaints 8D Report.');
+      } finally {
+        setUploadingComplaints8d(false);
+      }
+    };
+
+    const handleVehicleImagesUpload = async (files: File[]) => {
+      if (!selectedComplaint) return;
+      setUploadingVehicleImages(true);
+      try {
+        const result = await uploadVehicleImages({ complaintId: selectedComplaint.id, files }).unwrap();
+        const updated = await updateComplaint({ id: selectedComplaint.id, body: {} }).unwrap();
+        setSelectedComplaint(updated);
+        setVehicleImagesFiles([]);
+      } catch (err: any) {
+        alert(err?.data?.detail || 'Failed to upload Vehicle Images.');
+      } finally {
+        setUploadingVehicleImages(false);
+      }
+    };
+
+    const handleDeleteVehicleImage = async (imageUrl: string) => {
+      if (!selectedComplaint) return;
+      try {
+        const currentImages = selectedComplaint.vehicle_images ? JSON.parse(selectedComplaint.vehicle_images) : [];
+        const updatedImages = currentImages.filter((img: string) => img !== imageUrl);
+      
+        const payload: VSComplaintUpdate = {
+          vehicle_images: JSON.stringify(updatedImages),
+        };
+        const updated = await updateComplaint({ id: selectedComplaint.id, body: payload }).unwrap();
+        setSelectedComplaint(updated);
+      } catch (err: any) {
+        alert('Failed to delete image.');
+      }
+    };
+
+    const handleDeleteDocument = async (field: 'initial_checklist_url' | 'master_checklist_url' | 'complaints_8d_url') => {
+      if (!selectedComplaint) return;
+      try {
+        const payload: VSComplaintUpdate = {
+          [field]: null,
+        };
+        const updated = await updateComplaint({ id: selectedComplaint.id, body: payload }).unwrap();
+        setSelectedComplaint(updated);
+      } catch (err: any) {
+        alert('Failed to delete document.');
+      }
+    };
+
+    // Load service workflow data when complaint is selected
+    React.useEffect(() => {
+      if (selectedComplaint) {
+        setEstDeliveryDate(selectedComplaint.est_delivery_date || '');
+        setCanDataCollected(selectedComplaint.can_data_collected || false);
+        setTechnicianRemarks(selectedComplaint.technician_remarks || '');
+        setOdometerReading(selectedComplaint.odometer_reading || '');
+        setServiceType(selectedComplaint.service_type || 'GENERAL');
+        setTimerRunning(!!selectedComplaint.timer_started_at && !selectedComplaint.timer_ended_at);
+        setServiceHours(selectedComplaint.service_hours || null);
+      
+        if (selectedComplaint.timer_started_at && !selectedComplaint.timer_ended_at) {
+          setTimerStartTime(new Date(selectedComplaint.timer_started_at));
+        }
+      } else {
+        setEstDeliveryDate('');
+        setCanDataCollected(false);
+        setTechnicianRemarks('');
+        setOdometerReading('');
+        setServiceType('GENERAL');
+        setTimerRunning(false);
+        setTimerStartTime(null);
+        setServiceHours(null);
+        setVehicleImagesFiles([]);
+      }
+    }, [selectedComplaint]);
+
+    // Cleanup timer interval on unmount
+    React.useEffect(() => {
+      return () => {
+        if (timerInterval) clearInterval(timerInterval);
+      };
+    }, [timerInterval]);
+
+    const handleSaveCustomFields = async () => {
     if (!selectedComplaint) return;
 
     // Validate required fields for current status
@@ -2233,7 +2467,541 @@ export default function VSWorkOrdersTab() {
                 </Paper>
               )}
 
-                            {/* Custom Fields for Manage Dialog */}
+                            {/* =====================================================================
+                                SERVICE WORKFLOW SECTION
+                            ====================================================================== */}
+                            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, border: '1px solid #E4EBE1' }}>
+                              <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" gutterBottom>
+                                SERVICE WORKFLOW
+                              </Typography>
+                
+                              {/* Row 1: Est. Delivery Date, Service Type, Odometer */}
+                              <Grid container spacing={2}>
+                                <Grid item xs={12} sm={6} md={4}>
+                                  <TextField
+                                    label="Est. Delivery Date"
+                                    type="date"
+                                    size="small"
+                                    fullWidth
+                                    value={estDeliveryDate}
+                                    onChange={(e) => setEstDeliveryDate(e.target.value)}
+                                    InputLabelProps={{ shrink: true }}
+                                    InputProps={{
+                                      startAdornment: (
+                                        <InputAdornment position="start">
+                                          <Calendar color="action" fontSize="small" />
+                                        </InputAdornment>
+                                      ),
+                                    }}
+                                    sx={{ '& .MuiOutlinedInput-root': { fontSize: 12.5 } }}
+                                  />
+                                </Grid>
+                  
+                                <Grid item xs={12} sm={6} md={4}>
+                                  <AppDropdown
+                                    label="Service Type"
+                                    value={serviceType}
+                                    emptyLabel="Select Type"
+                                    options={[
+                                      { value: 'FREE', label: 'Free Service' },
+                                      { value: 'GENERAL', label: 'General Service' },
+                                      { value: 'PAID', label: 'Paid Service' },
+                                    ]}
+                                    onChange={(val) => setServiceType(val as 'FREE' | 'GENERAL' | 'PAID')}
+                                    size="small"
+                                  />
+                                </Grid>
+                  
+                                <Grid item xs={12} sm={6} md={4}>
+                                  <TextField
+                                    label="Odometer Reading (km)"
+                                    type="number"
+                                    size="small"
+                                    fullWidth
+                                    value={odometerReading}
+                                    onChange={(e) => setOdometerReading(e.target.value)}
+                                    InputLabelProps={{ shrink: true }}
+                                    InputProps={{
+                                      startAdornment: (
+                                        <InputAdornment position="start">
+                                          <Gauge color="action" fontSize="small" />
+                                        </InputAdornment>
+                                      ),
+                                    }}
+                                    sx={{ '& .MuiOutlinedInput-root': { fontSize: 12.5 } }}
+                                  />
+                                </Grid>
+                              </Grid>
+
+                              {/* Row 2: CAN Data Collected, Timer Controls */}
+                              <Grid container spacing={2} sx={{ mt: 1 }}>
+                                <Grid item xs={12} sm={6} md={3}>
+                                  <FormControl component="fieldset" sx={{ mt: 1 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                      <input
+                                        type="checkbox"
+                                        checked={canDataCollected}
+                                        onChange={(e) => setCanDataCollected(e.target.checked)}
+                                        style={{ width: 18, height: 18, accentColor: '#023020' }}
+                                      />
+                                      <Typography variant="body2" fontWeight={600} color="#0f172a">
+                                        CAN Data Collected
+                                      </Typography>
+                                      <Tooltip title="Indicates if CAN bus data was collected during service">
+                                        <CheckSquare color="action" fontSize="small" />
+                                      </Tooltip>
+                                    </Box>
+                                  </FormControl>
+                                </Grid>
+                  
+                                <Grid item xs={12} sm={6} md={9}>
+                                  <Box sx={{ p: 1.5, bgcolor: timerRunning ? '#ecfdf5' : '#f8fafc', borderRadius: 1.5, border: timerRunning ? '1px solid #a7f3d0' : '1px solid #e0e0e0' }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
+                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        <Timer color={timerRunning ? '#065f46' : 'action'} fontSize="small" />
+                                        <Typography variant="subtitle2" fontWeight={700} color={timerRunning ? '#065f46' : '#0f172a'}>
+                                          Service Timer: {timerRunning ? 'RUNNING' : 'STOPPED'}
+                                        </Typography>
+                                        {serviceHours !== null && (
+                                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                            <Chip
+                                              label={`${serviceHours.toFixed(2)} hrs`}
+                                              size="small"
+                                              color={timerRunning ? 'success' : 'default'}
+                                              variant="outlined"
+                                              sx={{ fontWeight: 700, height: 24, fontSize: 11 }}
+                                            />
+                                            <Typography variant="caption" color="text.secondary">
+                                              Total Service Hours
+                                            </Typography>
+                                          </Box>
+                                        )}
+                                      </Box>
+                                      <Box sx={{ display: 'flex', gap: 1 }}>
+                                        {!timerRunning && (
+                                          <Button
+                                            variant="contained"
+                                            color="success"
+                                            startIcon={<Timer />}
+                                            onClick={handleTimerStart}
+                                            size="small"
+                                            sx={{ textTransform: 'none', fontWeight: 700 }}
+                                          >
+                                            Start Timer
+                                          </Button>
+                                        )}
+                                        {timerRunning && (
+                                          <Button
+                                            variant="contained"
+                                            color="error"
+                                            startIcon={<Timer />}
+                                            onClick={handleTimerStop}
+                                            size="small"
+                                            sx={{ textTransform: 'none', fontWeight: 700 }}
+                                          >
+                                            Stop Timer
+                                          </Button>
+                                        )}
+                                      </Box>
+                                    </Box>
+                                  </Box>
+                                </Grid>
+                              </Grid>
+
+                              {/* Row 3: Technician Remarks */}
+                              <TextField
+                                label="Technician Remarks"
+                                multiline
+                                rows={2}
+                                size="small"
+                                fullWidth
+                                placeholder="Technician notes, observations, recommendations..."
+                                value={technicianRemarks}
+                                onChange={(e) => setTechnicianRemarks(e.target.value)}
+                                sx={{ mt: 1.5, '& .MuiOutlinedInput-root': { fontSize: 12.5 } }}
+                              />
+
+                              {/* Row 4: Document Uploads */}
+                              <Divider sx={{ my: 2, borderColor: '#E4EBE1' }} />
+                              <Typography variant="subtitle2" fontWeight={700} color="#0f172a" gutterBottom>
+                                Documents & Reports
+                              </Typography>
+                
+                              <Grid container spacing={2}>
+                                {/* Initial Checklist */}
+                                <Grid item xs={12} sm={6} md={3}>
+                                  <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1.5, height: '100%', border: initialChecklistFile || selectedComplaint?.initial_checklist_url ? '1px solid #023020' : '1px solid #E4EBE1' }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 1 }}>
+                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                        <FileText color="#023020" fontSize={20} />
+                                        <Typography variant="body2" fontWeight={700} color="#023020">
+                                          Initial Check List
+                                        </Typography>
+                                      </Box>
+                                      {selectedComplaint?.initial_checklist_url && !uploadingInitialChecklist && (
+                                        <Tooltip title="Delete document">
+                                          <IconButton
+                                            size="small"
+                                            onClick={() => handleDeleteDocument('initial_checklist_url')}
+                                            sx={{ color: '#ef4444', '&:hover': { bgcolor: '#fef2f2' } }}
+                                          >
+                                            <TrashIcon fontSize={14} />
+                                          </IconButton>
+                                        </Tooltip>
+                                      )}
+                                    </Box>
+                                    {selectedComplaint?.initial_checklist_url && !initialChecklistFile && (
+                                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mb: 1 }}>
+                                        <Typography variant="caption" color="text.secondary" display="block">
+                                          Uploaded: {selectedComplaint.initial_checklist_url.split('/').pop()}
+                                        </Typography>
+                                        <Box sx={{ display: 'flex', gap: 0.5 }}>
+                                          <Button
+                                            size="small"
+                                            variant="outlined"
+                                            startIcon={<Eye fontSize={12} />}
+                                            onClick={() => window.open(selectedComplaint!.initial_checklist_url!, '_blank')}
+                                            disabled={uploadingInitialChecklist}
+                                          >
+                                            View
+                                          </Button>
+                                          <Button
+                                            size="small"
+                                            variant="outlined"
+                                            startIcon={<Download fontSize={12} />}
+                                            onClick={() => {
+                                              const link = document.createElement('a');
+                                              link.href = selectedComplaint!.initial_checklist_url!;
+                                              link.download = '';
+                                              document.body.appendChild(link);
+                                              link.click();
+                                              document.body.removeChild(link);
+                                            }}
+                                            disabled={uploadingInitialChecklist}
+                                          >
+                                            Download
+                                          </Button>
+                                        </Box>
+                                      </Box>
+                                    )}
+                                    <input
+                                      type="file"
+                                      accept=".pdf,.png,.jpg,.jpeg"
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                          setInitialChecklistFile(file);
+                                          handleInitialChecklistUpload(file);
+                                        }
+                                      }}
+                                      disabled={uploadingInitialChecklist}
+                                      style={{ display: 'none' }}
+                                      id="initial-checklist-upload"
+                                    />
+                                    <Button
+                                      variant={initialChecklistFile || selectedComplaint?.initial_checklist_url ? 'contained' : 'outlined'}
+                                      color="primary"
+                                      size="small"
+                                      startIcon={uploadingInitialChecklist ? <CircularProgress size={16} /> : <Upload fontSize={16} />}
+                                      onClick={() => document.getElementById('initial-checklist-upload')?.click()}
+                                      disabled={uploadingInitialChecklist}
+                                      fullWidth
+                                    >
+                                      {uploadingInitialChecklist ? 'Uploading...' : selectedComplaint?.initial_checklist_url ? 'Replace' : 'Upload'}
+                                    </Button>
+                                  </Paper>
+                                </Grid>
+
+                                {/* Master Checklist */}
+                                <Grid item xs={12} sm={6} md={3}>
+                                  <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1.5, height: '100%', border: masterChecklistFile || selectedComplaint?.master_checklist_url ? '1px solid #023020' : '1px solid #E4EBE1' }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 1 }}>
+                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                        <FileText color="#023020" fontSize={20} />
+                                        <Typography variant="body2" fontWeight={700} color="#023020">
+                                          Master Check List
+                                        </Typography>
+                                      </Box>
+                                      {selectedComplaint?.master_checklist_url && !uploadingMasterChecklist && (
+                                        <Tooltip title="Delete document">
+                                          <IconButton
+                                            size="small"
+                                            onClick={() => handleDeleteDocument('master_checklist_url')}
+                                            sx={{ color: '#ef4444', '&:hover': { bgcolor: '#fef2f2' } }}
+                                          >
+                                            <TrashIcon fontSize={14} />
+                                          </IconButton>
+                                        </Tooltip>
+                                      )}
+                                    </Box>
+                                    {selectedComplaint?.master_checklist_url && !masterChecklistFile && (
+                                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mb: 1 }}>
+                                        <Typography variant="caption" color="text.secondary" display="block">
+                                          Uploaded: {selectedComplaint.master_checklist_url.split('/').pop()}
+                                        </Typography>
+                                        <Box sx={{ display: 'flex', gap: 0.5 }}>
+                                          <Button
+                                            size="small"
+                                            variant="outlined"
+                                            startIcon={<Eye fontSize={12} />}
+                                            onClick={() => window.open(selectedComplaint!.master_checklist_url!, '_blank')}
+                                            disabled={uploadingMasterChecklist}
+                                          >
+                                            View
+                                          </Button>
+                                          <Button
+                                            size="small"
+                                            variant="outlined"
+                                            startIcon={<Download fontSize={12} />}
+                                            onClick={() => {
+                                              const link = document.createElement('a');
+                                              link.href = selectedComplaint!.master_checklist_url!;
+                                              link.download = '';
+                                              document.body.appendChild(link);
+                                              link.click();
+                                              document.body.removeChild(link);
+                                            }}
+                                            disabled={uploadingMasterChecklist}
+                                          >
+                                            Download
+                                          </Button>
+                                        </Box>
+                                      </Box>
+                                    )}
+                                    <input
+                                      type="file"
+                                      accept=".pdf,.png,.jpg,.jpeg"
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                          setMasterChecklistFile(file);
+                                          handleMasterChecklistUpload(file);
+                                        }
+                                      }}
+                                      disabled={uploadingMasterChecklist}
+                                      style={{ display: 'none' }}
+                                      id="master-checklist-upload"
+                                    />
+                                    <Button
+                                      variant={masterChecklistFile || selectedComplaint?.master_checklist_url ? 'contained' : 'outlined'}
+                                      color="primary"
+                                      size="small"
+                                      startIcon={uploadingMasterChecklist ? <CircularProgress size={16} /> : <Upload fontSize={16} />}
+                                      onClick={() => document.getElementById('master-checklist-upload')?.click()}
+                                      disabled={uploadingMasterChecklist}
+                                      fullWidth
+                                    >
+                                      {uploadingMasterChecklist ? 'Uploading...' : selectedComplaint?.master_checklist_url ? 'Replace' : 'Upload'}
+                                    </Button>
+                                  </Paper>
+                                </Grid>
+
+                                {/* Complaints 8D Report */}
+                                <Grid item xs={12} sm={6} md={3}>
+                                  <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1.5, height: '100%', border: complaints8dFile || selectedComplaint?.complaints_8d_url ? '1px solid #023020' : '1px solid #E4EBE1' }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 1 }}>
+                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                        <FileQuestion color="#023020" fontSize={20} />
+                                        <Typography variant="body2" fontWeight={700} color="#023020">
+                                          Complaints 8D
+                                        </Typography>
+                                      </Box>
+                                      {selectedComplaint?.complaints_8d_url && !uploadingComplaints8d && (
+                                        <Tooltip title="Delete document">
+                                          <IconButton
+                                            size="small"
+                                            onClick={() => handleDeleteDocument('complaints_8d_url')}
+                                            sx={{ color: '#ef4444', '&:hover': { bgcolor: '#fef2f2' } }}
+                                          >
+                                            <TrashIcon fontSize={14} />
+                                          </IconButton>
+                                        </Tooltip>
+                                      )}
+                                    </Box>
+                                    {selectedComplaint?.complaints_8d_url && !complaints8dFile && (
+                                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mb: 1 }}>
+                                        <Typography variant="caption" color="text.secondary" display="block">
+                                          Uploaded: {selectedComplaint.complaints_8d_url.split('/').pop()}
+                                        </Typography>
+                                        <Box sx={{ display: 'flex', gap: 0.5 }}>
+                                          <Button
+                                            size="small"
+                                            variant="outlined"
+                                            startIcon={<Eye fontSize={12} />}
+                                            onClick={() => window.open(selectedComplaint!.complaints_8d_url!, '_blank')}
+                                            disabled={uploadingComplaints8d}
+                                          >
+                                            View
+                                          </Button>
+                                          <Button
+                                            size="small"
+                                            variant="outlined"
+                                            startIcon={<Download fontSize={12} />}
+                                            onClick={() => {
+                                              const link = document.createElement('a');
+                                              link.href = selectedComplaint!.complaints_8d_url!;
+                                              link.download = '';
+                                              document.body.appendChild(link);
+                                              link.click();
+                                              document.body.removeChild(link);
+                                            }}
+                                            disabled={uploadingComplaints8d}
+                                          >
+                                            Download
+                                          </Button>
+                                        </Box>
+                                      </Box>
+                                    )}
+                                    <input
+                                      type="file"
+                                      accept=".pdf,.png,.jpg,.jpeg"
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                          setComplaints8dFile(file);
+                                          handleComplaints8DUpload(file);
+                                        }
+                                      }}
+                                      disabled={uploadingComplaints8d}
+                                      style={{ display: 'none' }}
+                                      id="complaints-8d-upload"
+                                    />
+                                    <Button
+                                      variant={complaints8dFile || selectedComplaint?.complaints_8d_url ? 'contained' : 'outlined'}
+                                      color="primary"
+                                      size="small"
+                                      startIcon={uploadingComplaints8d ? <CircularProgress size={16} /> : <Upload fontSize={16} />}
+                                      onClick={() => document.getElementById('complaints-8d-upload')?.click()}
+                                      disabled={uploadingComplaints8d}
+                                      fullWidth
+                                    >
+                                      {uploadingComplaints8d ? 'Uploading...' : selectedComplaint?.complaints_8d_url ? 'Replace' : 'Upload'}
+                                    </Button>
+                                  </Paper>
+                                </Grid>
+
+                                {/* Vehicle Images */}
+                                <Grid item xs={12} sm={6} md={3}>
+                                  <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1.5, height: '100%', border: vehicleImagesFiles.length > 0 || (selectedComplaint?.vehicle_images && JSON.parse(selectedComplaint.vehicle_images).length > 0) ? '1px solid #023020' : '1px solid #E4EBE1' }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 1 }}>
+                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                        <FileImage color="#023020" fontSize={20} />
+                                        <Typography variant="body2" fontWeight={700} color="#023020">
+                                          Vehicle Images
+                                        </Typography>
+                                      </Box>
+                                    </Box>
+                      
+                                    {/* Existing Images */}
+                                    {(() => {
+                                      try {
+                                        const images = selectedComplaint?.vehicle_images ? JSON.parse(selectedComplaint.vehicle_images) : [];
+                                        if (images.length > 0) {
+                                          return (
+                                            <Box sx={{ mb: 1 }}>
+                                              <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
+                                                Existing Images ({images.length})
+                                              </Typography>
+                                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                                                {images.map((imgUrl: string, idx: number) => (
+                                                  <Box key={idx} sx={{ position: 'relative', width: 80, height: 80, borderRadius: 1, overflow: 'hidden', border: '1px solid #E4EBE1' }}>
+                                                    <img
+                                                      src={imgUrl}
+                                                      alt={`Vehicle image ${idx + 1}`}
+                                                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                      onClick={() => window.open(imgUrl, '_blank')}
+                                                    />
+                                                    <IconButton
+                                                      size="small"
+                                                      onClick={() => handleDeleteVehicleImage(imgUrl)}
+                                                      sx={{
+                                                        position: 'absolute',
+                                                        top: 2,
+                                                        right: 2,
+                                                        bgcolor: 'rgba(239, 68, 68, 0.9)',
+                                                        color: 'white',
+                                                        '&:hover': { bgcolor: 'rgba(220, 38, 38, 1)' },
+                                                      }}
+                                                    >
+                                                      <X fontSize={12} />
+                                                    </IconButton>
+                                                  </Box>
+                                                ))}
+                                              </Box>
+                                            </Box>
+                                          );
+                                        }
+                                        return null;
+                                      } catch {
+                                        return null;
+                                      }
+                                    })()}
+
+                                    {/* New Images Preview */}
+                                    {vehicleImagesFiles.length > 0 && (
+                                      <Box sx={{ mb: 1 }}>
+                                        <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
+                                          New Images ({vehicleImagesFiles.length})
+                                        </Typography>
+                                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                                          {vehicleImagesFiles.map((file, idx) => (
+                                            <Box key={idx} sx={{ position: 'relative', width: 80, height: 80, borderRadius: 1, overflow: 'hidden', border: '1px solid #E4EBE1' }}>
+                                              <img
+                                                src={URL.createObjectURL(file)}
+                                                alt={`New image ${idx + 1}`}
+                                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                              />
+                                              <IconButton
+                                                size="small"
+                                                onClick={() => setVehicleImagesFiles(prev => prev.filter((_, i) => i !== idx))}
+                                                sx={{
+                                                  position: 'absolute',
+                                                  top: 2,
+                                                  right: 2,
+                                                  bgcolor: 'rgba(239, 68, 68, 0.9)',
+                                                  color: 'white',
+                                                  '&:hover': { bgcolor: 'rgba(220, 38, 38, 1)' },
+                                                }}
+                                              >
+                                                <X fontSize={12} />
+                                              </IconButton>
+                                            </Box>
+                                          ))}
+                                        </Box>
+                                      </Box>
+                                    )}
+
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      multiple
+                                      onChange={(e) => {
+                                        const files = Array.from(e.target.files || []);
+                                        if (files.length > 0) {
+                                          setVehicleImagesFiles(prev => [...prev, ...files]);
+                                        }
+                                      }}
+                                      disabled={uploadingVehicleImages}
+                                      style={{ display: 'none' }}
+                                      id="vehicle-images-upload"
+                                    />
+                                    <Button
+                                      variant={vehicleImagesFiles.length > 0 ? 'contained' : 'outlined'}
+                                      color="primary"
+                                      size="small"
+                                      startIcon={uploadingVehicleImages ? <CircularProgress size={16} /> : <Upload fontSize={16} />}
+                                      onClick={() => document.getElementById('vehicle-images-upload')?.click()}
+                                      disabled={uploadingVehicleImages}
+                                      fullWidth
+                                    >
+                                      {uploadingVehicleImages ? 'Uploading...' : 'Upload Images'}
+                                    </Button>
+                                  </Paper>
+                                </Grid>
+                              </Grid>
+                            </Paper>
+
+                                          {/* Custom Fields for Manage Dialog */}
                             {manageCustomFields.length > 0 && (
                               <Box sx={{ mt: 1 }}>
                                 <Divider sx={{ mb: 1.5, borderColor: '#E4EBE1' }} />

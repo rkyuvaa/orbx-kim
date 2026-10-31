@@ -17,6 +17,7 @@ import {
   AlertCircle,
   Tag as TagIcon,
   Plus,
+  UserPlus,
 } from 'lucide-react';
 import { format, addDays, nextDay } from 'date-fns';
 import { PTTaskCreate, useGetPersonalTagsQuery, useDeletePersonalTagMutation } from '@/api/personalTasksApi';
@@ -24,6 +25,7 @@ import { PTTaskCreate, useGetPersonalTagsQuery, useDeletePersonalTagMutation } f
 interface PTQuickCaptureProps {
   onQuickAdd: (task: PTTaskCreate) => Promise<void>;
   isLoading?: boolean;
+  onOpenAssignTask?: () => void;
 }
 
 interface ParsedNLP {
@@ -35,7 +37,7 @@ interface ParsedNLP {
   tags: string[];
 }
 
-export default function PTQuickCapture({ onQuickAdd, isLoading }: PTQuickCaptureProps) {
+export default function PTQuickCapture({ onQuickAdd, isLoading, onOpenAssignTask }: PTQuickCaptureProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const [inputVal, setInputVal] = useState('');
@@ -289,6 +291,30 @@ export default function PTQuickCapture({ onQuickAdd, isLoading }: PTQuickCapture
           >
             Add Task
           </Button>
+
+          {onOpenAssignTask && (
+            <Button
+              type="button"
+              variant="contained"
+              onClick={onOpenAssignTask}
+              startIcon={<UserPlus size={16} />}
+              sx={{
+                whiteSpace: 'nowrap',
+                px: 2.5,
+                py: 0.9,
+                borderRadius: 2,
+                textTransform: 'none',
+                fontWeight: 600,
+                backgroundColor: isDark ? '#16C47F' : '#203020',
+                color: isDark ? '#000000' : '#FFFFFF',
+                '&:hover': {
+                  backgroundColor: isDark ? '#14B070' : '#2A402A',
+                },
+              }}
+            >
+              Assign Task
+            </Button>
+          )}
         </Box>
 
         {/* Inline Typeahead when typing '#' */}

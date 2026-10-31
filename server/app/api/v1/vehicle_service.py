@@ -75,9 +75,11 @@ from app.schemas.vehicle_service import (
     VSUniversalComplaintCreate,
     VSVerifyOTPRequest,
     VSVerifyOTPResponse,
-    VSVehicleCreate,
-    VSVehicleOut,
-    VSVehicleUpdate,
+        VSFileUploadResponse,
+        VSVehicleImagesUploadResponse,
+        VSVehicleCreate,
+        VSVehicleOut,
+        VSVehicleUpdate,
     VSCustomFieldTabCreate,
     VSCustomFieldTabUpdate,
     VSCustomFieldTabOut,
@@ -1297,49 +1299,214 @@ def verify_otp(
     )
 
 
-@router.post("/complaints/{complaint_id}/costs", response_model=VSServiceCostOut, status_code=status.HTTP_201_CREATED)
-def add_service_cost(
-    complaint_id: int,
-    payload: VSServiceCostCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    complaint = db.query(VSComplaint).filter(VSComplaint.id == complaint_id).first()
-    if not complaint:
-        raise HTTPException(status_code=404, detail="Complaint not found")
+    # ============================================================================
+    # Service Workflow File Upload Endpoints
+    # ============================================================================
 
-    total = round(payload.quantity * payload.unit_price, 2)
-    cost = VSServiceCost(
-        complaint_id=complaint.id,
-        item_name=payload.item_name,
-        quantity=payload.quantity,
-        unit_price=payload.unit_price,
-        total_price=total,
-    )
-    db.add(cost)
-    db.commit()
-    db.refresh(cost)
-    return VSServiceCostOut.model_validate(cost)
+    @router.post("/complaints/{complaint_id}/initial-checklist", response_model=VSFileUploadResponse)
+    async def upload_initial_checklist(
+        complaint_id: int,
+        file: UploadFile = File(...),
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user),
+    ):
+        """Upload initial checklist PDF/image for a complaint."""
+        complaint = db.query(VSComplaint).filter(VSComplaint.id == complaint_id).first()
+        if not complaint:
+            raise HTTPException(status_code=404, detail="Complaint not found")
+
+        # Validate file type
+        allowed_types = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg']
+        if file.content_type not in allowed_types:
+            raise HTTPException(status_code=400, detail="Only PDF, JPEG, and PNG files are allowed")
+
+        # Upload file (placeholder - implement actual file storage)
+        # For now, we'll save the file to a local uploads directory
+        import os
+        upload_dir = "uploads/vehicle_service/initial_checklists"
+        os.makedirs(upload_dir, exist_ok=True)
+
+        file_extension = os.path.splitext(file.filename)[1]
+        unique_filename = f"{complaint_id}_{uuid.uuid4().hex}{file_extension}"
+        file_path = os.path.join(upload_dir, unique_filename)
+
+        content = await file.read()
+        with open(file_path, "wb") as f:
+            f.write(content)
+
+        # Save URL to complaint
+        file_url = f"/uploads/vehicle_service/initial_checklists/{unique_filename}"
+        complaint.initial_checklist_url = file_url
+        db.commit()
+
+        return VSFileUploadResponse(url=file_url)
 
 
-@router.delete("/complaints/{complaint_id}")
-def delete_complaint(
-    complaint_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Permanently delete a work order / complaint. Only super admin or admin can perform this action."""
-    is_admin = current_user.role == UserRole.ADMIN
-    if not is_admin:
-        from app.services.rbac_service import get_user_active_roles, can_user
-        roles = get_user_active_roles(db, current_user)
-        is_super = any(r.code in ("super_admin", "admin") for r in roles if r and r.code)
-        can_del = can_user(db, current_user, "delete", "complaints") or can_user(db, current_user, "delete", "vehicle_service")
-        if not is_super and not can_del:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only Super Admin or Admin can delete work orders.",
-            )
+        @router.post("/complaints/{complaint_id}/master-checklist", response_model=VSFileUploadResponse)
+        async def upload_master_checklist(
+            complaint_id: int,
+            file: UploadFile = File(...),
+            db: Session = Depends(get_db),
+            current_user: User = Depends(get_current_user),
+        ):
+            """Upload master checklist PDF/image for a complaint."""
+            complaint = db.query(VSComplaint).filter(VSComplaint.id == complaint_id).first()
+            if not complaint:
+                raise HTTPException(status_code=404, detail="Complaint not found")
+
+            # Validate file type
+            allowed_types = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg']
+            if file.content_type not in allowed_types:
+                raise HTTPException(status_code=400, detail="Only PDF, JPEG, and PNG files are allowed")
+
+            import os
+            upload_dir = "uploads/vehicle_service/master_checklists"
+            os.makedirs(upload_dir, exist_ok=True)
+
+            file_extension = os.path.splitext(file.filename)[1]
+            unique_filename = f"{complaint_id}_{uuid.uuid4().hex}{file_extension}"
+            file_path = os.path.join(upload_dir, unique_filename)
+
+            content = await file.read()
+            with open(file_path, "wb") as f:
+                f.write(content)
+
+            file_url = f"/uploads/vehicle_service/master_checklists/{unique_filename}"
+            complaint.master_checklist_url = file_url
+            db.commit()
+
+            return VSFileUploadResponse(url=file_url)
+
+
+        @router.post("/complaints/{complaint_id}/complaints-8d", response_model=VSFileUploadResponse)
+        async def upload_complaints_8d(
+            complaint_id: int,
+            file: UploadFile = File(...),
+            db: Session = Depends(get_db),
+            current_user: User = Depends(get_current_user),
+        ):
+            """Upload 8D complaints report PDF/image for a complaint."""
+            complaint = db.query(VSComplaint).filter(VSComplaint.id == complaint_id).first()
+            if not complaint:
+                raise HTTPException(status_code=404, detail="Complaint not found")
+
+            # Validate file type
+            allowed_types = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg']
+            if file.content_type not in allowed_types:
+                raise HTTPException(status_code=400, detail="Only PDF, JPEG, and PNG files are allowed")
+
+            import os
+            upload_dir = "uploads/vehicle_service/complaints_8d"
+            os.makedirs(upload_dir, exist_ok=True)
+
+            file_extension = os.path.splitext(file.filename)[1]
+            unique_filename = f"{complaint_id}_{uuid.uuid4().hex}{file_extension}"
+            file_path = os.path.join(upload_dir, unique_filename)
+
+            content = await file.read()
+            with open(file_path, "wb") as f:
+                f.write(content)
+
+            file_url = f"/uploads/vehicle_service/complaints_8d/{unique_filename}"
+        complaint.complaints_8d_url = file_url
+        db.commit()
+
+        return VSFileUploadResponse(url=file_url)
+
+
+        @router.post("/complaints/{complaint_id}/vehicle-images", response_model=VSVehicleImagesUploadResponse)
+        async def upload_vehicle_images(
+            complaint_id: int,
+            files: List[UploadFile] = File(...),
+            db: Session = Depends(get_db),
+            current_user: User = Depends(get_current_user),
+        ):
+            """Upload multiple vehicle images for a complaint."""
+            complaint = db.query(VSComplaint).filter(VSComplaint.id == complaint_id).first()
+            if not complaint:
+                raise HTTPException(status_code=404, detail="Complaint not found")
+
+            # Validate file types
+            allowed_types = ['image/jpeg', 'image/png', 'image/jpg']
+            for file in files:
+                if file.content_type not in allowed_types:
+                    raise HTTPException(status_code=400, detail="Only JPEG and PNG images are allowed")
+
+            import os
+            import json
+            upload_dir = "uploads/vehicle_service/vehicle_images"
+            os.makedirs(upload_dir, exist_ok=True)
+
+            urls = []
+            for file in files:
+                file_extension = os.path.splitext(file.filename)[1]
+                unique_filename = f"{complaint_id}_{uuid.uuid4().hex}{file_extension}"
+                file_path = os.path.join(upload_dir, unique_filename)
+
+                content = await file.read()
+                with open(file_path, "wb") as f:
+                    f.write(content)
+
+                file_url = f"/uploads/vehicle_service/vehicle_images/{unique_filename}"
+                urls.append(file_url)
+
+            # Store as JSON array in vehicle_images field
+            existing_images = json.loads(complaint.vehicle_images) if complaint.vehicle_images else []
+            existing_images.extend(urls)
+            complaint.vehicle_images = json.dumps(existing_images)
+            db.commit()
+
+            return VSVehicleImagesUploadResponse(urls=urls)
+
+
+        @router.post("/complaints/{complaint_id}/costs", response_model=VSServiceCostOut, status_code=status.HTTP_201_CREATED)
+        def add_service_cost(
+            complaint_id: int,
+            payload: VSServiceCostCreate,
+            db: Session = Depends(get_db),
+            current_user: User = Depends(get_current_user),
+        ):
+            complaint = db.query(VSComplaint).filter(VSComplaint.id == complaint_id).first()
+            if not complaint:
+                raise HTTPException(status_code=404, detail="Complaint not found")
+
+                total = round(payload.quantity * payload.unit_price, 2)
+                cost = VSServiceCost(
+                    complaint_id=complaint.id,
+                    item_name=payload.item_name,
+                    quantity=payload.quantity,
+                    unit_price=payload.unit_price,
+                    total_price=total,
+                )
+                db.add(cost)
+                db.commit()
+                db.refresh(cost)
+                return VSServiceCostOut.model_validate(cost)
+
+
+            @router.delete("/complaints/{complaint_id}")
+            def delete_complaint(
+                complaint_id: int,
+                db: Session = Depends(get_db),
+                current_user: User = Depends(get_current_user),
+            ):
+                """Permanently delete a work order / complaint. Only super admin or admin can perform this action."""
+                is_admin = current_user.role == UserRole.ADMIN
+                if not is_admin:
+                    from app.services.rbac_service import get_user_active_roles, can_user
+                    roles = get_user_active_roles(db, current_user)
+                    is_super = any(r.code in ("super_admin", "admin") for r in roles if r and r.code)
+                    can_del = can_user(db, current_user, "delete", "complaints") or can_user(db, current_user, "delete", "vehicle_service")
+                    if not is_super and not can_del:
+                        raise HTTPException(
+                            status_code=status.HTTP_403_FORBIDDEN,
+                            detail="Only Super Admin or Admin can delete work orders.",
+                        )
+                if not is_super and not can_del:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Only Super Admin or Admin can delete work orders.",
+                    )
 
     complaint = db.query(VSComplaint).filter(VSComplaint.id == complaint_id).first()
     if not complaint:

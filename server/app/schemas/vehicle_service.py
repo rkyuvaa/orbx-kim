@@ -369,6 +369,20 @@ class VSComplaintOut(BaseModel):
     otp_expires_at: Optional[datetime] = None
     otp_verified: bool = False
 
+    # New service workflow fields
+    est_delivery_date: Optional[date] = None
+    initial_checklist_url: Optional[str] = None
+    can_data_collected: bool = False
+    master_checklist_url: Optional[str] = None
+    complaints_8d_url: Optional[str] = None
+    technician_remarks: Optional[str] = None
+    vehicle_images: Optional[str] = None
+    odometer_reading: Optional[float] = None
+    timer_started_at: Optional[datetime] = None
+    timer_ended_at: Optional[datetime] = None
+    service_hours: Optional[float] = None
+    service_type: str = "GENERAL"
+
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -393,6 +407,18 @@ class VSVerifyOTPRequest(BaseModel):
 class VSVerifyOTPResponse(BaseModel):
     success: bool
     message: str
+
+
+# ============================================================================
+# Service Workflow File Uploads
+# ============================================================================
+
+class VSFileUploadResponse(BaseModel):
+    url: str
+
+
+class VSVehicleImagesUploadResponse(BaseModel):
+    urls: List[str]
 
 
 # ============================================================================

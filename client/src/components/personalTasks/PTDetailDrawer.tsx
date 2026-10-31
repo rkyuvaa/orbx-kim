@@ -11,6 +11,7 @@ import {
   Tabs,
   Tab,
   Chip,
+  Paper,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -55,6 +56,7 @@ import PTAuditLog from './PTAuditLog';
 import PTReminderPanel from './PTReminderPanel';
 import AutoSaveStatusBadge from '@/components/common/AutoSaveStatusBadge';
 import { useAutoSave } from '@/hooks/useAutoSave';
+import { useAppSelector } from '@/app/hooks';
 
 const formatDisplayDate = (dateStr?: string, fallback?: string): string => {
   if (dateStr) {
@@ -142,6 +144,7 @@ export default function PTDetailDrawer({
 }: PTDetailDrawerProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
+  const currentUser = useAppSelector((state) => state.auth.user);
 
   const { data: existingTags = [] } = useGetPersonalTagsQuery();
 
@@ -407,6 +410,64 @@ export default function PTDetailDrawer({
           <Box sx={{ flex: 1, overflowY: 'auto', p: { xs: 2, sm: 2.5 }, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
             {activeTab === 'details' && (
               <>
+                {/* Assignment & Ownership Metadata */}
+                {(task.assignee_id || task.created_by) && (
+                  <Paper
+                    elevation={0}
+                    sx={{
+                      p: 1.5,
+                      borderRadius: 2,
+                      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : '#F8FAF8',
+                      border: '1px solid',
+                      borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#E2E8F0',
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      alignItems: 'center',
+                      gap: 2,
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography variant="caption" sx={{ color: isDark ? '#94A3B8' : '#64748B', fontWeight: 600 }}>
+                        Created By:
+                      </Typography>
+                      <Chip
+                        size="small"
+                        label={
+                          task.created_by_name ||
+                          (task.created_by === currentUser?.id ? 'You' : `User #${task.created_by}`)
+                        }
+                        sx={{ height: 22, fontSize: '0.72rem', fontWeight: 600 }}
+                      />
+                    </Box>
+
+                    {(task.assignee_name || (task.assignees && task.assignees[0]?.full_name)) && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography variant="caption" sx={{ color: isDark ? '#94A3B8' : '#64748B', fontWeight: 600 }}>
+                          Assigned To:
+                        </Typography>
+                        <Chip
+                          size="small"
+                          color="primary"
+                          variant="outlined"
+                          label={task.assignee_name || task.assignees?.[0]?.full_name}
+                          sx={{ height: 22, fontSize: '0.72rem', fontWeight: 600 }}
+                        />
+                      </Box>
+                    )}
+
+                    {task.assigned_at && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography variant="caption" sx={{ color: isDark ? '#94A3B8' : '#64748B', fontWeight: 600 }}>
+                          Assigned Date:
+                        </Typography>
+                        <Typography variant="caption" sx={{ fontWeight: 600, color: isDark ? '#E2E8F0' : '#1E293B' }}>
+                          {format(parseISO(task.assigned_at), 'dd/MM/yyyy, hh:mm a')}
+                        </Typography>
+                      </Box>
+                    )}
+                  </Paper>
+                )}
+
                 {/* Title */}
                 <TextField
                   label="Task Title"

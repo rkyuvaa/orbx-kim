@@ -1,10 +1,18 @@
 from datetime import date, datetime
 from typing import TYPE_CHECKING, List, Optional
+from enum import Enum as PyEnum
 
-from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, Numeric, String, Text, func
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, Numeric, String, Text, func, Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+
+
+class ServiceType(str, PyEnum):
+    FREE = "FREE"
+    GENERAL = "GENERAL"
+    PAID = "PAID"
+
 
 if TYPE_CHECKING:
     from app.models.user import User
@@ -151,6 +159,21 @@ class VSComplaint(Base):
     otp_code: Mapped[Optional[str]] = mapped_column(String(6), nullable=True)
     otp_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     otp_verified: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0", nullable=False)
+
+    # New fields for service workflow
+    est_delivery_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    initial_checklist_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    can_data_collected: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0", nullable=False)
+    master_checklist_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    complaints_8d_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    technician_remarks: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    vehicle_images: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # JSON array of image URLs
+    odometer_reading: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    timer_started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    timer_ended_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    service_hours: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    service_type: Mapped[ServiceType] = mapped_column(SQLEnum(ServiceType), default=ServiceType.GENERAL, nullable=False, index=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

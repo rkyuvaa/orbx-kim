@@ -555,8 +555,15 @@ def _format_task_out(
         out.task_number = _unpad_task_number(out.task_number)
     out.project_name = t.project.name if t.project else None
     out.task_list_name = t.task_list.name if t.task_list else None
+    out.assignee_id = t.assignee_id
     out.assignee_name = t.assignee.full_name if t.assignee else None
+    out.created_by = t.created_by
     out.created_by_name = t.creator.full_name if t.creator else None
+    if t.assignees and len(t.assignees) > 0:
+        first_a = t.assignees[0]
+        out.assigned_at = first_a.assigned_at
+        out.assigned_by = first_a.assigned_by
+        out.assigned_by_name = first_a.assigner.full_name if first_a.assigner else None
     if t.is_completed:
         out.status_name = "Completed"
         out.status_color = "#16C47F"

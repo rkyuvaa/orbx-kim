@@ -198,7 +198,11 @@ export interface TaskItem {
   estimated_hours?: number;
   actual_minutes: number;
   actual_hours?: number;
+  assignee_id?: number;
   assignee_name?: string;
+  assigned_at?: string;
+  assigned_by?: number;
+  assigned_by_name?: string;
   override_dependencies?: boolean;
   progress_percentage: number;
   is_completed: boolean;

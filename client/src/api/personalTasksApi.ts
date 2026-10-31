@@ -49,8 +49,20 @@ export interface PTTaskFilters {
   include_archived?: boolean;
   start_date?: string;
   due_date?: string;
+  assigned_only?: boolean;
+  assignee_id?: number;
   limit?: number;
   offset?: number;
+}
+
+export interface PersonalTaskAssignCreate {
+  title: string;
+  description?: string;
+  assignee_id: number;
+  priority?: TaskPriority;
+  start_date?: string;
+  due_date?: string;
+  estimated_hours?: number;
 }
 
 export interface PTTaskCreate {
@@ -217,6 +229,18 @@ export const personalTasksApi = baseApi.injectEndpoints({
     createPersonalTask: build.mutation<PTTask, PTTaskCreate>({
       query: (body) => ({
         url: '/tasks/personal/create',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: [
+        { type: 'PersonalTasks', id: 'LIST' },
+        { type: 'PersonalTasks', id: 'TAGS' },
+      ],
+    }),
+
+    assignPersonalTask: build.mutation<PTTask, PersonalTaskAssignCreate>({
+      query: (body) => ({
+        url: '/tasks/personal/assign',
         method: 'POST',
         body,
       }),
@@ -490,6 +514,7 @@ export const personalTasksApi = baseApi.injectEndpoints({
 export const {
   useGetPersonalTasksQuery,
   useCreatePersonalTaskMutation,
+  useAssignPersonalTaskMutation,
   useUpdatePersonalTaskMutation,
   useDeletePersonalTaskMutation,
   useArchivePersonalTaskMutation,

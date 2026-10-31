@@ -270,6 +270,20 @@ export interface VSComplaintUpdate {
   assigned_to_id?: number;
   affected_component_id?: number;
   resolution_summary?: string;
+  
+  // New service workflow fields
+  est_delivery_date?: string;
+  initial_checklist_url?: string;
+  can_data_collected?: boolean;
+  master_checklist_url?: string;
+  complaints_8d_url?: string;
+  technician_remarks?: string;
+  vehicle_images?: string;
+  odometer_reading?: number;
+  timer_started_at?: string;
+  timer_ended_at?: string;
+  service_hours?: number;
+  service_type?: ServiceType;
 }
 
 export interface VSComplaintCloseRequest {
@@ -512,7 +526,9 @@ export interface VSVerifyOTPResponse {
   message: string;
 }
 
-// Update VSComplaint to include custom_field_values
+// Service Type enum
+export type ServiceType = 'FREE' | 'GENERAL' | 'PAID';
+
 export interface VSComplaint {
   id: number;
   complaint_no: string;
@@ -539,6 +555,21 @@ export interface VSComplaint {
   resolved_at: string | null;
   closed_at: string | null;
   resolution_summary: string | null;
+  
+  // New service workflow fields
+  est_delivery_date: string | null;
+  initial_checklist_url: string | null;
+  can_data_collected: boolean;
+  master_checklist_url: string | null;
+  complaints_8d_url: string | null;
+  technician_remarks: string | null;
+  vehicle_images: string | null;  // JSON array of image URLs
+  odometer_reading: number | null;
+  timer_started_at: string | null;
+  timer_ended_at: string | null;
+  service_hours: number | null;
+  service_type: ServiceType;
+  
   created_at: string;
   updated_at: string;
   notes: VSComplaintNote[];

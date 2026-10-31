@@ -21,7 +21,8 @@ from app.schemas.projects import (
     TaskActivityOut, CancelTaskRequest, PersonalSettingsOut, PersonalSettingsUpdate,
     PersonalReminderCreate, PersonalReminderOut, PersonalTemplateCreate, PersonalTemplateOut,
     WorkloadSummaryOut, WorkloadDailyItem, WorkloadRiskTask, MyDaySummaryOut, WeeklyReviewOut,
-    TaskLogNoteCreate, TaskLogNoteOut
+    TaskLogNoteCreate, TaskLogNoteOut,
+    PersonalTaskAssignCreate
 )
 from app.core.deps import get_current_user, require_permission
 from app.core.time_utils import get_local_now, to_local_datetime
@@ -116,6 +117,8 @@ def get_personal_tasks(
     include_archived: bool = Query(False),
     start_date: Optional[date] = Query(None),
     due_date: Optional[date] = Query(None),
+    assigned_only: bool = Query(False),
+    assignee_id: Optional[int] = Query(None),
     limit: Optional[int] = Query(None),
     offset: Optional[int] = Query(0),
     db: Session = Depends(get_db),
@@ -124,9 +127,19 @@ def get_personal_tasks(
     """Get personal tasks with full filtering"""
     query = db.query(Task).filter(
         Task.is_personal.is_(True),
-        Task.created_by == current_user.id,
+        or_(
+            Task.created_by == current_user.id,
+            Task.assignee_id == current_user.id,
+            Task.assignees.any(TaskAssignee.user_id == current_user.id)
+        ),
         Task.is_deleted.is_(False)
     )
+
+    if assigned_only:
+        query = query.filter(Task.created_by == current_user.id, Task.assignee_id.isnot(None), Task.assignee_id != current_user.id)
+
+    if assignee_id is not None:
+        query = query.filter(Task.assignee_id == assignee_id)
 
     if not include_archived:
         query = query.filter(Task.is_archived.is_(False))
@@ -277,6 +290,104 @@ def create_personal_task(
     return _format_task_out(task, db)
 
 
+@router.post("/assign", response_model=TaskOut, status_code=status.HTTP_201_CREATED)
+def assign_personal_task(
+    data: PersonalTaskAssignCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Assign a task to another registered user with full activity logging and deduplication safeguard"""
+    if not data.title or not data.title.strip():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Task title is mandatory")
+
+    assigned_user = db.query(User).filter(User.id == data.assignee_id, User.is_active.is_(True)).first()
+    if not assigned_user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assigned user not found or inactive")
+
+    now_local = get_local_now()
+
+    # Deduplication safeguard: check if identical task was created by current_user within last 5 seconds
+    five_sec_ago = now_local - timedelta(seconds=5)
+    existing_dup = db.query(Task).filter(
+        Task.is_personal.is_(True),
+        Task.created_by == current_user.id,
+        Task.assignee_id == data.assignee_id,
+        Task.title == data.title.strip(),
+        Task.created_at >= five_sec_ago,
+        Task.is_deleted.is_(False)
+    ).first()
+    if existing_dup:
+        return _format_task_out(existing_dup, db)
+
+    start_dt = data.start_date or now_local.date()
+    task_num = _generate_personal_task_number(db, data.assignee_id)
+
+    est_hours = max(0.0, float(data.estimated_hours or 0.0))
+    est_mins = int(est_hours * 60)
+
+    task = Task(
+        task_number=task_num,
+        is_personal=True,
+        project_id=None,
+        phase_id=None,
+        parent_task_id=None,
+        milestone_id=None,
+        title=data.title.strip(),
+        description=data.description,
+        type_id=None,
+        status_id=1,
+        priority=data.priority or TaskPriority.NORMAL,
+        assignee_id=data.assignee_id,
+        created_by=current_user.id,
+        updated_by=current_user.id,
+        start_date=start_dt,
+        due_date=data.due_date,
+        planned_date=data.due_date,
+        estimated_minutes=est_mins,
+        estimated_hours=est_hours,
+        is_completed=False,
+        is_archived=False,
+        is_deleted=False
+    )
+
+    first_status = db.query(TaskStatusDef).filter(TaskStatusDef.is_active.is_(True)).order_by(TaskStatusDef.display_order).first()
+    if first_status:
+        task.status_id = first_status.id
+
+    db.add(task)
+    db.commit()
+    db.refresh(task)
+
+    # Add TaskAssignee record
+    task_assignee = TaskAssignee(
+        task_id=task.id,
+        user_id=data.assignee_id,
+        assigned_by=current_user.id,
+        assigned_at=now_local
+    )
+    db.add(task_assignee)
+
+    # Activity Log
+    _log_pt_activity(db, task.id, current_user.id, "CREATED", new_val=task.title, source="user")
+    _log_pt_activity(db, task.id, current_user.id, "ASSIGNED", field_name="assignee_id", new_val=str(data.assignee_id), source="user")
+
+    # Task Log Note
+    timestamp_str = now_local.strftime("%d/%m/%Y, %I:%M %p")
+    assignee_name = assigned_user.full_name or assigned_user.username or "Employee"
+    creator_name = current_user.full_name or current_user.username or "User"
+    log_note = TaskLogNote(
+        task_id=task.id,
+        user_id=current_user.id,
+        note=f"Task created and assigned to {assignee_name} by {creator_name} - {timestamp_str}",
+        created_at=now_local,
+    )
+    db.add(log_note)
+
+    db.commit()
+    db.refresh(task)
+    return _format_task_out(task, db)
+
+
 @router.put("/{task_id}", response_model=TaskOut)
 @router.patch("/{task_id}", response_model=TaskOut)
 def update_personal_task(
@@ -289,7 +400,11 @@ def update_personal_task(
     task = db.query(Task).filter(
         Task.id == task_id,
         Task.is_personal.is_(True),
-        Task.created_by == current_user.id,
+        or_(
+            Task.created_by == current_user.id,
+            Task.assignee_id == current_user.id,
+            Task.assignees.any(TaskAssignee.user_id == current_user.id)
+        ),
         Task.is_deleted.is_(False)
     ).first()
 
@@ -309,6 +424,9 @@ def update_personal_task(
         del update_dict['start_date']
 
     old_due = task.due_date
+    old_assignee_id = task.assignee_id
+    old_progress = task.progress_percentage
+    old_status_id = task.status_id
 
     # Apply changes and log audit
     for key, val in update_dict.items():
@@ -337,6 +455,37 @@ def update_personal_task(
     # Recalculate estimated_minutes if estimated_hours changed
     if 'estimated_hours' in update_dict and update_dict['estimated_hours'] is not None:
         task.estimated_minutes = int(float(update_dict['estimated_hours']) * 60)
+
+    # Assignment change logging
+    if 'assignee_id' in update_dict and task.assignee_id != old_assignee_id:
+        old_u = db.get(User, old_assignee_id) if old_assignee_id else None
+        new_u = db.get(User, task.assignee_id) if task.assignee_id else None
+        old_name = old_u.full_name if old_u else "Unassigned"
+        new_name = new_u.full_name if new_u else "Unassigned"
+        db.query(TaskAssignee).filter(TaskAssignee.task_id == task.id).delete()
+        now_local = get_local_now()
+        if task.assignee_id:
+            db.add(TaskAssignee(task_id=task.id, user_id=task.assignee_id, assigned_by=current_user.id, assigned_at=now_local))
+        _log_pt_activity(db, task.id, current_user.id, "ASSIGNMENT_CHANGED", field_name="assignee_id", old_val=str(old_assignee_id), new_val=str(task.assignee_id), source="user")
+        timestamp_str = now_local.strftime("%d/%m/%Y, %I:%M %p")
+        db.add(TaskLogNote(
+            task_id=task.id,
+            user_id=current_user.id,
+            note=f"Assignment changed from {old_name} to {new_name} by {current_user.full_name or 'User'} - {timestamp_str}",
+            created_at=now_local,
+        ))
+
+    # Progress change logging
+    if 'progress_percentage' in update_dict and task.progress_percentage != old_progress:
+        _log_pt_activity(db, task.id, current_user.id, "PROGRESS_UPDATED", field_name="progress_percentage", old_val=f"{old_progress}%", new_val=f"{task.progress_percentage}%", source="user")
+        now_local = get_local_now()
+        timestamp_str = now_local.strftime("%d/%m/%Y, %I:%M %p")
+        db.add(TaskLogNote(
+            task_id=task.id,
+            user_id=current_user.id,
+            note=f"Progress updated to {task.progress_percentage}% by {current_user.full_name or 'User'} - {timestamp_str}",
+            created_at=now_local,
+        ))
 
     # Handle completion status (via is_completed flag OR completed status_id)
     is_completion_requested = False
@@ -416,6 +565,22 @@ def update_personal_task(
             created_at=now_local,
         ))
 
+    # General Status change logging (when not completed/reopened)
+    elif 'status_id' in update_dict and task.status_id != old_status_id and not is_completion_requested and not is_reopen_requested:
+        old_s = db.get(TaskStatusDef, old_status_id) if old_status_id else None
+        new_s = db.get(TaskStatusDef, task.status_id) if task.status_id else None
+        old_s_name = old_s.name if old_s else "Unknown"
+        new_s_name = new_s.name if new_s else "Unknown"
+        _log_pt_activity(db, task.id, current_user.id, "STATUS_CHANGED", field_name="status_id", old_val=old_s_name, new_val=new_s_name, source="user")
+        now_local = get_local_now()
+        timestamp_str = now_local.strftime("%d/%m/%Y, %I:%M %p")
+        db.add(TaskLogNote(
+            task_id=task.id,
+            user_id=current_user.id,
+            note=f"Task status changed to {new_s_name} by {current_user.full_name or 'User'} - {timestamp_str}",
+            created_at=now_local,
+        ))
+
     # Tags handling
     if data.tag_ids is not None or data.tag_names is not None:
         db.query(TaskTagMap).filter(TaskTagMap.task_id == task.id).delete()
@@ -455,7 +620,11 @@ def delete_personal_task(
     task = db.query(Task).filter(
         Task.id == task_id,
         Task.is_personal.is_(True),
-        Task.created_by == current_user.id,
+        or_(
+            Task.created_by == current_user.id,
+            Task.assignee_id == current_user.id,
+            Task.assignees.any(TaskAssignee.user_id == current_user.id)
+        ),
         Task.is_deleted.is_(False)
     ).first()
 
@@ -531,7 +700,11 @@ def cancel_personal_task(
     task = db.query(Task).filter(
         Task.id == task_id,
         Task.is_personal.is_(True),
-        Task.created_by == current_user.id,
+        or_(
+            Task.created_by == current_user.id,
+            Task.assignee_id == current_user.id,
+            Task.assignees.any(TaskAssignee.user_id == current_user.id)
+        ),
         Task.is_deleted.is_(False)
     ).first()
     if not task:
@@ -567,7 +740,11 @@ def reopen_personal_task(
     task = db.query(Task).filter(
         Task.id == task_id,
         Task.is_personal.is_(True),
-        Task.created_by == current_user.id,
+        or_(
+            Task.created_by == current_user.id,
+            Task.assignee_id == current_user.id,
+            Task.assignees.any(TaskAssignee.user_id == current_user.id)
+        ),
         Task.is_deleted.is_(False)
     ).first()
     if not task:
@@ -587,6 +764,7 @@ def reopen_personal_task(
         task.status_id = todo_status.id
 
     _log_pt_activity(db, task.id, current_user.id, "REOPENED", source="user")
+    now_local = get_local_now()
     timestamp_str = now_local.strftime("%d/%m/%Y, %I:%M %p")
     db.add(TaskLogNote(
         task_id=task.id,
@@ -660,7 +838,11 @@ def start_personal_timer(
     task = db.query(Task).filter(
         Task.id == task_id,
         Task.is_personal.is_(True),
-        Task.created_by == current_user.id,
+        or_(
+            Task.created_by == current_user.id,
+            Task.assignee_id == current_user.id,
+            Task.assignees.any(TaskAssignee.user_id == current_user.id)
+        ),
         Task.is_deleted.is_(False)
     ).first()
     if not task:
@@ -792,7 +974,11 @@ def add_personal_manual_time_entry(
     task = db.query(Task).filter(
         Task.id == task_id,
         Task.is_personal.is_(True),
-        Task.created_by == current_user.id,
+        or_(
+            Task.created_by == current_user.id,
+            Task.assignee_id == current_user.id,
+            Task.assignees.any(TaskAssignee.user_id == current_user.id)
+        ),
         Task.is_deleted.is_(False)
     ).first()
     if not task:

@@ -344,6 +344,16 @@ class TaskBase(BaseModel):
     parent_due_follows_subtasks: Optional[bool] = True
 
 
+class PersonalTaskAssignCreate(BaseModel):
+    title: str = Field(..., min_length=1, max_length=250)
+    description: Optional[str] = None
+    assignee_id: int = Field(..., description="Target registered user ID")
+    priority: TaskPriority = TaskPriority.NORMAL
+    start_date: Optional[date] = None
+    due_date: Optional[date] = None
+    estimated_hours: Optional[float] = 0.0
+
+
 class TaskCreate(TaskBase):
     project_id: Optional[int] = None
     parent_task_id: Optional[int] = None
@@ -473,6 +483,9 @@ class TaskOut(TaskBase):
     rollup_actual_cost: float = 0.0
 
     assignee_name: Optional[str] = None
+    assigned_at: Optional[datetime] = None
+    assigned_by: Optional[int] = None
+    assigned_by_name: Optional[str] = None
     cost_center_code: Optional[str] = None
     cost_center_name: Optional[str] = None
     department_name: Optional[str] = None

@@ -36,6 +36,7 @@ import type {
   VSSendOTPResponse,
   VSVerifyOTPRequest,
   VSVerifyOTPResponse,
+  ServiceType,
 } from '@/types/vehicleService';
 
 export const vehicleServiceApi = baseApi.injectEndpoints({
@@ -196,7 +197,57 @@ export const vehicleServiceApi = baseApi.injectEndpoints({
       invalidatesTags: ['VSComplaints', 'VSDashboard'],
     }),
 
-    // Maintenance Schedules
+        // Service Workflow File Uploads
+        uploadInitialChecklist: build.mutation<{ url: string }, { complaintId: number; file: File }>({
+          query: ({ complaintId, file }) => {
+            const formData = new FormData();
+            formData.append('file', file);
+            return {
+              url: `/vehicle-service/complaints/${complaintId}/initial-checklist`,
+              method: 'POST',
+              body: formData,
+            };
+          },
+          invalidatesTags: ['VSComplaints'],
+        }),
+        uploadMasterChecklist: build.mutation<{ url: string }, { complaintId: number; file: File }>({
+          query: ({ complaintId, file }) => {
+            const formData = new FormData();
+            formData.append('file', file);
+            return {
+              url: `/vehicle-service/complaints/${complaintId}/master-checklist`,
+              method: 'POST',
+              body: formData,
+            };
+          },
+          invalidatesTags: ['VSComplaints'],
+        }),
+        uploadComplaints8D: build.mutation<{ url: string }, { complaintId: number; file: File }>({
+          query: ({ complaintId, file }) => {
+            const formData = new FormData();
+            formData.append('file', file);
+            return {
+              url: `/vehicle-service/complaints/${complaintId}/complaints-8d`,
+              method: 'POST',
+              body: formData,
+            };
+          },
+          invalidatesTags: ['VSComplaints'],
+        }),
+        uploadVehicleImages: build.mutation<{ urls: string[] }, { complaintId: number; files: File[] }>({
+          query: ({ complaintId, files }) => {
+            const formData = new FormData();
+            files.forEach(file => formData.append('files', file));
+            return {
+              url: `/vehicle-service/complaints/${complaintId}/vehicle-images`,
+              method: 'POST',
+              body: formData,
+            };
+          },
+          invalidatesTags: ['VSComplaints'],
+        }),
+
+        // Maintenance Schedules
     getVSMaintenance: build.query<VSMaintenanceSchedule[], { vehicle_id?: number; status?: string } | void>({
       query: (params) => {
         const queryParams = new URLSearchParams();
@@ -384,6 +435,11 @@ export const {
   useGetCustomFieldValuesForComplaintQuery,
   useUpsertCustomFieldValuesForComplaintMutation,
   useUploadCustomFieldFileMutation,
-    useSendVSComplaintOTPMutation,
-    useVerifyVSComplaintOTPMutation,
-  } = vehicleServiceApi;
+  useSendVSComplaintOTPMutation,
+  useVerifyVSComplaintOTPMutation,
+  // Service Workflow File Uploads
+  useUploadInitialChecklistMutation,
+  useUploadMasterChecklistMutation,
+  useUploadComplaints8DMutation,
+  useUploadVehicleImagesMutation,
+} = vehicleServiceApi;
