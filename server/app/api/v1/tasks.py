@@ -1488,6 +1488,13 @@ def update_personal_task(
             if not task.due_time and not getattr(data, "due_time", None):
                 task.due_time = get_local_now().strftime("%H:%M")
             spawn_next_recurring_task(db, task, current_user.id)
+            timestamp_str = get_local_now().strftime("%d/%m/%Y, %I:%M %p")
+            db.add(TaskLogNote(
+                task_id=task.id,
+                user_id=current_user.id,
+                note=f"Task status changed to Completed {timestamp_str}",
+                created_at=get_local_now(),
+            ))
         elif not data.is_completed and task.is_completed:
             task.is_completed = False
             task.completed_at = None
@@ -1854,6 +1861,13 @@ def update_task(
         task.progress_percentage = 100.0
             
         spawn_next_recurring_task(db, task, current_user.id)
+        timestamp_str = get_local_now().strftime("%d/%m/%Y, %I:%M %p")
+        db.add(TaskLogNote(
+            task_id=task.id,
+            user_id=current_user.id,
+            note=f"Task status changed to Completed {timestamp_str}",
+            created_at=get_local_now(),
+        ))
 
         # Notify downstream dependent tasks that they are unblocked
         dependents = db.query(TaskDependency).filter(TaskDependency.depends_on_task_id == task.id).all()

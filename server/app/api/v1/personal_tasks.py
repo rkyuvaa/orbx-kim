@@ -382,6 +382,13 @@ def update_personal_task(
             task.status_id = done_status.id
 
         _log_pt_activity(db, task.id, current_user.id, "COMPLETED", source="user")
+        timestamp_str = now_local.strftime("%d/%m/%Y, %I:%M %p")
+        db.add(TaskLogNote(
+            task_id=task.id,
+            user_id=current_user.id,
+            note=f"Task status changed to Completed {timestamp_str}",
+            created_at=now_local,
+        ))
         db.query(PersonalReminder).filter(
             PersonalReminder.task_id == task.id,
             PersonalReminder.status == "pending"
@@ -401,6 +408,13 @@ def update_personal_task(
         if todo_status:
             task.status_id = todo_status.id
         _log_pt_activity(db, task.id, current_user.id, "REOPENED", source="user")
+        timestamp_str = now_local.strftime("%d/%m/%Y, %I:%M %p")
+        db.add(TaskLogNote(
+            task_id=task.id,
+            user_id=current_user.id,
+            note=f"Task status changed to Reopened {timestamp_str}",
+            created_at=now_local,
+        ))
 
     # Tags handling
     if data.tag_ids is not None or data.tag_names is not None:
@@ -573,6 +587,13 @@ def reopen_personal_task(
         task.status_id = todo_status.id
 
     _log_pt_activity(db, task.id, current_user.id, "REOPENED", source="user")
+    timestamp_str = now_local.strftime("%d/%m/%Y, %I:%M %p")
+    db.add(TaskLogNote(
+        task_id=task.id,
+        user_id=current_user.id,
+        note=f"Task status changed to Reopened {timestamp_str}",
+        created_at=now_local,
+    ))
     db.add(task)
     db.commit()
     db.refresh(task)

@@ -236,6 +236,8 @@ export const personalTasksApi = baseApi.injectEndpoints({
         { type: 'PersonalTasks', id },
         { type: 'PersonalTasks', id: 'LIST' },
         { type: 'PersonalTasks', id: 'TAGS' },
+        { type: 'PersonalTasks', id: `log-notes-${id}` },
+        { type: 'PersonalTasks', id: `audit-${id}` },
       ],
     }),
 
@@ -283,6 +285,8 @@ export const personalTasksApi = baseApi.injectEndpoints({
       invalidatesTags: (_res, _err, id) => [
         { type: 'PersonalTasks', id },
         { type: 'PersonalTasks', id: 'LIST' },
+        { type: 'PersonalTasks', id: `log-notes-${id}` },
+        { type: 'PersonalTasks', id: `audit-${id}` },
       ],
     }),
 
