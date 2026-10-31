@@ -1,4 +1,6 @@
 import json
+import random
+import string
 import urllib.request
 import uuid
 from datetime import UTC, date, datetime, timedelta
@@ -66,9 +68,13 @@ from app.schemas.vehicle_service import (
     VSPublicVehicleInfo,
     VSServiceCostCreate,
     VSServiceCostOut,
+    VSSendOTPRequest,
+    VSSendOTPResponse,
     VSSeverityCount,
     VSStatusCount,
     VSUniversalComplaintCreate,
+    VSVerifyOTPRequest,
+    VSVerifyOTPResponse,
     VSVehicleCreate,
     VSVehicleOut,
     VSVehicleUpdate,
@@ -1163,6 +1169,13 @@ def close_complaint(
     if not complaint:
         raise HTTPException(status_code=404, detail="Complaint not found")
 
+    # Check OTP verification before closing
+    if not complaint.otp_verified:
+        raise HTTPException(
+            status_code=400,
+            detail="OTP verification required before closing work order",
+        )
+
     complaint.status = ComplaintStatus.CLOSED
     complaint.closed_at = datetime.now(UTC)
     complaint.resolution_summary = payload.resolution_summary
@@ -1192,6 +1205,92 @@ def close_complaint(
     db.commit()
     db.refresh(complaint)
     return _format_complaint_out(complaint)
+
+
+def _send_sms_otp(phone: str, otp_code: str) -> None:
+    """SMS service placeholder - logs OTP for now. Replace with actual SMS gateway integration."""
+    message = f"Your OTP for vehicle service complaint is: {otp_code}. Valid for 5 minutes."
+    print(f"[SMS OTP] Sending to {phone}: {message}")
+
+
+@router.post("/complaints/{complaint_id}/send-otp", response_model=VSSendOTPResponse)
+def send_otp(
+    complaint_id: int,
+    payload: VSSendOTPRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Send 6-digit OTP to the reported phone number on the complaint."""
+    complaint = db.query(VSComplaint).filter(VSComplaint.id == complaint_id).first()
+    if not complaint:
+        raise HTTPException(status_code=404, detail="Complaint not found")
+
+    # Generate 6-digit OTP
+    otp_code = ''.join(random.choices(string.digits, k=6))
+    otp_expires_at = datetime.now(UTC) + timedelta(minutes=5)
+
+    # Save OTP to complaint
+    complaint.otp_code = otp_code
+    complaint.otp_expires_at = otp_expires_at
+    complaint.otp_verified = False
+
+    db.flush()
+
+    # Send OTP via SMS (placeholder)
+    _send_sms_otp(complaint.reported_phone, otp_code)
+
+    db.commit()
+
+    return VSSendOTPResponse(
+        success=True,
+        message=f"OTP sent to {complaint.reported_phone}",
+        expires_at=otp_expires_at,
+    )
+
+
+@router.post("/complaints/{complaint_id}/verify-otp", response_model=VSVerifyOTPResponse)
+def verify_otp(
+    complaint_id: int,
+    payload: VSVerifyOTPRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Verify the OTP code sent to the complaint's reported phone number."""
+    complaint = db.query(VSComplaint).filter(VSComplaint.id == complaint_id).first()
+    if not complaint:
+        raise HTTPException(status_code=404, detail="Complaint not found")
+
+    if not complaint.otp_code or not complaint.otp_expires_at:
+        raise HTTPException(
+            status_code=400,
+            detail="No OTP sent yet. Please send OTP first.",
+        )
+
+    # Check if OTP is expired
+    if datetime.now(UTC) > complaint.otp_expires_at:
+        raise HTTPException(
+            status_code=400,
+            detail="OTP has expired. Please request a new OTP.",
+        )
+
+    # Verify OTP
+    if payload.otp_code != complaint.otp_code:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid OTP code.",
+        )
+
+    # Mark OTP as verified
+    complaint.otp_verified = True
+    complaint.otp_code = None
+    complaint.otp_expires_at = None
+
+    db.commit()
+
+    return VSVerifyOTPResponse(
+        success=True,
+        message="OTP verified successfully. You can now close the work order.",
+    )
 
 
 @router.post("/complaints/{complaint_id}/costs", response_model=VSServiceCostOut, status_code=status.HTTP_201_CREATED)
