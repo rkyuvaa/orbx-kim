@@ -2419,7 +2419,8 @@ export default function VSWorkOrdersTab() {
                 {formatDateTime(selectedComplaint.created_at)}
               </Typography>
             </Box>
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.5 }}>
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
               <Chip
                 label={selectedComplaint.severity}
                 sx={{
@@ -2433,6 +2434,10 @@ export default function VSWorkOrdersTab() {
                 color={STATUS_COLORS[selectedComplaint.status] || 'default'}
                 sx={{ fontWeight: 800 }}
               />
+              </Box>
+              {selectedComplaint.status === 'CLOSED' && selectedComplaint.feedback && (
+                <Rating value={selectedComplaint.feedback.rating} readOnly size="small" aria-label="Customer satisfaction rating" />
+              )}
             </Box>
           </DialogTitle>
 
@@ -2642,30 +2647,6 @@ export default function VSWorkOrdersTab() {
                 <Tab label="Service Workflow" id="work-order-tab-0" aria-controls="work-order-panel-0" />
                 <Tab label="Issue Matrix" id="work-order-tab-1" aria-controls="work-order-panel-1" />
               </Tabs>
-
-              {selectedComplaint.status === 'CLOSED' && selectedComplaint.feedback && (
-                <Paper
-                  variant="outlined"
-                  sx={{
-                    p: 2,
-                    borderRadius: 2,
-                    bgcolor: '#fefce8',
-                    borderColor: '#fef08a',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 2,
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  <Rating value={selectedComplaint.feedback.rating} readOnly size="small" />
-                  {selectedComplaint.feedback.comment && (
-                    <Typography variant="body2" color="#713f12">
-                      {selectedComplaint.feedback.comment}
-                    </Typography>
-                  )}
-                </Paper>
-              )}
 
               {selectedWorkOrderTab === 1 && (
                 <Box role="tabpanel" id="work-order-panel-1" aria-labelledby="work-order-tab-1" />
