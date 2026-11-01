@@ -3449,7 +3449,7 @@ export default function VSWorkOrdersTab() {
                               '&:hover': { bgcolor: '#034732' },
                             }}
                           >
-                            Verify OTP & Close Work Order
+                            Close Work Order
                           </Button>
                         )}
 
