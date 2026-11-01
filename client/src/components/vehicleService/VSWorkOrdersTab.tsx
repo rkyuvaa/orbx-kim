@@ -94,6 +94,23 @@ function formatDuration(createdAt: string): string {
   return `${mins}m`;
 }
 
+function formatServiceElapsed(startedAt: string | null, endedAt: string | null, serviceHours: number | null, now: number): string {
+  const elapsedMs = startedAt && !endedAt
+    ? Math.max(0, now - new Date(startedAt).getTime())
+    : serviceHours !== null
+      ? serviceHours * 60 * 60 * 1000
+      : startedAt && endedAt
+        ? Math.max(0, new Date(endedAt).getTime() - new Date(startedAt).getTime())
+        : null;
+  if (elapsedMs === null || !Number.isFinite(elapsedMs)) return '—';
+
+  const totalSeconds = Math.floor(elapsedMs / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return `${hours}h ${minutes}m ${seconds}s`;
+}
+
 // Status-based required field validation
 function getRequiredFieldsForStatus(fields: VSCustomFieldDefinition[], status: string): VSCustomFieldDefinition[] {
   return fields.filter((field) => {
@@ -595,6 +612,7 @@ export default function VSWorkOrdersTab() {
     const [timerRunning, setTimerRunning] = useState(false);
     const [timerStartTime, setTimerStartTime] = useState<Date | null>(null);
     const [serviceHours, setServiceHours] = useState<number | null>(null);
+    const [timerNow, setTimerNow] = useState(Date.now());
     const [workflowDirty, setWorkflowDirty] = useState(false);
     const [workflowAutoSaveStatus, setWorkflowAutoSaveStatus] = useState<'saved' | 'unsaved' | 'saving' | 'error'>('saved');
     const [customFieldsDirty, setCustomFieldsDirty] = useState(false);
@@ -625,6 +643,12 @@ export default function VSWorkOrdersTab() {
   const [replaceReason, setReplaceReason] = useState('');
 
   const selectedVehicleObj: VSVehicle | undefined = vehicles.find((v) => v.id === newVehicleId);
+
+  useEffect(() => {
+    if (!timerRunning) return;
+    const intervalId = setInterval(() => setTimerNow(Date.now()), 1000);
+    return () => clearInterval(intervalId);
+  }, [timerRunning]);
 
   const searchTrimmed = vehicleSearchText.trim();
   const hasMinDigits = searchTrimmed.length >= 4;
@@ -1153,9 +1177,13 @@ export default function VSWorkOrdersTab() {
       service_hours: 0,
     };
     try {
-      await updateComplaint({ id: selectedComplaint.id, body: payload }).unwrap();
+      const updated = await updateComplaint({ id: selectedComplaint.id, body: payload }).unwrap();
+      setSelectedComplaint(updated);
     } catch (err: any) {
+      setTimerRunning(false);
+      setTimerStartTime(null);
       console.error('Failed to start timer:', err);
+      showToast(err?.data?.detail || 'Failed to start service timer.', 'error');
     }
   };
 
@@ -1176,11 +1204,15 @@ export default function VSWorkOrdersTab() {
       service_hours: finalHours,
     };
     try {
-      await updateComplaint({ id: selectedComplaint.id, body: payload }).unwrap();
+      const updated = await updateComplaint({ id: selectedComplaint.id, body: payload }).unwrap();
+      setSelectedComplaint(updated);
       showToast(`Service timer stopped. Recorded: ${finalHours} hrs`, 'info');
       refetch();
     } catch (err: any) {
+      setTimerRunning(true);
+      setTimerStartTime(new Date(selectedComplaint.timer_started_at || timerStartTime.toISOString()));
       console.error('Failed to stop timer:', err);
+      showToast(err?.data?.detail || 'Failed to stop service timer.', 'error');
     }
   };
 
@@ -2508,6 +2540,53 @@ export default function VSWorkOrdersTab() {
                       }))}
                       onChange={(val) => handleAssignUser(selectedComplaint.id, Number(val))}
                     />
+
+                    <Box
+                      sx={{
+                        mt: 1.25,
+                        p: 1.25,
+                        border: '1px solid #E4EBE1',
+                        borderRadius: 1.5,
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                        gap: 1,
+                      }}
+                    >
+                      {[
+                        {
+                          label: 'Start Time',
+                          value: selectedComplaint.timer_started_at
+                            ? formatDateTime(selectedComplaint.timer_started_at)
+                            : 'Not started',
+                        },
+                        {
+                          label: 'End Time',
+                          value: selectedComplaint.timer_ended_at
+                            ? formatDateTime(selectedComplaint.timer_ended_at)
+                            : selectedComplaint.timer_started_at
+                              ? 'In progress'
+                              : '—',
+                        },
+                        {
+                          label: 'Total Time',
+                          value: formatServiceElapsed(
+                            selectedComplaint.timer_started_at ?? null,
+                            selectedComplaint.timer_ended_at ?? null,
+                            selectedComplaint.service_hours ?? null,
+                            timerNow,
+                          ),
+                        },
+                      ].map((item) => (
+                        <Box key={item.label} sx={{ minWidth: 0 }}>
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            {item.label}
+                          </Typography>
+                          <Typography variant="body2" fontWeight={700} sx={{ overflowWrap: 'anywhere' }}>
+                            {item.value}
+                          </Typography>
+                        </Box>
+                      ))}
+                    </Box>
 
                     {/* Quick Action buttons below Assigned Technician */}
                     {(selectedComplaint.status === 'OPEN' || selectedComplaint.status === 'ACKNOWLEDGED') && (
