@@ -1465,6 +1465,10 @@ def update_complaint(
     if payload.status is not None and payload.status != old_status:
         complaint.status = payload.status
         now = datetime.now(UTC)
+        if old_status == ComplaintStatus.RESOLVED and payload.status != ComplaintStatus.RESOLVED:
+            complaint.resolved_at = None
+        if old_status == ComplaintStatus.ACKNOWLEDGED and payload.status == ComplaintStatus.OPEN:
+            complaint.acknowledged_at = None
         if payload.status == ComplaintStatus.ACKNOWLEDGED and not complaint.acknowledged_at:
             complaint.acknowledged_at = now
         elif payload.status == ComplaintStatus.RESOLVED and not complaint.resolved_at:

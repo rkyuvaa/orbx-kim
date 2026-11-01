@@ -106,3 +106,40 @@ def test_workflow_updates_and_attachments_persist(client, db, monkeypatch, tmp_p
     assert saved.odometer_reading == 123.5
     assert saved.service_hours == 1.25
     assert saved.service_type.value == "PAID"
+
+
+def test_reverting_work_order_from_resolved_clears_resolution_timestamp(client, db):
+    user = make_user("service-status-undo@kim.com", UserRole.ADMIN)
+    vehicle = VSVehicle(
+        vehicle_number="UNDO-001",
+        owner_name="Test Owner",
+        owner_phone="1234567890",
+        qr_token=uuid.uuid4().hex,
+    )
+    db.add_all([user, vehicle])
+    db.flush()
+    complaint = VSComplaint(
+        complaint_no="VS-UNDO-001",
+        vehicle_id=vehicle.id,
+        reported_by="Test Owner",
+        reported_phone="1234567890",
+        description="Status undo test",
+    )
+    db.add(complaint)
+    db.commit()
+    headers = auth_headers(login(client, email=user.email))
+    complaint_url = f"/api/v1/vehicle-service/complaints/{complaint.id}"
+
+    resolved = client.patch(complaint_url, json={"status": "RESOLVED"}, headers=headers)
+    assert resolved.status_code == 200, resolved.text
+    assert resolved.json()["resolved_at"] is not None
+
+    reverted = client.patch(complaint_url, json={"status": "IN_PROGRESS"}, headers=headers)
+    assert reverted.status_code == 200, reverted.text
+    assert reverted.json()["status"] == "IN_PROGRESS"
+    assert reverted.json()["resolved_at"] is None
+
+    db.expire_all()
+    saved = db.get(VSComplaint, complaint.id)
+    assert saved is not None
+    assert saved.resolved_at is None

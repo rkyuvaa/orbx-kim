@@ -606,6 +606,14 @@ export default function VSWorkOrdersTab() {
   const [newAdviceIssue, setNewAdviceIssue] = useState('');
   const [editingAdviceId, setEditingAdviceId] = useState<number | null>(null);
   const [editingAdviceIssue, setEditingAdviceIssue] = useState('');
+  const [pendingStatusUndo, setPendingStatusUndo] = useState<{
+    complaintId: number;
+    previousStatus: string;
+    nextStatus: string;
+    expiresAt: number;
+  } | null>(null);
+  const [undoSecondsRemaining, setUndoSecondsRemaining] = useState(0);
+  const [isAdvancingStatus, setIsAdvancingStatus] = useState(false);
   const [isIssueMatrixPickerOpen, setIsIssueMatrixPickerOpen] = useState(false);
   const [issueMatrixSearch, setIssueMatrixSearch] = useState('');
   const [issueMatrixSystemFilter, setIssueMatrixSystemFilter] = useState('');
@@ -662,6 +670,15 @@ export default function VSWorkOrdersTab() {
   }, [selectedIssueMatrixItems, reworkCostColumnIndex, labourCostColumnIndex]);
   const formatIssueMatrixCost = (amount: number) =>
     `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const nextStatusByCurrent: Record<string, string | undefined> = {
+    OPEN: 'ACKNOWLEDGED',
+    ACKNOWLEDGED: selectedComplaint?.assigned_to_id ? 'ASSIGNED' : 'IN_PROGRESS',
+    ASSIGNED: 'IN_PROGRESS',
+    IN_PROGRESS: 'RESOLVED',
+  };
+  const nextWorkOrderStatus = selectedComplaint
+    ? nextStatusByCurrent[selectedComplaint.status]
+    : undefined;
   const complaintAddress = useResolvedAddress(
     selectedComplaint?.gps_latitude,
     selectedComplaint?.gps_longitude,
@@ -750,6 +767,29 @@ export default function VSWorkOrdersTab() {
     const intervalId = setInterval(() => setTimerNow(Date.now()), 1000);
     return () => clearInterval(intervalId);
   }, [timerRunning]);
+
+  useEffect(() => {
+    if (!pendingStatusUndo) return;
+
+    const updateCountdown = () => {
+      const secondsLeft = Math.ceil((pendingStatusUndo.expiresAt - Date.now()) / 1000);
+      if (secondsLeft <= 0) {
+        setPendingStatusUndo(null);
+        setUndoSecondsRemaining(0);
+        return;
+      }
+      setUndoSecondsRemaining(secondsLeft);
+    };
+
+    updateCountdown();
+    const intervalId = window.setInterval(updateCountdown, 200);
+    return () => window.clearInterval(intervalId);
+  }, [pendingStatusUndo]);
+
+  useEffect(() => {
+    setPendingStatusUndo(null);
+    setUndoSecondsRemaining(0);
+  }, [selectedComplaint?.id]);
 
   const searchTrimmed = vehicleSearchText.trim();
   const hasMinDigits = searchTrimmed.length >= 4;
@@ -1084,15 +1124,17 @@ export default function VSWorkOrdersTab() {
       return results.every(Boolean);
     };
 
-    const handleUpdateStatus = async (complaintId: number, nextStatus: string) => {
+    const handleUpdateStatus = async (complaintId: number, nextStatus: string): Promise<VSComplaint | null> => {
+    setPendingStatusUndo(null);
+    setUndoSecondsRemaining(0);
     // Validate required custom fields for the next status
     const requiredFields = getRequiredFieldsForStatus(manageCustomFields, nextStatus);
     const validationErrors = validateRequiredFields(manageCustomFieldValues, requiredFields);
     if (validationErrors.length > 0) {
       showToast(`Cannot change status: ${validationErrors.join('; ')}`, 'warning');
-      return;
+      return null;
     }
-    if (!(await flushAutoSaves(complaintId))) return;
+    if (!(await flushAutoSaves(complaintId))) return null;
 
     const payload: VSComplaintUpdate = {
       status: nextStatus,
@@ -1109,9 +1151,46 @@ export default function VSWorkOrdersTab() {
       setSelectedComplaint(updated);
       showToast(`Work order status updated to ${nextStatus}`, 'success');
       refetch();
+      return updated;
     } catch (err: any) {
       showToast(err?.data?.detail || 'Failed to update status.', 'error');
+      return null;
     }
+  };
+
+  const handleAdvanceWorkOrderStatus = async () => {
+    if (!selectedComplaint || !nextWorkOrderStatus || isAdvancingStatus || pendingStatusUndo) return;
+
+    const previousStatus = selectedComplaint.status;
+    setIsAdvancingStatus(true);
+    const updated = await handleUpdateStatus(selectedComplaint.id, nextWorkOrderStatus);
+    setIsAdvancingStatus(false);
+    if (updated) {
+      setPendingStatusUndo({
+        complaintId: selectedComplaint.id,
+        previousStatus,
+        nextStatus: nextWorkOrderStatus,
+        expiresAt: Date.now() + 5000,
+      });
+      setUndoSecondsRemaining(5);
+    }
+  };
+
+  const handleUndoWorkOrderStatus = async () => {
+    if (
+      !pendingStatusUndo ||
+      !selectedComplaint ||
+      pendingStatusUndo.complaintId !== selectedComplaint.id ||
+      selectedComplaint.status !== pendingStatusUndo.nextStatus
+    ) {
+      setPendingStatusUndo(null);
+      return;
+    }
+
+    const undo = pendingStatusUndo;
+    setPendingStatusUndo(null);
+    setUndoSecondsRemaining(0);
+    await handleUpdateStatus(undo.complaintId, undo.previousStatus);
   };
 
   const handleAssignUser = async (complaintId: number, userId: number) => {
@@ -2613,20 +2692,50 @@ export default function VSWorkOrdersTab() {
             </Box>
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.5 }}>
               <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-              <Chip
-                label={selectedComplaint.severity}
-                sx={{
-                  bgcolor: `${SEVERITY_COLORS[selectedComplaint.severity]}20`,
-                  color: SEVERITY_COLORS[selectedComplaint.severity],
-                  fontWeight: 800,
-                }}
-              />
-              <Chip
-                label={selectedComplaint.status}
-                color={STATUS_COLORS[selectedComplaint.status] || 'default'}
-                sx={{ fontWeight: 800 }}
-              />
+                <Chip
+                  label={selectedComplaint.severity}
+                  sx={{
+                    bgcolor: `${SEVERITY_COLORS[selectedComplaint.severity]}20`,
+                    color: SEVERITY_COLORS[selectedComplaint.severity],
+                    fontWeight: 800,
+                  }}
+                />
+                <Tooltip
+                  title={
+                    nextWorkOrderStatus
+                      ? `Click to move to ${nextWorkOrderStatus.replace('_', ' ')}`
+                      : selectedComplaint.status === 'RESOLVED'
+                        ? 'Use Close Work Order to complete OTP verification and close'
+                        : 'This work order is closed'
+                  }
+                >
+                  <span>
+                    <Chip
+                      label={selectedComplaint.status.replace('_', ' ')}
+                      color={STATUS_COLORS[selectedComplaint.status] || 'default'}
+                      clickable={Boolean(nextWorkOrderStatus)}
+                      disabled={!nextWorkOrderStatus || isAdvancingStatus || Boolean(pendingStatusUndo)}
+                      onClick={() => void handleAdvanceWorkOrderStatus()}
+                      aria-label={
+                        nextWorkOrderStatus
+                          ? `Move work order to ${nextWorkOrderStatus.replace('_', ' ')}`
+                          : `Work order status ${selectedComplaint.status.replace('_', ' ')}`
+                      }
+                      sx={{ fontWeight: 800 }}
+                    />
+                  </span>
+                </Tooltip>
               </Box>
+              {pendingStatusUndo?.complaintId === selectedComplaint.id && (
+                <Button
+                  size="small"
+                  color="warning"
+                  onClick={() => void handleUndoWorkOrderStatus()}
+                  sx={{ minHeight: 24, py: 0, textTransform: 'none', fontWeight: 700 }}
+                >
+                  Undo ({undoSecondsRemaining})
+                </Button>
+              )}
               {selectedComplaint.status === 'CLOSED' && selectedComplaint.feedback && (
                 <Rating value={selectedComplaint.feedback.rating} readOnly size="small" aria-label="Customer satisfaction rating" />
               )}
