@@ -608,9 +608,6 @@ export default function VSConfigurationTab() {
         <div style={{ fontSize: 19, fontWeight: 800, letterSpacing: -0.3, color: '#023020' }}>
           Configuration
         </div>
-        <div style={{ fontSize: 13, color: '#7A8B80', marginTop: 3 }}>
-          Manage EV retrofitment kits, vehicle registrations, component serial tracking, and QR code assets.
-        </div>
       </div>
 
       {/* Tabs */}
@@ -626,11 +623,10 @@ export default function VSConfigurationTab() {
             '& .MuiTab-root': { textTransform: 'none', fontSize: 13, fontWeight: 600 },
           }}
         >
-          <Tab label={`1. Kit Master (${kits.length})`} />
-          <Tab label={`2. Retrofitted Vehicles (${vehicles.length})`} />
-          <Tab label="3. QR Code Center" />
-          <Tab label={`4. Preventive Maintenance (${maintenanceList.length})`} />
-          <Tab label="5. Complaint Categories" />
+          <Tab value={0} label={`1. Kit Master (${kits.length})`} />
+          <Tab value={2} label="2. QR Code Center" />
+          <Tab value={4} label="3. Complaint Categories" />
+          <Tab value={5} label="4. Issue Matrix config" />
         </Tabs>
       </Box>
 
@@ -644,9 +640,6 @@ export default function VSConfigurationTab() {
                 <Box>
                   <Typography variant="subtitle1" fontWeight={800}>
                     EV Conversion Kit Masters
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Define kit configurations with required components (battery, motor, controller, charger)
                   </Typography>
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
@@ -1088,6 +1081,17 @@ export default function VSConfigurationTab() {
                 description="Configure service complaint categories available for customer reporting and work orders."
                 placeholder="e.g. Battery / Range Issue"
               />
+            </Box>
+          )}
+
+          {activeTab === 5 && (
+            <Box sx={{ py: 8, textAlign: 'center', color: 'text.secondary' }}>
+              <Typography variant="subtitle1" fontWeight={700}>
+                Issue Matrix config
+              </Typography>
+              <Typography variant="body2" sx={{ mt: 1 }}>
+                Configuration options will be added here.
+              </Typography>
             </Box>
           )}
         </div>
