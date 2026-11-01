@@ -469,6 +469,31 @@ const WORKFLOW_STATUS_STAGES = [
   { key: 'CLOSED', label: 'CLOSED', color: '#475569', bg: '#F8FAFC', border: '#CBD5E1', tip: 'Closed work orders with customer feedback' },
 ];
 
+const ISSUE_MATRIX_PICKER_COLUMN_WIDTHS: Record<string, number> = {
+  Issue: 220,
+  System: 170,
+  Subsystem: 160,
+  Priority: 90,
+  'Safety Risk': 110,
+  'Operable Vehicle': 130,
+  'Diagnostic Method': 190,
+  'Action Type': 140,
+  'Corrective Action': 260,
+  'Part ID': 140,
+  Qty: 70,
+  SOP: 180,
+  'Labour Time in Minutes': 150,
+  'Serviceable Location': 190,
+  Warranty: 100,
+  'Warranty Policy': 280,
+  'Loaner Vehicle Required': 160,
+  'Part Cost': 110,
+  'Rework Cost (Software, Connector, Terminal)': 230,
+  'Labour Cost': 120,
+  'Root Cause Category': 180,
+  'Issue Code': 150,
+};
+
 export default function VSWorkOrdersTab() {
   const [search, setSearch] = useState('');
   const [severityFilter, setSeverityFilter] = useState('');
@@ -2940,24 +2965,40 @@ export default function VSWorkOrdersTab() {
                       </Box>
 
                       {issueMatrixConfig?.rows.length ? (
-                        <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: '60vh' }}>
-                          <Table size="small" stickyHeader sx={{ minWidth: 1200 }}>
+                        <TableContainer
+                          component={Paper}
+                          variant="outlined"
+                          sx={{ maxHeight: '60vh', overflowX: 'auto', width: '100%' }}
+                        >
+                          <Table
+                            size="small"
+                            stickyHeader
+                            sx={{ minWidth: 3000, tableLayout: 'fixed' }}
+                          >
+                            <colgroup>
+                              <col style={{ width: 44 }} />
+                              {issueMatrixHeaders.map((header, index) => (
+                                <col
+                                  key={`${header}-${index}`}
+                                  style={{ width: ISSUE_MATRIX_PICKER_COLUMN_WIDTHS[header] ?? 150 }}
+                                />
+                              ))}
+                            </colgroup>
                             <TableHead>
                               <TableRow>
-                                <TableCell padding="checkbox" />
-                                {[
-                                  'Issue',
-                                  'Issue Code',
-                                  'Subsystem',
-                                  'Labour Time in Minutes',
-                                  'Warranty',
-                                  'Warranty Policy',
-                                  'Part Cost',
-                                  'Rework Cost (Software, Connector, Terminal)',
-                                  'Labour Cost',
-                                  'System',
-                                ].map((header) => (
-                                  <TableCell key={header} sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
+                                <TableCell padding="checkbox" sx={{ bgcolor: '#F8FAFC' }} />
+                                {issueMatrixHeaders.map((header, index) => (
+                                  <TableCell
+                                    key={`${header}-${index}`}
+                                    sx={{
+                                      width: ISSUE_MATRIX_PICKER_COLUMN_WIDTHS[header] ?? 150,
+                                      bgcolor: '#F8FAFC',
+                                      fontWeight: 700,
+                                      whiteSpace: 'normal',
+                                      overflowWrap: 'anywhere',
+                                      verticalAlign: 'top',
+                                    }}
+                                  >
                                     {header}
                                   </TableCell>
                                 ))}
@@ -2965,7 +3006,7 @@ export default function VSWorkOrdersTab() {
                             </TableHead>
                             <TableBody>
                               {filteredIssueMatrixGroups.map(([system, entries]) => {
-                                const isExpanded = expandedIssueSystems[system] !== false;
+                                const isExpanded = expandedIssueSystems[system] === true;
                                 return (
                                   <React.Fragment key={system}>
                                     <TableRow
@@ -2986,25 +3027,13 @@ export default function VSWorkOrdersTab() {
                                           />
                                         </IconButton>
                                       </TableCell>
-                                      <TableCell colSpan={10} sx={{ fontWeight: 700 }}>
+                                      <TableCell colSpan={issueMatrixHeaders.length} sx={{ fontWeight: 700 }}>
                                         {system} ({entries.length})
                                       </TableCell>
                                     </TableRow>
                                     {isExpanded && entries.map(({ row, index }) => {
                                       const code = getIssueMatrixCode(row, index);
                                       const isAlreadyAdded = selectedIssueCodes.has(code);
-                                      const pickerColumns = [
-                                        issueColumnIndex,
-                                        issueCodeColumnIndex,
-                                        subsystemColumnIndex,
-                                        issueMatrixHeaders.indexOf('Labour Time in Minutes'),
-                                        issueMatrixHeaders.indexOf('Warranty'),
-                                        issueMatrixHeaders.indexOf('Warranty Policy'),
-                                        issueMatrixHeaders.indexOf('Part Cost'),
-                                        issueMatrixHeaders.indexOf('Rework Cost (Software, Connector, Terminal)'),
-                                        issueMatrixHeaders.indexOf('Labour Cost'),
-                                        systemColumnIndex,
-                                      ];
                                       return (
                                         <TableRow key={`${index}-${code}`} hover>
                                           <TableCell padding="checkbox">
@@ -3015,10 +3044,18 @@ export default function VSWorkOrdersTab() {
                                               onChange={() => handleToggleIssueMatrixRow(index)}
                                             />
                                           </TableCell>
-                                          {pickerColumns.map((columnIndex, column) => (
-                                            <TableCell key={`${index}-${column}`} sx={{ maxWidth: 240 }}>
-                                              {columnIndex >= 0 ? row[columnIndex] : ''}
-                                              {column === 0 && isAlreadyAdded && (
+                                          {issueMatrixHeaders.map((header, columnIndex) => (
+                                            <TableCell
+                                              key={`${index}-${header}-${columnIndex}`}
+                                              sx={{
+                                                width: ISSUE_MATRIX_PICKER_COLUMN_WIDTHS[header] ?? 150,
+                                                whiteSpace: 'normal',
+                                                overflowWrap: 'anywhere',
+                                                verticalAlign: 'top',
+                                              }}
+                                            >
+                                              {row[columnIndex] ?? ''}
+                                              {header === 'Issue' && isAlreadyAdded && (
                                                 <Typography component="span" variant="caption" color="success.main" sx={{ ml: 1 }}>
                                                   Added
                                                 </Typography>
@@ -3033,7 +3070,11 @@ export default function VSWorkOrdersTab() {
                               })}
                               {filteredIssueMatrixGroups.length === 0 && (
                                 <TableRow>
-                                  <TableCell colSpan={11} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                                  <TableCell
+                                    colSpan={issueMatrixHeaders.length + 1}
+                                    align="center"
+                                    sx={{ py: 4, color: 'text.secondary' }}
+                                  >
                                     No matching issues found.
                                   </TableCell>
                                 </TableRow>
