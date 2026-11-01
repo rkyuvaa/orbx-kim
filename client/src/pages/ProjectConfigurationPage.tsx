@@ -47,6 +47,7 @@ import {
 } from 'lucide-react';
 import { useTableSort } from '../hooks/useTableSort';
 import ErpSortHeaderCell from '../components/ui/ErpSortHeaderCell';
+import { useDatabaseStoredState } from '@/hooks/useDatabaseStoredState';
 import {
   useGetStatusDefinitionsQuery,
   useCreateStatusDefinitionMutation,
@@ -195,19 +196,10 @@ export default function ProjectConfigurationPage() {
     defaultTaskView: 'List',
   };
 
-  const [taskSettings, setTaskSettings] = useState(() => {
-    try {
-      const saved = localStorage.getItem('crm_task_configuration_settings');
-      if (saved !== null) return JSON.parse(saved);
-    } catch {}
-    return DEFAULT_TASK_SETTINGS;
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('crm_task_configuration_settings', JSON.stringify(taskSettings));
-    } catch {}
-  }, [taskSettings]);
+  const [taskSettings, setTaskSettings] = useDatabaseStoredState(
+    'crm_task_configuration_settings',
+    DEFAULT_TASK_SETTINGS,
+  );
 
   // --- Project Settings State ---
   const DEFAULT_PROJECT_SETTINGS = {
@@ -222,19 +214,10 @@ export default function ProjectConfigurationPage() {
     enableProjectDocuments: true,
   };
 
-  const [projectSettings, setProjectSettings] = useState(() => {
-    try {
-      const saved = localStorage.getItem('crm_project_configuration_settings');
-      if (saved !== null) return JSON.parse(saved);
-    } catch {}
-    return DEFAULT_PROJECT_SETTINGS;
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('crm_project_configuration_settings', JSON.stringify(projectSettings));
-    } catch {}
-  }, [projectSettings]);
+  const [projectSettings, setProjectSettings] = useDatabaseStoredState(
+    'crm_project_configuration_settings',
+    DEFAULT_PROJECT_SETTINGS,
+  );
 
   // Default fallback data if API returns empty
   const defaultStatuses: StatusDefinitionItem[] = [
@@ -434,9 +417,6 @@ export default function ProjectConfigurationPage() {
 
   // Save Settings Handlers
   const handleSaveTaskSettings = () => {
-    try {
-      localStorage.setItem('crm_task_configuration_settings', JSON.stringify(taskSettings));
-    } catch {}
     toast.showSuccess('Task configuration settings saved successfully!');
   };
 
@@ -450,20 +430,13 @@ export default function ProjectConfigurationPage() {
     'Construction & Operations',
   ];
 
-  const [projectCategories, setProjectCategories] = useState<string[]>(() => {
-    try {
-      const saved = localStorage.getItem('crm_project_categories');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return DEFAULT_PROJECT_CATEGORIES;
-  });
+  const [projectCategories, setProjectCategories] = useDatabaseStoredState<string[]>(
+    'crm_project_categories',
+    DEFAULT_PROJECT_CATEGORIES,
+  );
   const [newCategoryInput, setNewCategoryInput] = useState('');
 
   const handleSaveProjectSettings = () => {
-    try {
-      localStorage.setItem('crm_project_configuration_settings', JSON.stringify(projectSettings));
-      localStorage.setItem('crm_project_categories', JSON.stringify(projectCategories));
-    } catch {}
     toast.showSuccess('Project configuration parameters & categories saved successfully!');
   };
 
@@ -984,9 +957,6 @@ export default function ProjectConfigurationPage() {
                             const updated = [...projectCategories, newCategoryInput.trim()];
                             setProjectCategories(updated);
                             setNewCategoryInput('');
-                            try {
-                              localStorage.setItem('crm_project_categories', JSON.stringify(updated));
-                            } catch {}
                             toast.showSuccess(`Added category "${newCategoryInput.trim()}"`);
                           }
                         }}
@@ -1005,9 +975,6 @@ export default function ProjectConfigurationPage() {
                           const updated = [...projectCategories, newCategoryInput.trim()];
                           setProjectCategories(updated);
                           setNewCategoryInput('');
-                          try {
-                            localStorage.setItem('crm_project_categories', JSON.stringify(updated));
-                          } catch {}
                           toast.showSuccess(`Added category "${newCategoryInput.trim()}"`);
                         }}
                         sx={{ bgcolor: '#203020', '&:hover': { bgcolor: '#2A402A' }, textTransform: 'none', fontSize: 13, height: 36 }}
@@ -1024,9 +991,6 @@ export default function ProjectConfigurationPage() {
                           onDelete={() => {
                             const updated = projectCategories.filter((c) => c !== cat);
                             setProjectCategories(updated);
-                            try {
-                              localStorage.setItem('crm_project_categories', JSON.stringify(updated));
-                            } catch {}
                             toast.showSuccess(`Removed category "${cat}"`);
                           }}
                           variant="outlined"

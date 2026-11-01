@@ -15,7 +15,7 @@ from app.models.projects import (
     TaskAssignee, TaskTag, TaskTagMap, TaskTimeEntry, TaskActivity, TaskLogNote
 )
 from app.models.personal_settings import PersonalSettings, PersonalReminder, PersonalTemplate
-from app.models.user import User
+from app.models.user import User, UserStatus
 from app.schemas.projects import (
     TaskCreate, TaskOut, TaskUpdate, TaskTimeEntryOut, TaskTimeEntryCreate,
     TaskActivityOut, CancelTaskRequest, PersonalSettingsOut, PersonalSettingsUpdate,
@@ -300,7 +300,7 @@ def assign_personal_task(
     if not data.title or not data.title.strip():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Task title is mandatory")
 
-    assigned_user = db.query(User).filter(User.id == data.assignee_id, User.is_active.is_(True)).first()
+    assigned_user = db.query(User).filter(User.id == data.assignee_id, User.status == UserStatus.ACTIVE).first()
     if not assigned_user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assigned user not found or inactive")
 
@@ -325,6 +325,9 @@ def assign_personal_task(
     est_hours = max(0.0, float(data.estimated_hours or 0.0))
     est_mins = int(est_hours * 60)
 
+    first_status = db.query(TaskStatusDef).filter(TaskStatusDef.is_active.is_(True)).order_by(TaskStatusDef.display_order).first()
+    status_id = first_status.id if first_status else None
+
     task = Task(
         task_number=task_num,
         is_personal=True,
@@ -335,7 +338,7 @@ def assign_personal_task(
         title=data.title.strip(),
         description=data.description,
         type_id=None,
-        status_id=1,
+        status_id=status_id,
         priority=data.priority or TaskPriority.NORMAL,
         assignee_id=data.assignee_id,
         created_by=current_user.id,
@@ -349,10 +352,6 @@ def assign_personal_task(
         is_archived=False,
         is_deleted=False
     )
-
-    first_status = db.query(TaskStatusDef).filter(TaskStatusDef.is_active.is_(True)).order_by(TaskStatusDef.display_order).first()
-    if first_status:
-        task.status_id = first_status.id
 
     db.add(task)
     db.commit()

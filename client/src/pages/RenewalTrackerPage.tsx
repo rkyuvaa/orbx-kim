@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useGetDepartmentsQuery, useGetUsersQuery } from '../api/rbacApi';
 import { useBranchesQuery, useUsersQuery } from '../api/mastersApi';
@@ -60,6 +60,7 @@ import ErpSortHeaderCell from '../components/ui/ErpSortHeaderCell';
 import { useTestSmtpConnectionMutation } from '../api/smtpApi';
 import { useToast } from '@/components/ui/ToastHost';
 import { formatDate } from '@/utils/format';
+import { useDatabaseStoredState } from '@/hooks/useDatabaseStoredState';
 
 export interface RenewalItem {
   id: number;
@@ -101,7 +102,6 @@ interface MailTemplate {
 // No demo data rule: starts as empty array []
 
 // No demo data rule: starts as empty array []
-const INITIAL_RENEWALS: RenewalItem[] = [];
 const DEFAULT_CATEGORIES: CategoryConfig[] = [];
 
 const DEFAULT_MAIL_TEMPLATES: Record<string, MailTemplate> = {
@@ -241,6 +241,8 @@ export default function RenewalTrackerPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const [branchRecords, setBranchRecords] = useDatabaseStoredState<any[]>('crm_branches_data', []);
+  const [employeeRecords] = useDatabaseStoredState<any[]>('crm_employee_master_data', []);
 
   const [testSmtp, { isLoading: isSendingTestEmail }] = useTestSmtpConnectionMutation();
   const [testMailDialogOpen, setTestMailDialogOpen] = useState(false);
@@ -271,47 +273,15 @@ export default function RenewalTrackerPage() {
     }
   };
 
-  const [renewals, setRenewals] = useState<RenewalItem[]>(() => {
-    try {
-      const saved = localStorage.getItem('crm_renewal_items');
-      if (saved !== null) return JSON.parse(saved);
-    } catch {}
-    return INITIAL_RENEWALS;
-  });
-
-  const [categories, setCategories] = useState<CategoryConfig[]>(() => {
-    try {
-      const saved = localStorage.getItem('crm_renewal_categories');
-      if (saved !== null) return JSON.parse(saved);
-    } catch {}
-    return DEFAULT_CATEGORIES;
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('crm_renewal_items', JSON.stringify(renewals));
-    } catch {}
-  }, [renewals]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('crm_renewal_categories', JSON.stringify(categories));
-    } catch {}
-  }, [categories]);
-
-  const [mailTemplates, setMailTemplates] = useState<Record<string, MailTemplate>>(() => {
-    try {
-      const saved = localStorage.getItem('crm_renewal_mail_templates');
-      if (saved !== null) return JSON.parse(saved);
-    } catch {}
-    return DEFAULT_MAIL_TEMPLATES;
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('crm_renewal_mail_templates', JSON.stringify(mailTemplates));
-    } catch {}
-  }, [mailTemplates]);
+  const [renewals, setRenewals] = useDatabaseStoredState<RenewalItem[]>('crm_renewal_items', []);
+  const [categories, setCategories] = useDatabaseStoredState<CategoryConfig[]>(
+    'crm_renewal_categories',
+    DEFAULT_CATEGORIES,
+  );
+  const [mailTemplates, setMailTemplates] = useDatabaseStoredState<Record<string, MailTemplate>>(
+    'crm_renewal_mail_templates',
+    DEFAULT_MAIL_TEMPLATES,
+  );
 
   const [selectedTemplateKey, setSelectedTemplateKey] = useState<string>('reminder');
 
@@ -326,98 +296,34 @@ export default function RenewalTrackerPage() {
 
   // Config SubTab State
   const [configSubTab, setConfigSubTab] = useState<'categories' | 'reminders' | 'templates' | 'rules'>('categories');
-  const [advanceDaysList, setAdvanceDaysList] = useState<string>(() => {
-    try {
-      const saved = localStorage.getItem('crm_renewal_reminder_policy');
-      if (saved !== null) {
-        const parsed = JSON.parse(saved);
-        if (parsed.advanceDaysList !== undefined) return parsed.advanceDaysList;
-      }
-    } catch {}
-    return '60, 30, 15, 7, 1';
-  });
-  const [emailFrequency, setEmailFrequency] = useState<string>(() => {
-    try {
-      const saved = localStorage.getItem('crm_renewal_reminder_policy');
-      if (saved !== null) {
-        const parsed = JSON.parse(saved);
-        if (parsed.emailFrequency !== undefined) return parsed.emailFrequency;
-      }
-    } catch {}
-    return 'DAILY_DIGEST';
-  });
-  const [autoEscalateOverdue, setAutoEscalateOverdue] = useState<boolean>(() => {
-    try {
-      const saved = localStorage.getItem('crm_renewal_reminder_policy');
-      if (saved !== null) {
-        const parsed = JSON.parse(saved);
-        if (parsed.autoEscalateOverdue !== undefined) return parsed.autoEscalateOverdue;
-      }
-    } catch {}
-    return true;
-  });
-  const [enableEmailAlerts, setEnableEmailAlerts] = useState<boolean>(() => {
-    try {
-      const saved = localStorage.getItem('crm_renewal_reminder_policy');
-      if (saved !== null) {
-        const parsed = JSON.parse(saved);
-        if (parsed.enableEmailAlerts !== undefined) return parsed.enableEmailAlerts;
-      }
-    } catch {}
-    return true;
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('crm_renewal_reminder_policy', JSON.stringify({
-        advanceDaysList,
-        emailFrequency,
-        autoEscalateOverdue,
-        enableEmailAlerts,
-      }));
-    } catch {}
-  }, [advanceDaysList, emailFrequency, autoEscalateOverdue, enableEmailAlerts]);
-
-  const [requireOwner, setRequireOwner] = useState<boolean>(() => {
-    try {
-      const saved = localStorage.getItem('crm_renewal_compliance_rules');
-      if (saved !== null) {
-        const parsed = JSON.parse(saved);
-        if (parsed.requireOwner !== undefined) return parsed.requireOwner;
-      }
-    } catch {}
-    return true;
-  });
-  const [autoCalcNextDue, setAutoCalcNextDue] = useState<boolean>(() => {
-    try {
-      const saved = localStorage.getItem('crm_renewal_compliance_rules');
-      if (saved !== null) {
-        const parsed = JSON.parse(saved);
-        if (parsed.autoCalcNextDue !== undefined) return parsed.autoCalcNextDue;
-      }
-    } catch {}
-    return true;
-  });
-  const [currencySymbol, setCurrencySymbol] = useState<string>(() => {
-    try {
-      const saved = localStorage.getItem('crm_renewal_compliance_rules');
-      if (saved !== null) {
-        const parsed = JSON.parse(saved);
-        if (parsed.currencySymbol !== undefined) return parsed.currencySymbol;
-      }
-    } catch {}
-    return '₹';
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('crm_renewal_compliance_rules', JSON.stringify({
-        requireOwner,
-        autoCalcNextDue,
-        currencySymbol,
-      }));
-    } catch {}
-  }, [requireOwner, autoCalcNextDue, currencySymbol]);
+  const [advanceDaysList, setAdvanceDaysList] = useDatabaseStoredState(
+    'crm_renewal_reminder_advance_days_list',
+    '60, 30, 15, 7, 1',
+  );
+  const [emailFrequency, setEmailFrequency] = useDatabaseStoredState(
+    'crm_renewal_reminder_email_frequency',
+    'DAILY_DIGEST',
+  );
+  const [autoEscalateOverdue, setAutoEscalateOverdue] = useDatabaseStoredState(
+    'crm_renewal_reminder_auto_escalate_overdue',
+    true,
+  );
+  const [enableEmailAlerts, setEnableEmailAlerts] = useDatabaseStoredState(
+    'crm_renewal_reminder_enable_email_alerts',
+    true,
+  );
+  const [requireOwner, setRequireOwner] = useDatabaseStoredState(
+    'crm_renewal_compliance_require_owner',
+    true,
+  );
+  const [autoCalcNextDue, setAutoCalcNextDue] = useDatabaseStoredState(
+    'crm_renewal_compliance_auto_calc_next_due',
+    true,
+  );
+  const [currencySymbol, setCurrencySymbol] = useDatabaseStoredState(
+    'crm_renewal_compliance_currency_symbol',
+    '₹',
+  );
 
   // Category Modal State
   const [catModalOpen, setCatModalOpen] = useState(false);
@@ -456,19 +362,6 @@ export default function RenewalTrackerPage() {
     return [];
   }, [deptsList]);
 
-  // Dynamic Branch updates listener
-  const [branchUpdateVer, setBranchUpdateVer] = useState(0);
-
-  useEffect(() => {
-    const handleBranchUpdate = () => setBranchUpdateVer((v) => v + 1);
-    window.addEventListener('crm_branches_changed', handleBranchUpdate);
-    window.addEventListener('storage', handleBranchUpdate);
-    return () => {
-      window.removeEventListener('crm_branches_changed', handleBranchUpdate);
-      window.removeEventListener('storage', handleBranchUpdate);
-    };
-  }, []);
-
   // Quick Add Branch Modal State
   const [quickBranchModalOpen, setQuickBranchModalOpen] = useState(false);
   const [newBranchName, setNewBranchName] = useState('');
@@ -505,13 +398,7 @@ export default function RenewalTrackerPage() {
       status: 'ACTIVE' as const,
     };
 
-    try {
-      const saved = localStorage.getItem('crm_branches_data');
-      const existing = saved ? JSON.parse(saved) : [];
-      const updated = [newBranchObj, ...existing];
-      localStorage.setItem('crm_branches_data', JSON.stringify(updated));
-      window.dispatchEvent(new CustomEvent('crm_branches_changed'));
-    } catch {}
+    setBranchRecords((existing) => [newBranchObj, ...existing]);
 
     setBranchLocation(newBranchObj.name);
     setQuickBranchModalOpen(false);
@@ -546,32 +433,23 @@ export default function RenewalTrackerPage() {
       });
     }
 
-    // 2. From Settings > Branches (Local Storage)
-    try {
-      const saved = localStorage.getItem('crm_branches_data');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          parsed.forEach((b: any) => {
-            if (b.name && b.status !== 'INACTIVE' && b.is_active !== false) {
-              map[b.name] = {
-                address: b.address || '',
-                city: b.city || '',
-                state: b.state || '',
-                pincode: b.pincode || '',
-                shift_name: b.shift_name || 'General Day Shift',
-                shift_start_time: b.shift_start_time || '09:00 AM',
-                shift_end_time: b.shift_end_time || '06:00 PM',
-                working_days: b.working_days || 'Mon - Sat (6 Days)',
-              };
-            }
-          });
-        }
+    branchRecords.forEach((branch) => {
+      if (branch.name && branch.status !== 'INACTIVE' && branch.is_active !== false) {
+        map[branch.name] = {
+          address: branch.address || '',
+          city: branch.city || '',
+          state: branch.state || '',
+          pincode: branch.pincode || '',
+          shift_name: branch.shift_name || 'General Day Shift',
+          shift_start_time: branch.shift_start_time || '09:00 AM',
+          shift_end_time: branch.shift_end_time || '06:00 PM',
+          working_days: branch.working_days || 'Mon - Sat (6 Days)',
+        };
       }
-    } catch {}
+    });
 
     return map;
-  }, [apiBranches, modalOpen, branchUpdateVer]);
+  }, [apiBranches, branchRecords]);
 
   const branchOptions = useMemo(() => {
     return Object.keys(branchesDataMap);
@@ -605,20 +483,11 @@ export default function RenewalTrackerPage() {
       if (found?.email) return found.email;
     }
 
-    // 3. From Employee Master in localStorage
-    try {
-      const saved = localStorage.getItem('crm_employee_master_data');
-      if (saved) {
-        const employees = JSON.parse(saved);
-        if (Array.isArray(employees)) {
-          const found = employees.find((e: any) => {
-            const name = (e.full_name || e.name || '').toLowerCase();
-            return name === searchName || name.includes(searchName) || searchName.includes(name);
-          });
-          if (found?.email) return found.email;
-        }
-      }
-    } catch {}
+    const employee = employeeRecords.find((record) => {
+      const name = (record.full_name || record.name || '').toLowerCase();
+      return name === searchName || name.includes(searchName) || searchName.includes(name);
+    });
+    if (employee?.email) return employee.email;
 
     // 4. Default fallback email format based on owner's name
     const formatted = searchName.replace(/[^a-z0-9]/g, '.');
@@ -693,24 +562,13 @@ export default function RenewalTrackerPage() {
       });
     }
 
-    // 3. From Employee Master (Local Storage)
-    try {
-      const savedEmp = localStorage.getItem('crm_employee_master_data');
-      if (savedEmp) {
-        const parsed = JSON.parse(savedEmp);
-        if (Array.isArray(parsed)) {
-          parsed.forEach((e: any) => {
-            const name = e.name || e.full_name;
-            if (name && !list.includes(name)) {
-              list.push(name);
-            }
-          });
-        }
-      }
-    } catch {}
+    employeeRecords.forEach((employee) => {
+      const name = employee.name || employee.full_name;
+      if (name && !list.includes(name)) list.push(name);
+    });
 
     return list;
-  }, [apiUsers, rbacUsersData, modalOpen]);
+  }, [apiUsers, employeeRecords, rbacUsersData]);
 
 
 
@@ -1694,14 +1552,6 @@ export default function RenewalTrackerPage() {
                 <Button
                   variant="contained"
                   onClick={() => {
-                    try {
-                      localStorage.setItem('crm_renewal_reminder_policy', JSON.stringify({
-                        advanceDaysList,
-                        emailFrequency,
-                        autoEscalateOverdue,
-                        enableEmailAlerts,
-                      }));
-                    } catch {}
                     showToast('Reminder Policy Settings Saved', 'success');
                   }}
                   sx={{ backgroundColor: '#04552B', '&:hover': { backgroundColor: '#034120' }, textTransform: 'none', fontWeight: 700 }}
@@ -1823,9 +1673,6 @@ export default function RenewalTrackerPage() {
                         <Button
                           variant="contained"
                           onClick={() => {
-                            try {
-                              localStorage.setItem('crm_renewal_mail_templates', JSON.stringify(mailTemplates));
-                            } catch {}
                             showToast('Email template saved successfully', 'success');
                           }}
                           sx={{ backgroundColor: '#04552B', '&:hover': { backgroundColor: '#034120' }, textTransform: 'none', fontWeight: 700 }}
@@ -1888,13 +1735,6 @@ export default function RenewalTrackerPage() {
                 <Button
                   variant="contained"
                   onClick={() => {
-                    try {
-                      localStorage.setItem('crm_renewal_compliance_rules', JSON.stringify({
-                        requireOwner,
-                        autoCalcNextDue,
-                        currencySymbol,
-                      }));
-                    } catch {}
                     showToast('Compliance rules saved successfully', 'success');
                   }}
                   sx={{ backgroundColor: '#04552B', '&:hover': { backgroundColor: '#034120' }, textTransform: 'none', fontWeight: 700 }}

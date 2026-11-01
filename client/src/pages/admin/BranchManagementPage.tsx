@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Paper,
@@ -42,6 +42,7 @@ import {
   Calendar,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/ToastHost';
+import { useDatabaseStoredState } from '@/hooks/useDatabaseStoredState';
 
 export interface Branch {
   id: number;
@@ -62,24 +63,9 @@ export interface Branch {
   status: 'ACTIVE' | 'INACTIVE';
 }
 
-const INITIAL_BRANCHES: Branch[] = [];
-
 export default function BranchManagementPage() {
   const { showToast } = useToast();
-  const [branches, setBranches] = useState<Branch[]>(() => {
-    try {
-      const saved = localStorage.getItem('crm_branches_data');
-      if (saved !== null) return JSON.parse(saved);
-    } catch {}
-    return INITIAL_BRANCHES;
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('crm_branches_data', JSON.stringify(branches));
-      window.dispatchEvent(new CustomEvent('crm_branches_changed'));
-    } catch {}
-  }, [branches]);
+  const [branches, setBranches] = useDatabaseStoredState<Branch[]>('crm_branches_data', []);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('ALL');

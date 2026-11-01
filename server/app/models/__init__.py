@@ -54,6 +54,7 @@ from app.models.rbac import (
 )
 from app.models.smtp_setting import SmtpSetting
 from app.models.user import User
+from app.models.app_data import AppDataDocument
 from app.models.automove_rule import StageAutomoveRule
 from app.models.vehicle_model import VehicleModel
 from app.models.hr import (
@@ -203,6 +204,7 @@ __all__ = [
     "Sanction",
     "SmtpSetting",
     "User",
+    "AppDataDocument",
     "UserPermission",
     "UserRole",
     "RbacUserRole",

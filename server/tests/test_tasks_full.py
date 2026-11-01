@@ -311,3 +311,39 @@ def test_bulk_task_actions(seeded_client, db):
     # Verify task 1 priority updated
     get_t1 = seeded_client.get(f"/api/v1/tasks/{t1}", headers=headers).json()
     assert get_t1["priority"] == "URGENT"
+
+
+def test_assign_personal_task_workflow(seeded_client, db):
+    """Test assigning a personal task to another registered user"""
+    from app.models.user import User, UserStatus
+    token = login(seeded_client, "admin@kim.com", DEFAULT_PASSWORD)
+    headers = auth_headers(token)
+
+    # Pick an active target user who is not admin
+    target_user = db.query(User).filter(User.status == UserStatus.ACTIVE, User.email != "admin@kim.com").first()
+    assert target_user is not None
+
+    payload = {
+        "title": "Quarterly Performance Review",
+        "description": "Prepare summary for Q4",
+        "assignee_id": target_user.id,
+        "priority": "HIGH",
+        "estimated_hours": 2.5
+    }
+
+    resp = seeded_client.post("/api/v1/tasks/personal/assign", json=payload, headers=headers)
+    assert resp.status_code == 201, resp.text
+    data = resp.json()
+    assert data["title"] == "Quarterly Performance Review"
+    assert data["assignee_id"] == target_user.id
+    assert data["is_personal"] is True
+    assert data["priority"] == "HIGH"
+    assert data["task_number"].startswith("TASK-")
+
+    # Verify log notes were recorded
+    log_resp = seeded_client.get(f"/api/v1/tasks/personal/{data['id']}/log-notes", headers=headers)
+    assert log_resp.status_code == 200
+    notes = log_resp.json()
+    assert len(notes) >= 1
+    assert "assigned to" in notes[0]["note"]
+

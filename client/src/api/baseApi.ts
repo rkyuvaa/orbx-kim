@@ -117,6 +117,7 @@ export const baseApi = createApi({
       'VSTechnicianAdvice',
       'VSIssueMatrixConfig',
       'VSComplaintIssueMatrixItems',
-      ],
+      'AppData',
+        ],
   endpoints: () => ({}),
 });

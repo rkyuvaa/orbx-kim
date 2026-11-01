@@ -34,6 +34,7 @@ import {
 import { useTableSort } from '../hooks/useTableSort';
 import ErpSortHeaderCell from '../components/ui/ErpSortHeaderCell';
 import { useToast } from '@/components/ui/ToastHost';
+import { useDatabaseStoredState } from '@/hooks/useDatabaseStoredState';
 
 interface VehicleModelPLM {
   id: string;
@@ -70,52 +71,12 @@ interface EcoItem {
   date: string;
 }
 
-const INITIAL_MODELS: VehicleModelPLM[] = [];
-const INITIAL_BOM: BomComponent[] = [];
-const INITIAL_ECOS: EcoItem[] = [];
-
 export default function PlmPage() {
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<number>(0);
-  const [models, setModels] = useState<VehicleModelPLM[]>(() => {
-    try {
-      const saved = localStorage.getItem('crm_plm_models');
-      if (saved !== null) return JSON.parse(saved);
-    } catch {}
-    return INITIAL_MODELS;
-  });
-  const [boms, setBoms] = useState<BomComponent[]>(() => {
-    try {
-      const saved = localStorage.getItem('crm_plm_boms');
-      if (saved !== null) return JSON.parse(saved);
-    } catch {}
-    return INITIAL_BOM;
-  });
-  const [ecos, setEcos] = useState<EcoItem[]>(() => {
-    try {
-      const saved = localStorage.getItem('crm_plm_ecos');
-      if (saved !== null) return JSON.parse(saved);
-    } catch {}
-    return INITIAL_ECOS;
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('crm_plm_models', JSON.stringify(models));
-    } catch {}
-  }, [models]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('crm_plm_boms', JSON.stringify(boms));
-    } catch {}
-  }, [boms]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('crm_plm_ecos', JSON.stringify(ecos));
-    } catch {}
-  }, [ecos]);
+  const [models, setModels] = useDatabaseStoredState<VehicleModelPLM[]>('crm_plm_models', []);
+  const [boms, setBoms] = useDatabaseStoredState<BomComponent[]>('crm_plm_boms', []);
+  const [ecos, setEcos] = useDatabaseStoredState<EcoItem[]>('crm_plm_ecos', []);
 
   const [searchQuery, setSearchQuery] = useState<string>('');
 

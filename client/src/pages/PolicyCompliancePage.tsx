@@ -52,6 +52,7 @@ import { useTableSort } from '../hooks/useTableSort';
 import ErpSortHeaderCell from '../components/ui/ErpSortHeaderCell';
 import { useToast } from '@/components/ui/ToastHost';
 import { formatDate } from '@/utils/format';
+import { useDatabaseStoredState } from '@/hooks/useDatabaseStoredState';
 
 export interface PolicyComplianceItem {
   id: string; // e.g. POL-1, AUD-1, SOP-1, ACK-1
@@ -73,8 +74,6 @@ export interface PolicyComplianceItem {
   created_at: string;
 }
 
-const LOCAL_STORAGE_KEY = 'crm_policy_compliance_items_data';
-
 export default function PolicyCompliancePage() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -93,27 +92,10 @@ export default function PolicyCompliancePage() {
     ? 'ACKNOWLEDGEMENTS'
     : 'POLICIES';
 
-  // Rule 1: No Demo/Sample Data — Start with empty array []
-  const [items, setItems] = useState<PolicyComplianceItem[]>(() => {
-    try {
-      const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (saved) {
-        return JSON.parse(saved);
-      }
-    } catch {
-      // Fallback
-    }
-    return [];
-  });
-
-  // Save changes to localStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(items));
-    } catch {
-      // Ignore write errors
-    }
-  }, [items]);
+  const [items, setItems] = useDatabaseStoredState<PolicyComplianceItem[]>(
+    'crm_policy_compliance_items_data',
+    [],
+  );
 
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState('');

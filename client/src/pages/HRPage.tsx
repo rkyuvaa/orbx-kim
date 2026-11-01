@@ -67,6 +67,7 @@ import { useTableSort } from '../hooks/useTableSort';
 import ErpSortHeaderCell from '../components/ui/ErpSortHeaderCell';
 import UniversalImportModal from '@/components/ui/UniversalImportModal';
 import { useToast } from '@/components/ui/ToastHost';
+import { useDatabaseStoredState } from '@/hooks/useDatabaseStoredState';
 import {
   useListAttendanceQuery,
   useCreateAttendanceMutation,
@@ -202,19 +203,10 @@ export default function HRPage() {
     type: 'ONBOARDING' as 'ONBOARDING' | 'OFFBOARDING',
   });
 
-  const [onboardingList, setOnboardingList] = useState<any[]>(() => {
-    try {
-      const saved = localStorage.getItem('crm_hr_onboarding');
-      if (saved !== null) return JSON.parse(saved);
-    } catch {}
-    return [];
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('crm_hr_onboarding', JSON.stringify(onboardingList));
-    } catch {}
-  }, [onboardingList]);
+  const [onboardingList, setOnboardingList] = useDatabaseStoredState<any[]>(
+    'crm_hr_onboarding',
+    [],
+  );
 
   // HR Configuration state
   const DEFAULT_HR_CONFIG = {
@@ -230,19 +222,7 @@ export default function HRPage() {
     notifyHrOnLeave: true,
   };
 
-  const [configState, setConfigState] = useState(() => {
-    try {
-      const saved = localStorage.getItem('crm_hr_config');
-      if (saved !== null) return JSON.parse(saved);
-    } catch {}
-    return DEFAULT_HR_CONFIG;
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('crm_hr_config', JSON.stringify(configState));
-    } catch {}
-  }, [configState]);
+  const [configState, setConfigState] = useDatabaseStoredState('crm_hr_config', DEFAULT_HR_CONFIG);
 
   const { sortState: attendanceSortState, handleSort: handleAttendanceSort, sortData: sortAttendance } = useTableSort<any>();
   const { sortState: leaveSortState, handleSort: handleLeaveSort, sortData: sortLeave } = useTableSort<any>();
@@ -1095,9 +1075,6 @@ export default function HRPage() {
                   variant="outlined"
                   onClick={() => {
                     setConfigState(DEFAULT_HR_CONFIG);
-                    try {
-                      localStorage.setItem('crm_hr_config', JSON.stringify(DEFAULT_HR_CONFIG));
-                    } catch {}
                     showToast('Configuration reset to defaults', 'info');
                   }}
                   sx={{ textTransform: 'none', borderRadius: 2 }}
@@ -1107,9 +1084,6 @@ export default function HRPage() {
                 <Button
                   variant="contained"
                   onClick={() => {
-                    try {
-                      localStorage.setItem('crm_hr_config', JSON.stringify(configState));
-                    } catch {}
                     showToast('HR Configuration updated successfully', 'success');
                   }}
                   sx={{ bgcolor: '#16C47F', textTransform: 'none', borderRadius: 2 }}

@@ -213,15 +213,13 @@ def _generate_task_number(db: Session, project_id: Optional[int] = None) -> str:
     return task_num
 
 
-def _generate_personal_task_number(db: Session, user_id: int) -> str:
-    """Generate server-side personal task number sequential per user e.g. TASK-1, TASK-2 starting from 1"""
-    user_tasks = db.query(Task.task_number).filter(
-        Task.is_personal.is_(True),
-        Task.created_by == user_id,
+def _generate_personal_task_number(db: Session, user_id: int = None) -> str:
+    """Generate server-side personal task number sequential e.g. TASK-1, TASK-2 ensuring global uniqueness"""
+    all_tasks = db.query(Task.task_number).filter(
         Task.task_number.like("TASK-%")
     ).all()
     max_seq = 0
-    for (t_num,) in user_tasks:
+    for (t_num,) in all_tasks:
         if t_num and t_num.startswith("TASK-"):
             try:
                 num_part = int(t_num.split("-")[1])
@@ -232,8 +230,6 @@ def _generate_personal_task_number(db: Session, user_id: int) -> str:
     seq = max_seq + 1
     candidate = f"TASK-{seq}"
     while db.query(Task.id).filter(
-        Task.is_personal.is_(True),
-        Task.created_by == user_id,
         Task.task_number == candidate
     ).first():
         seq += 1

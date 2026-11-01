@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useGetDepartmentsQuery } from '../../api/rbacApi';
 import { useBranchesQuery } from '../../api/mastersApi';
 import {
@@ -52,6 +52,7 @@ import { useTableSort } from '../../hooks/useTableSort';
 import ErpSortHeaderCell from '../ui/ErpSortHeaderCell';
 import { useToast } from '@/components/ui/ToastHost';
 import UniversalImportModal from '@/components/ui/UniversalImportModal';
+import { useDatabaseStoredState } from '@/hooks/useDatabaseStoredState';
 
 export interface EmployeeRecord {
   id: string;
@@ -74,9 +75,6 @@ export interface EmployeeRecord {
   linked_user: string;
   salary_category: string;
 }
-const INITIAL_EMPLOYEES: EmployeeRecord[] = [];
-
-
 const DEFAULT_FORM: Omit<EmployeeRecord, 'id'> = {
   emp_id: 'EMP-028',
   name: '',
@@ -109,18 +107,8 @@ export default function EmployeeMaster() {
     return [];
   }, [deptsList]);
 
-  const [branchUpdateVer, setBranchUpdateVer] = useState(0);
-  useEffect(() => {
-    const handleBranchUpdate = () => setBranchUpdateVer((v) => v + 1);
-    window.addEventListener('crm_branches_changed', handleBranchUpdate);
-    window.addEventListener('storage', handleBranchUpdate);
-    return () => {
-      window.removeEventListener('crm_branches_changed', handleBranchUpdate);
-      window.removeEventListener('storage', handleBranchUpdate);
-    };
-  }, []);
-
   const { data: apiBranches = [] } = useBranchesQuery();
+  const [configuredBranches] = useDatabaseStoredState<any[]>('crm_branches_data', []);
   const branchOptions = useMemo(() => {
     const list: string[] = [];
 
@@ -133,45 +121,25 @@ export default function EmployeeMaster() {
       });
     }
 
-    // 2. From Settings > Branches (Local Storage)
-    try {
-      const saved = localStorage.getItem('crm_branches_data');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          parsed.forEach((b: any) => {
-            if (b.name && b.status !== 'INACTIVE' && b.is_active !== false && !list.includes(b.name)) {
-              list.push(b.name);
-            }
-          });
-        }
+    configuredBranches.forEach((branch) => {
+      if (
+        branch.name &&
+        branch.status !== 'INACTIVE' &&
+        branch.is_active !== false &&
+        !list.includes(branch.name)
+      ) {
+        list.push(branch.name);
       }
-    } catch {}
+    });
 
     return list;
-  }, [apiBranches, branchUpdateVer]);
+  }, [apiBranches, configuredBranches]);
 
 
-  // Load employees from localStorage if available so deletions and additions persist on page refresh
-  const [employees, setEmployees] = useState<EmployeeRecord[]>(() => {
-    try {
-      const saved = localStorage.getItem('crm_employee_master_data');
-      if (saved !== null) {
-        return JSON.parse(saved);
-      }
-    } catch {
-      // Fallback if parsing fails
-    }
-    return INITIAL_EMPLOYEES;
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('crm_employee_master_data', JSON.stringify(employees));
-    } catch {
-      // Ignore write errors
-    }
-  }, [employees]);
+  const [employees, setEmployees] = useDatabaseStoredState<EmployeeRecord[]>(
+    'crm_employee_master_data',
+    [],
+  );
 
   const [searchTerm, setSearchTerm] = useState('');
   

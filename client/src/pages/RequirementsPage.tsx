@@ -52,8 +52,7 @@ import { useAppSelector } from '../app/hooks';
 import { RequirementItem } from '@/types/requirements';
 import ITRequirementFormModal from '@/components/requirements/ITRequirementFormModal';
 import ITRequirementDetailDrawer from '@/components/requirements/ITRequirementDetailDrawer';
-
-const LOCAL_STORAGE_KEY = 'crm_requirements_items_data';
+import { useDatabaseStoredState } from '@/hooks/useDatabaseStoredState';
 
 export default function RequirementsPage() {
   const location = useLocation();
@@ -65,27 +64,10 @@ export default function RequirementsPage() {
   const isIT = location.pathname.includes('/requirements/it');
   const reqType: 'MATERIAL' | 'IT' = isIT ? 'IT' : 'MATERIAL';
 
-  // Rule 1: No Demo/Sample Data — Start with empty array []
-  const [requirements, setRequirements] = useState<RequirementItem[]>(() => {
-    try {
-      const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (saved) {
-        return JSON.parse(saved);
-      }
-    } catch {
-      // Fallback
-    }
-    return [];
-  });
-
-  // Save changes to localStorage for state persistence across sessions
-  useEffect(() => {
-    try {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(requirements));
-    } catch {
-      // Ignore write errors
-    }
-  }, [requirements]);
+  const [requirements, setRequirements] = useDatabaseStoredState<RequirementItem[]>(
+    'crm_requirements_items_data',
+    [],
+  );
 
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState('');

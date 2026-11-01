@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Avatar,
   Box,
@@ -53,6 +53,7 @@ import { useApplicationsQuery } from '@/api/applicationsApi';
 import { useUsersQuery } from '@/api/mastersApi';
 import { useToast } from '@/components/ui/ToastHost';
 import { time24To12, time12To24 } from '@/utils/format';
+import { useDatabaseStoredState } from '@/hooks/useDatabaseStoredState';
 
 import { useNavigate } from 'react-router-dom';
 
@@ -82,17 +83,19 @@ export default function ProjectsPage() {
     'Construction & Operations',
   ];
 
-  const getStoredCategories = (): string[] => {
-    try {
-      const saved = localStorage.getItem('crm_project_categories');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return DEFAULT_PROJECT_CATEGORIES;
-  };
+  const [projectCategories] = useDatabaseStoredState<string[]>(
+    'crm_project_categories',
+    DEFAULT_PROJECT_CATEGORIES,
+  );
 
   // Form State
   const [name, setName] = useState('');
-  const [category, setCategory] = useState(() => getStoredCategories()[0] || 'Vehicle Customization');
+  const [category, setCategory] = useState(DEFAULT_PROJECT_CATEGORIES[0] || '');
+  useEffect(() => {
+    if (projectCategories.length > 0 && !projectCategories.includes(category)) {
+      setCategory(projectCategories[0]);
+    }
+  }, [category, projectCategories]);
   const [leadId, setLeadId] = useState<number | ''>('');
   const [managerId, setManagerId] = useState<number | ''>('');
   const [memberIds, setMemberIds] = useState<number[]>([]);
@@ -436,7 +439,7 @@ export default function ProjectsPage() {
               value={category}
               onChange={(e) => setCategory(e.target.value)}
             >
-              {getStoredCategories().map((cat) => (
+              {projectCategories.map((cat) => (
                 <MenuItem key={cat} value={cat}>
                   {cat}
                 </MenuItem>
