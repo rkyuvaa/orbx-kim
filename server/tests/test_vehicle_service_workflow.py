@@ -6,6 +6,40 @@ from app.models.vehicle_service import VSComplaint, VSVehicle
 from tests.conftest import auth_headers, login, make_user
 
 
+def test_create_work_order_with_or_without_assigned_technician(client, db):
+    user = make_user("service-create@kim.com", UserRole.ADMIN)
+    vehicle = VSVehicle(
+        vehicle_number="CREATE-001",
+        owner_name="Test Owner",
+        owner_phone="1234567890",
+        qr_token=uuid.uuid4().hex,
+    )
+    db.add_all([user, vehicle])
+    db.commit()
+    headers = auth_headers(login(client, email=user.email))
+    url = "/api/v1/vehicle-service/complaints"
+    payload = {
+        "vehicle_id": vehicle.id,
+        "reported_by": "Test Owner",
+        "reported_phone": "1234567890",
+        "description": "New work order",
+    }
+
+    unassigned = client.post(url, json=payload, headers=headers)
+    assert unassigned.status_code == 201, unassigned.text
+    assert unassigned.json()["status"] == "OPEN"
+    assert unassigned.json()["assigned_to_id"] is None
+
+    assigned = client.post(
+        url,
+        json={**payload, "assigned_to_id": user.id},
+        headers=headers,
+    )
+    assert assigned.status_code == 201, assigned.text
+    assert assigned.json()["status"] == "ASSIGNED"
+    assert assigned.json()["assigned_to_id"] == user.id
+
+
 def test_workflow_updates_and_attachments_persist(client, db, monkeypatch, tmp_path):
     user = make_user("service-admin@kim.com", UserRole.ADMIN)
     vehicle = VSVehicle(

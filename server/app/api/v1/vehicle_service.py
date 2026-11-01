@@ -432,12 +432,6 @@ def submit_public_complaint(
             detail=f"A service request ({existing_today.complaint_no}) has already been registered for vehicle {vehicle.vehicle_number} today. Maximum 1 request per day is allowed to prevent duplicate requests.",
         )
 
-    assigned_user = None
-    if payload.assigned_to_id is not None:
-        assigned_user = db.query(User).filter(User.id == payload.assigned_to_id).first()
-        if assigned_user is None:
-            raise HTTPException(status_code=422, detail="Selected technician does not exist")
-
     complaint_no = _generate_complaint_no(db)
     gps_addr = payload.gps_address or _reverse_geocode_area_and_city(payload.gps_latitude, payload.gps_longitude)
     complaint = VSComplaint(
@@ -1269,16 +1263,6 @@ def replace_component(
             is_status_change=False,
         )
         db.add(note)
-        if assigned_user:
-            db.add(
-                VSComplaintNote(
-                    complaint_id=complaint.id,
-                    author_id=current_user.id,
-                    author_name=current_user.full_name,
-                    note=f"Assigned to {assigned_user.full_name}",
-                    is_status_change=True,
-                )
-            )
 
     db.commit()
     db.refresh(hist)
@@ -1398,6 +1382,12 @@ def create_complaint(
     if not vehicle:
         raise HTTPException(status_code=404, detail="Vehicle not found. Please select a valid Kit Master record.")
 
+    assigned_user = None
+    if payload.assigned_to_id is not None:
+        assigned_user = db.query(User).filter(User.id == payload.assigned_to_id).first()
+        if assigned_user is None:
+            raise HTTPException(status_code=422, detail="Selected technician does not exist")
+
     complaint_no = _generate_complaint_no(db)
     gps_addr = payload.gps_address or _reverse_geocode_area_and_city(payload.gps_latitude, payload.gps_longitude)
     complaint = VSComplaint(
@@ -1428,6 +1418,16 @@ def create_complaint(
         is_status_change=False,
     )
     db.add(note)
+    if assigned_user:
+        db.add(
+            VSComplaintNote(
+                complaint_id=complaint.id,
+                author_id=current_user.id,
+                author_name=current_user.full_name,
+                note=f"Assigned to {assigned_user.full_name}",
+                is_status_change=True,
+            )
+        )
 
     _trigger_critical_notifications(db, complaint, vehicle)
 
