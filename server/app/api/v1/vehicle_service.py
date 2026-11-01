@@ -253,6 +253,18 @@ def _format_complaint_out(c: VSComplaint) -> VSComplaintOut:
         custom_field_values=[
             VSComplaintCustomFieldValueOut.model_validate(v) for v in (c.custom_field_values or [])
         ],
+        est_delivery_date=c.est_delivery_date,
+        initial_checklist_url=c.initial_checklist_url,
+        can_data_collected=c.can_data_collected,
+        master_checklist_url=c.master_checklist_url,
+        complaints_8d_url=c.complaints_8d_url,
+        technician_remarks=c.technician_remarks,
+        vehicle_images=c.vehicle_images,
+        odometer_reading=c.odometer_reading,
+        timer_started_at=c.timer_started_at,
+        timer_ended_at=c.timer_ended_at,
+        service_hours=c.service_hours,
+        service_type=getattr(c.service_type, "value", c.service_type) or "GENERAL",
     )
 
 

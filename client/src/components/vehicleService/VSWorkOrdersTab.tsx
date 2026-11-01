@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   Alert,
   Box,
@@ -73,7 +73,6 @@ import {
   Eye,
   Trash2 as TrashIcon,
   Receipt,
-  Save,
 } from 'lucide-react';
 
 import { useAppSelector } from '@/app/hooks';
@@ -503,7 +502,7 @@ export default function VSWorkOrdersTab() {
 
   // Mutations
   const [createComplaint, { isLoading: isCreating }] = useCreateVSComplaintMutation();
-  const [updateComplaint, { isLoading: isUpdating }] = useUpdateVSComplaintMutation();
+  const [updateComplaint] = useUpdateVSComplaintMutation();
   const [deleteComplaint, { isLoading: isDeletingComplaint }] = useDeleteVSComplaintMutation();
   const [addNote, { isLoading: isAddingNote }] = useAddVSComplaintNoteMutation();
   const [closeComplaint, { isLoading: isClosing }] = useCloseVSComplaintMutation();
@@ -601,6 +600,18 @@ export default function VSWorkOrdersTab() {
     const [timerRunning, setTimerRunning] = useState(false);
     const [timerStartTime, setTimerStartTime] = useState<Date | null>(null);
     const [serviceHours, setServiceHours] = useState<number | null>(null);
+    const [workflowDirty, setWorkflowDirty] = useState(false);
+    const [workflowAutoSaveStatus, setWorkflowAutoSaveStatus] = useState<'saved' | 'unsaved' | 'saving' | 'error'>('saved');
+    const [customFieldsDirty, setCustomFieldsDirty] = useState(false);
+    const [customFieldsAutoSaveStatus, setCustomFieldsAutoSaveStatus] = useState<'saved' | 'unsaved' | 'saving' | 'error'>('saved');
+    const workflowRevisionRef = useRef(0);
+    const customFieldsRevisionRef = useRef(0);
+    const workflowSaveChainRef = useRef<Promise<boolean>>(Promise.resolve(true));
+    const customFieldsSaveChainRef = useRef<Promise<boolean>>(Promise.resolve(true));
+    const workflowSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const customFieldsSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const initializedComplaintIdRef = useRef<number | null>(null);
+    const loadedCustomFieldsComplaintIdRef = useRef<number | null>(null);
 
     // File upload states
     const [initialChecklistFile, setInitialChecklistFile] = useState<File | null>(null);
@@ -785,7 +796,7 @@ export default function VSWorkOrdersTab() {
           selectedComplaint?.id || 0,
           { skip: !selectedComplaint }
         );
-    const { data: manageCustomFieldValuesData = [] } = useGetCustomFieldValuesForComplaintQuery(
+    const { currentData: manageCustomFieldValuesData, isSuccess: manageCustomFieldValuesLoaded } = useGetCustomFieldValuesForComplaintQuery(
       selectedComplaint?.id || 0,
       { skip: !selectedComplaint }
     );
@@ -799,14 +810,164 @@ export default function VSWorkOrdersTab() {
 
     // Sync fetched values to local state for Manage dialog
     React.useEffect(() => {
-      if (manageCustomFieldValuesData.length > 0) {
-        const valuesMap: Record<string, any> = {};
-        manageCustomFieldValuesData.forEach((v) => {
-          valuesMap[String(v.field_id)] = v.value;
-        });
-        setManageCustomFieldValues(valuesMap);
+      if (
+        !selectedComplaint
+        || !manageCustomFieldValuesLoaded
+        || !manageCustomFieldValuesData
+        || loadedCustomFieldsComplaintIdRef.current === selectedComplaint.id
+      ) return;
+      const valuesMap: Record<string, any> = {};
+      manageCustomFieldValuesData.forEach((v) => {
+        valuesMap[String(v.field_id)] = v.value;
+      });
+      setManageCustomFieldValues(valuesMap);
+      loadedCustomFieldsComplaintIdRef.current = selectedComplaint.id;
+    }, [selectedComplaint?.id, manageCustomFieldValuesData, manageCustomFieldValuesLoaded]);
+
+    const markWorkflowDirty = () => {
+      workflowRevisionRef.current += 1;
+      setWorkflowDirty(true);
+      setWorkflowAutoSaveStatus('unsaved');
+    };
+
+    const markCustomFieldsDirty = () => {
+      customFieldsRevisionRef.current += 1;
+      setCustomFieldsDirty(true);
+      setCustomFieldsAutoSaveStatus('unsaved');
+    };
+
+    const buildWorkflowPayload = useCallback((): VSComplaintUpdate => ({
+      est_delivery_date: estDeliveryDate || null,
+      can_data_collected: canDataCollected,
+      technician_remarks: technicianRemarks.trim() || null,
+      odometer_reading: odometerReading !== '' ? Number(odometerReading) : null,
+      service_type: serviceType,
+    }), [estDeliveryDate, canDataCollected, technicianRemarks, odometerReading, serviceType]);
+
+    const queueWorkflowSave = useCallback((complaintId: number, payload: VSComplaintUpdate, revision: number) => {
+      const save = async (): Promise<boolean> => {
+        setWorkflowAutoSaveStatus('saving');
+        try {
+          await updateComplaint({ id: complaintId, body: payload }).unwrap();
+          if (workflowRevisionRef.current === revision) {
+            setWorkflowDirty(false);
+            setWorkflowAutoSaveStatus('saved');
+          }
+          return true;
+        } catch (err: any) {
+          if (workflowRevisionRef.current === revision) {
+            setWorkflowAutoSaveStatus('error');
+            showToast(err?.data?.detail || 'Failed to automatically save workflow details.', 'error');
+          }
+          return false;
+        }
+      };
+
+      const queuedSave = workflowSaveChainRef.current.then(save, save);
+      workflowSaveChainRef.current = queuedSave;
+      return queuedSave;
+    }, [updateComplaint, showToast]);
+
+    const queueCustomFieldsSave = useCallback((
+      complaintId: number,
+      valuesSnapshot: Record<string, any>,
+      revision: number,
+    ) => {
+      const save = async (): Promise<boolean> => {
+        setCustomFieldsAutoSaveStatus('saving');
+        try {
+          await upsertCustomFieldValuesForComplaint({
+            complaint_id: complaintId,
+            body: {
+              values: Object.entries(valuesSnapshot).map(([field_id, value]) => ({
+                field_id: Number(field_id),
+                value: value === null || value === undefined ? null : String(value),
+              })),
+            },
+          }).unwrap();
+          if (customFieldsRevisionRef.current === revision) {
+            setCustomFieldsDirty(false);
+            setCustomFieldsAutoSaveStatus('saved');
+          }
+          return true;
+        } catch (err: any) {
+          if (customFieldsRevisionRef.current === revision) {
+            setCustomFieldsAutoSaveStatus('error');
+            showToast(err?.data?.detail || 'Failed to automatically save custom fields.', 'error');
+          }
+          return false;
+        }
+      };
+
+      const queuedSave = customFieldsSaveChainRef.current.then(save, save);
+      customFieldsSaveChainRef.current = queuedSave;
+      return queuedSave;
+    }, [upsertCustomFieldValuesForComplaint, showToast]);
+
+    React.useEffect(() => {
+      if (!selectedComplaint || !workflowDirty) return;
+
+      const complaintId = selectedComplaint.id;
+      const revision = workflowRevisionRef.current;
+      const payload = buildWorkflowPayload();
+      const timer = setTimeout(() => {
+        workflowSaveTimerRef.current = null;
+        void queueWorkflowSave(complaintId, payload, revision);
+      }, 650);
+      workflowSaveTimerRef.current = timer;
+
+      return () => {
+        clearTimeout(timer);
+        if (workflowSaveTimerRef.current === timer) workflowSaveTimerRef.current = null;
+      };
+    }, [selectedComplaint?.id, workflowDirty, buildWorkflowPayload, queueWorkflowSave]);
+
+    React.useEffect(() => {
+      if (!selectedComplaint || !customFieldsDirty) return;
+
+      const complaintId = selectedComplaint.id;
+      const revision = customFieldsRevisionRef.current;
+      const valuesSnapshot = manageCustomFieldValues;
+      const timer = setTimeout(() => {
+        customFieldsSaveTimerRef.current = null;
+        void queueCustomFieldsSave(complaintId, valuesSnapshot, revision);
+      }, 650);
+      customFieldsSaveTimerRef.current = timer;
+
+      return () => {
+        clearTimeout(timer);
+        if (customFieldsSaveTimerRef.current === timer) customFieldsSaveTimerRef.current = null;
+      };
+    }, [selectedComplaint?.id, customFieldsDirty, manageCustomFieldValues, queueCustomFieldsSave]);
+
+    const flushAutoSaves = async (complaintId: number) => {
+      if (workflowSaveTimerRef.current) {
+        clearTimeout(workflowSaveTimerRef.current);
+        workflowSaveTimerRef.current = null;
       }
-    }, [manageCustomFieldValuesData]);
+      if (customFieldsSaveTimerRef.current) {
+        clearTimeout(customFieldsSaveTimerRef.current);
+        customFieldsSaveTimerRef.current = null;
+      }
+
+      const pendingSaves: Promise<boolean>[] = [];
+      if (workflowDirty) {
+        pendingSaves.push(queueWorkflowSave(
+          complaintId,
+          buildWorkflowPayload(),
+          workflowRevisionRef.current,
+        ));
+      }
+      if (customFieldsDirty) {
+        pendingSaves.push(queueCustomFieldsSave(
+          complaintId,
+          manageCustomFieldValues,
+          customFieldsRevisionRef.current,
+        ));
+      }
+      const results = await Promise.all(pendingSaves);
+      return results.every(Boolean);
+    };
 
     const handleUpdateStatus = async (complaintId: number, nextStatus: string) => {
     // Validate required custom fields for the next status
@@ -816,6 +977,7 @@ export default function VSWorkOrdersTab() {
       showToast(`Cannot change status: ${validationErrors.join('; ')}`, 'warning');
       return;
     }
+    if (!(await flushAutoSaves(complaintId))) return;
 
     const payload: VSComplaintUpdate = {
       status: nextStatus,
@@ -872,6 +1034,7 @@ export default function VSWorkOrdersTab() {
       showToast(`Cannot close work order: ${validationErrors.join('; ')}`, 'warning');
       return;
     }
+    if (!(await flushAutoSaves(selectedComplaint.id))) return;
 
     // Send OTP first
     setOtpSending(true);
@@ -1028,30 +1191,6 @@ export default function VSWorkOrdersTab() {
   // =====================================================================
   // Service Workflow Handlers
   // =====================================================================
-
-  const handleUpdateServiceWorkflow = async () => {
-    if (!selectedComplaint) return;
-
-    const payload: VSComplaintUpdate = {
-      est_delivery_date: estDeliveryDate || null,
-      can_data_collected: canDataCollected,
-      technician_remarks: technicianRemarks.trim() || null,
-      odometer_reading: odometerReading !== '' ? Number(odometerReading) : null,
-      service_type: serviceType,
-      timer_started_at: timerRunning ? new Date().toISOString() : undefined,
-      timer_ended_at: !timerRunning && timerStartTime ? new Date().toISOString() : undefined,
-      service_hours: serviceHours,
-    };
-
-    try {
-      const updated = await updateComplaint({ id: selectedComplaint.id, body: payload }).unwrap();
-      setSelectedComplaint(updated);
-      showToast('Service workflow details saved successfully.', 'success');
-      refetch();
-    } catch (err: any) {
-      showToast(err?.data?.detail || 'Failed to update service workflow fields.', 'error');
-    }
-  };
 
   const handleTimerStart = async () => {
     if (!selectedComplaint) return;
@@ -1216,14 +1355,30 @@ export default function VSWorkOrdersTab() {
 
   // Load service workflow data when complaint is selected
   React.useEffect(() => {
+    const complaintId = selectedComplaint?.id ?? null;
+    if (initializedComplaintIdRef.current === complaintId) return;
+    initializedComplaintIdRef.current = complaintId;
+    workflowRevisionRef.current += 1;
+    customFieldsRevisionRef.current += 1;
+    setWorkflowDirty(false);
+    setWorkflowAutoSaveStatus('saved');
+    setCustomFieldsDirty(false);
+    setCustomFieldsAutoSaveStatus('saved');
+    if (complaintId === null) {
+      loadedCustomFieldsComplaintIdRef.current = null;
+      setManageCustomFieldValues({});
+    } else if (loadedCustomFieldsComplaintIdRef.current !== complaintId) {
+      setManageCustomFieldValues({});
+    }
+
     if (selectedComplaint) {
       setEstDeliveryDate(selectedComplaint.est_delivery_date || '');
-      setCanDataCollected(selectedComplaint.can_data_collected || false);
+      setCanDataCollected(selectedComplaint.can_data_collected ?? false);
       setTechnicianRemarks(selectedComplaint.technician_remarks || '');
-      setOdometerReading(selectedComplaint.odometer_reading || '');
+      setOdometerReading(selectedComplaint.odometer_reading ?? '');
       setServiceType(selectedComplaint.service_type || 'GENERAL');
       setTimerRunning(!!selectedComplaint.timer_started_at && !selectedComplaint.timer_ended_at);
-      setServiceHours(selectedComplaint.service_hours || null);
+      setServiceHours(selectedComplaint.service_hours ?? null);
       setInitialChecklistFile(null);
       setMasterChecklistFile(null);
       setComplaints8dFile(null);
@@ -1232,9 +1387,11 @@ export default function VSWorkOrdersTab() {
       setCostQty(1);
       setCostUnitPrice('');
       
-      if (selectedComplaint.timer_started_at && !selectedComplaint.timer_ended_at) {
-        setTimerStartTime(new Date(selectedComplaint.timer_started_at));
-      }
+      setTimerStartTime(
+        selectedComplaint.timer_started_at && !selectedComplaint.timer_ended_at
+          ? new Date(selectedComplaint.timer_started_at)
+          : null,
+      );
     } else {
       setEstDeliveryDate('');
       setCanDataCollected(false);
@@ -1254,36 +1411,10 @@ export default function VSWorkOrdersTab() {
     }
   }, [selectedComplaint]);
 
-  const handleSaveCustomFields = async () => {
+  const handleCloseSelectedComplaint = async () => {
     if (!selectedComplaint) return;
-
-    // Validate required fields for current status
-    const currentStatus = selectedComplaint.status;
-    const requiredFields = getRequiredFieldsForStatus(manageCustomFields, currentStatus);
-    const validationErrors = validateRequiredFields(manageCustomFieldValues, requiredFields);
-    if (validationErrors.length > 0) {
-      showToast(`Cannot save: ${validationErrors.join('; ')}`, 'warning');
-      return;
-    }
-
-    try {
-      await upsertCustomFieldValuesForComplaint({
-        complaint_id: selectedComplaint.id,
-        body: {
-          values: Object.entries(manageCustomFieldValues).map(([field_id, value]) => ({
-            field_id: Number(field_id),
-            value: String(value),
-          })),
-        },
-      }).unwrap();
-
-      const updated = await updateComplaint({ id: selectedComplaint.id, body: {} }).unwrap();
-      setSelectedComplaint(updated);
-      showToast('Custom fields saved successfully.', 'success');
-      refetch();
-    } catch (err: any) {
-      showToast(err?.data?.detail || 'Failed to save custom fields.', 'error');
-    }
+    if (!(await flushAutoSaves(selectedComplaint.id))) return;
+    setSelectedComplaint(null);
   };
 
   return (
@@ -2263,7 +2394,7 @@ export default function VSWorkOrdersTab() {
       {selectedComplaint && (
         <Dialog
           open={Boolean(selectedComplaint)}
-          onClose={() => setSelectedComplaint(null)}
+          onClose={() => { void handleCloseSelectedComplaint(); }}
           maxWidth={false}
           fullWidth
           sx={{
@@ -2520,7 +2651,10 @@ export default function VSWorkOrdersTab() {
                                     size="small"
                                     fullWidth
                                     value={estDeliveryDate}
-                                    onChange={(e) => setEstDeliveryDate(e.target.value)}
+                                    onChange={(e) => {
+                                      setEstDeliveryDate(e.target.value);
+                                      markWorkflowDirty();
+                                    }}
                                     InputLabelProps={{ shrink: true }}
                                     InputProps={{
                                       startAdornment: (
@@ -2543,7 +2677,10 @@ export default function VSWorkOrdersTab() {
                                       { value: 'GENERAL', label: 'General Service' },
                                       { value: 'PAID', label: 'Paid Service' },
                                     ]}
-                                    onChange={(val) => setServiceType(val as 'FREE' | 'GENERAL' | 'PAID')}
+                                    onChange={(val) => {
+                                      setServiceType(val as 'FREE' | 'GENERAL' | 'PAID');
+                                      markWorkflowDirty();
+                                    }}
                                     size="small"
                                   />
                                 </Grid>
@@ -2555,7 +2692,10 @@ export default function VSWorkOrdersTab() {
                                     size="small"
                                     fullWidth
                                     value={odometerReading}
-                                    onChange={(e) => setOdometerReading(e.target.value === '' ? '' : Number(e.target.value))}
+                                    onChange={(e) => {
+                                      setOdometerReading(e.target.value === '' ? '' : Number(e.target.value));
+                                      markWorkflowDirty();
+                                    }}
                                     InputLabelProps={{ shrink: true }}
                                     InputProps={{
                                       startAdornment: (
@@ -2577,7 +2717,10 @@ export default function VSWorkOrdersTab() {
                                       <input
                                         type="checkbox"
                                         checked={canDataCollected}
-                                        onChange={(e) => setCanDataCollected(e.target.checked)}
+                                        onChange={(e) => {
+                                          setCanDataCollected(e.target.checked);
+                                          markWorkflowDirty();
+                                        }}
                                         style={{ width: 18, height: 18, accentColor: '#023020' }}
                                       />
                                       <Typography variant="body2" fontWeight={600} color="#0f172a">
@@ -2615,7 +2758,10 @@ export default function VSWorkOrdersTab() {
                                 fullWidth
                                 placeholder="Technician notes, observations, recommendations..."
                                 value={technicianRemarks}
-                                onChange={(e) => setTechnicianRemarks(e.target.value)}
+                                onChange={(e) => {
+                                  setTechnicianRemarks(e.target.value);
+                                  markWorkflowDirty();
+                                }}
                                 sx={{ mt: 1.5, '& .MuiOutlinedInput-root': { fontSize: 12.5 } }}
                               />
 
@@ -3141,7 +3287,10 @@ export default function VSWorkOrdersTab() {
                                       key={field.id}
                                       field={field}
                                       value={manageCustomFieldValues[String(field.id)]}
-                                      onChange={(fieldId, value) => setManageCustomFieldValues(prev => ({ ...prev, [String(fieldId)]: value }))}
+                                      onChange={(fieldId, value) => {
+                                        setManageCustomFieldValues((prev) => ({ ...prev, [String(fieldId)]: value }));
+                                        markCustomFieldsDirty();
+                                      }}
                                       users={users}
                                                                   uploadFile={(file) => uploadCustomFieldFileManage(file, field.id)}
                                     />
@@ -3364,43 +3513,21 @@ export default function VSWorkOrdersTab() {
                             Total Cost: ₹{selectedComplaint.costs.reduce((sum, c) => sum + (c.total_price || 0), 0).toLocaleString()}
                           </Typography>
                         )}
+                        <Typography variant="caption" role="status" sx={{ color: workflowAutoSaveStatus === 'error' ? '#b91c1c' : '#64748b' }}>
+                          {workflowAutoSaveStatus === 'saving' ? 'Saving workflow...' :
+                            workflowAutoSaveStatus === 'unsaved' ? 'Workflow changes will save automatically' :
+                              workflowAutoSaveStatus === 'error' ? 'Workflow auto-save failed' : 'Workflow saved'}
+                        </Typography>
+                        {manageCustomFields.length > 0 && (
+                          <Typography variant="caption" role="status" sx={{ color: customFieldsAutoSaveStatus === 'error' ? '#b91c1c' : '#64748b' }}>
+                            {customFieldsAutoSaveStatus === 'saving' ? 'Saving custom fields...' :
+                              customFieldsAutoSaveStatus === 'unsaved' ? 'Custom fields will save automatically' :
+                                customFieldsAutoSaveStatus === 'error' ? 'Custom field auto-save failed' : 'Custom fields saved'}
+                          </Typography>
+                        )}
                       </Box>
 
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                        {manageCustomFields.length > 0 && (
-                          <Button
-                            variant="outlined"
-                            size="small"
-                            onClick={handleSaveCustomFields}
-                            sx={{
-                              textTransform: 'none',
-                              fontWeight: 600,
-                              borderColor: '#023020',
-                              color: '#023020',
-                              borderRadius: '8px',
-                            }}
-                          >
-                            Save Custom Fields
-                          </Button>
-                        )}
-
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          onClick={handleUpdateServiceWorkflow}
-                          disabled={isUpdating}
-                          startIcon={isUpdating ? <CircularProgress size={14} color="inherit" /> : <Save size={14} />}
-                          sx={{
-                            textTransform: 'none',
-                            fontWeight: 600,
-                            borderColor: '#023020',
-                            color: '#023020',
-                            borderRadius: '8px',
-                          }}
-                        >
-                          {isUpdating ? 'Saving...' : 'Save Workflow'}
-                        </Button>
-
                         {selectedComplaint.status === 'IN_PROGRESS' && (
                           <Button
                             size="small"
@@ -3435,7 +3562,7 @@ export default function VSWorkOrdersTab() {
                         )}
 
                         <Button
-                          onClick={() => setSelectedComplaint(null)}
+                          onClick={() => { void handleCloseSelectedComplaint(); }}
                           variant="outlined"
                           sx={{ textTransform: 'none', fontWeight: 600, borderColor: '#CBD5E1', color: '#64748B', borderRadius: '8px' }}
                         >

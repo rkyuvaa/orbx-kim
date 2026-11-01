@@ -46,6 +46,20 @@ def test_workflow_updates_and_attachments_persist(client, db, monkeypatch, tmp_p
         url = response.json()["url"]
         assert url.startswith("/uploads/vehicle_service/")
         assert (upload_root / url.removeprefix("/uploads/vehicle_service/")).is_file()
+        workflow_response = client.patch(
+            f"/api/v1/vehicle-service/complaints/{complaint_id}",
+            json={"technician_remarks": "Updated after upload"},
+            headers=headers,
+        )
+        assert workflow_response.status_code == 200, workflow_response.text
+        workflow_data = workflow_response.json()
+        assert workflow_data[
+            {
+                "initial-checklist": "initial_checklist_url",
+                "master-checklist": "master_checklist_url",
+                "complaints-8d": "complaints_8d_url",
+            }[endpoint]
+        ] == url
 
     images_response = client.post(
         f"/api/v1/vehicle-service/complaints/{complaint_id}/vehicle-images",
@@ -55,6 +69,13 @@ def test_workflow_updates_and_attachments_persist(client, db, monkeypatch, tmp_p
     assert images_response.status_code == 200, images_response.text
     image_url = images_response.json()["urls"][0]
     assert (upload_root / image_url.removeprefix("/uploads/vehicle_service/")).is_file()
+    image_update_response = client.patch(
+        f"/api/v1/vehicle-service/complaints/{complaint_id}",
+        json={"service_type": "PAID"},
+        headers=headers,
+    )
+    assert image_update_response.status_code == 200, image_update_response.text
+    assert image_update_response.json()["vehicle_images"] == f'["{image_url}"]'
 
     workflow_response = client.patch(
         f"/api/v1/vehicle-service/complaints/{complaint_id}",
