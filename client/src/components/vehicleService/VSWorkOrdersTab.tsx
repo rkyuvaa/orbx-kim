@@ -2763,7 +2763,7 @@ export default function VSWorkOrdersTab() {
                               variant="body2"
                               sx={{ minWidth: 72, fontWeight: 700, color: 'text.secondary' }}
                             >
-                              {advice.serial_number}
+                              {index + 1}.
                             </Typography>
                             {editingAdviceId === advice.id ? (
                               <TextField
