@@ -5,6 +5,7 @@ import {
   Button,
   Card,
   CardContent,
+  Checkbox,
   Chip,
   CircularProgress,
   Dialog,
@@ -404,11 +405,15 @@ function CustomFieldRenderer({ field, value, onChange, users, uploadFile, disabl
 import {
   useAddVSComplaintNoteMutation,
   useCloseVSComplaintMutation,
+  useAddVSComplaintIssueMatrixItemsMutation,
   useCreateVSComplaintMutation,
   useCreateVSTechnicianAdviceMutation,
   useDeleteVSTechnicianAdviceMutation,
+  useDeleteVSComplaintIssueMatrixItemMutation,
   useDeleteVSComplaintMutation,
   useGetVSTechnicianAdviceQuery,
+  useGetVSIssueMatrixConfigQuery,
+  useGetVSComplaintIssueMatrixItemsQuery,
   useGetVSComplaintsQuery,
   useGetVSKitsQuery,
   useGetVSVehiclesQuery,
@@ -530,6 +535,8 @@ export default function VSWorkOrdersTab() {
   const [createTechnicianAdvice, { isLoading: isCreatingAdvice }] = useCreateVSTechnicianAdviceMutation();
   const [updateTechnicianAdvice, { isLoading: isUpdatingAdvice }] = useUpdateVSTechnicianAdviceMutation();
   const [deleteTechnicianAdvice] = useDeleteVSTechnicianAdviceMutation();
+  const [addIssueMatrixItems, { isLoading: isAddingIssueMatrixItems }] = useAddVSComplaintIssueMatrixItemsMutation();
+  const [deleteIssueMatrixItem] = useDeleteVSComplaintIssueMatrixItemMutation();
     const [sendOTP, { isLoading: isSendingOTP }] = useSendVSComplaintOTPMutation();
     const [verifyOTP, { isLoading: isVerifyingOTP }] = useVerifyVSComplaintOTPMutation();
         const [uploadInitialChecklist] = useUploadInitialChecklistMutation();
@@ -574,11 +581,48 @@ export default function VSWorkOrdersTab() {
   const [newAdviceIssue, setNewAdviceIssue] = useState('');
   const [editingAdviceId, setEditingAdviceId] = useState<number | null>(null);
   const [editingAdviceIssue, setEditingAdviceIssue] = useState('');
+  const [isIssueMatrixPickerOpen, setIsIssueMatrixPickerOpen] = useState(false);
+  const [issueMatrixSearch, setIssueMatrixSearch] = useState('');
+  const [issueMatrixSystemFilter, setIssueMatrixSystemFilter] = useState('');
+  const [expandedIssueSystems, setExpandedIssueSystems] = useState<Record<string, boolean>>({});
+  const [selectedIssueRowIndexes, setSelectedIssueRowIndexes] = useState<number[]>([]);
+  const { data: issueMatrixConfig, isLoading: isIssueMatrixConfigLoading } = useGetVSIssueMatrixConfigQuery();
+  const {
+    data: selectedIssueMatrixItems = [],
+    isLoading: isSelectedIssueMatrixLoading,
+    isError: isSelectedIssueMatrixError,
+  } = useGetVSComplaintIssueMatrixItemsQuery(selectedComplaint?.id ?? 0, { skip: !selectedComplaint });
   const {
     data: technicianAdvice = [],
     isLoading: isAdviceLoading,
     isError: isAdviceError,
   } = useGetVSTechnicianAdviceQuery(selectedComplaint?.id ?? 0, { skip: !selectedComplaint });
+  const issueMatrixHeaders = issueMatrixConfig?.headers ?? [];
+  const systemColumnIndex = issueMatrixHeaders.indexOf('System');
+  const issueCodeColumnIndex = issueMatrixHeaders.indexOf('Issue Code');
+  const issueColumnIndex = issueMatrixHeaders.indexOf('Issue');
+  const subsystemColumnIndex = issueMatrixHeaders.indexOf('Subsystem');
+  const issueMatrixSystems = useMemo(
+    () => [...new Set((issueMatrixConfig?.rows ?? []).map((row) => row[systemColumnIndex]?.trim()).filter(Boolean))].sort(),
+    [issueMatrixConfig, systemColumnIndex],
+  );
+  const filteredIssueMatrixGroups = useMemo(() => {
+    const searchTerm = issueMatrixSearch.trim().toLowerCase();
+    const groups = new Map<string, { row: string[]; index: number }[]>();
+    (issueMatrixConfig?.rows ?? []).forEach((row, index) => {
+      const system = row[systemColumnIndex]?.trim() || 'Unspecified System';
+      if (issueMatrixSystemFilter && system !== issueMatrixSystemFilter) return;
+      if (searchTerm && !row.some((cell) => cell.toLowerCase().includes(searchTerm))) return;
+      const group = groups.get(system) ?? [];
+      group.push({ row, index });
+      groups.set(system, group);
+    });
+    return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b));
+  }, [issueMatrixConfig, issueMatrixSearch, issueMatrixSystemFilter, systemColumnIndex]);
+  const selectedIssueCodes = useMemo(
+    () => new Set(selectedIssueMatrixItems.map((item) => item.issue_code)),
+    [selectedIssueMatrixItems],
+  );
   const complaintAddress = useResolvedAddress(
     selectedComplaint?.gps_latitude,
     selectedComplaint?.gps_longitude,
@@ -1230,6 +1274,56 @@ export default function VSWorkOrdersTab() {
       showToast('Technician advice deleted.', 'success');
     } catch (err: any) {
       showToast(err?.data?.detail || 'Failed to delete technician advice.', 'error');
+    }
+  };
+
+  const getIssueMatrixCode = (row: string[], rowIndex: number) =>
+    row[issueCodeColumnIndex]?.trim() || `ROW-${rowIndex + 1}`;
+
+  const handleOpenIssueMatrixPicker = () => {
+    setIssueMatrixSearch('');
+    setIssueMatrixSystemFilter('');
+    setSelectedIssueRowIndexes([]);
+    setExpandedIssueSystems({});
+    setIsIssueMatrixPickerOpen(true);
+  };
+
+  const handleToggleIssueMatrixRow = (rowIndex: number) => {
+    const row = issueMatrixConfig?.rows[rowIndex];
+    if (!row || selectedIssueCodes.has(getIssueMatrixCode(row, rowIndex))) return;
+    setSelectedIssueRowIndexes((current) =>
+      current.includes(rowIndex)
+        ? current.filter((index) => index !== rowIndex)
+        : [...current, rowIndex],
+    );
+  };
+
+  const handleAddSelectedIssueMatrixRows = async () => {
+    if (!selectedComplaint || selectedIssueRowIndexes.length === 0) return;
+    try {
+      const addedItems = await addIssueMatrixItems({
+        complaintId: selectedComplaint.id,
+        row_indexes: selectedIssueRowIndexes,
+      }).unwrap();
+      if (addedItems.length === 0) {
+        showToast('Those issues are already added to this work order.', 'info');
+      } else {
+        showToast(`${addedItems.length} issue${addedItems.length === 1 ? '' : 's'} added to this work order.`, 'success');
+      }
+      setIsIssueMatrixPickerOpen(false);
+      setSelectedIssueRowIndexes([]);
+    } catch (err: any) {
+      showToast(err?.data?.detail || 'Failed to add selected issues.', 'error');
+    }
+  };
+
+  const handleRemoveIssueMatrixItem = async (itemId: number) => {
+    if (!selectedComplaint) return;
+    try {
+      await deleteIssueMatrixItem({ complaintId: selectedComplaint.id, itemId }).unwrap();
+      showToast('Issue removed from this work order.', 'success');
+    } catch (err: any) {
+      showToast(err?.data?.detail || 'Failed to remove issue.', 'error');
     }
   };
 
@@ -2709,7 +2803,264 @@ export default function VSWorkOrdersTab() {
               </Tabs>
 
               {selectedWorkOrderTab === 1 && (
-                <Box role="tabpanel" id="work-order-panel-1" aria-labelledby="work-order-tab-1" />
+                <Box role="tabpanel" id="work-order-panel-1" aria-labelledby="work-order-tab-1" sx={{ pt: 2 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                    <Typography variant="subtitle2" fontWeight={800} color="#023020">
+                      ISSUE MATRIX
+                    </Typography>
+                    <Button
+                      size="small"
+                      variant="contained"
+                      startIcon={<Plus size={16} />}
+                      onClick={handleOpenIssueMatrixPicker}
+                      disabled={isIssueMatrixConfigLoading || !issueMatrixConfig?.rows.length}
+                      sx={{ textTransform: 'none', fontWeight: 700 }}
+                    >
+                      Add Issue Matrix
+                    </Button>
+                  </Box>
+                  {!issueMatrixConfig?.rows.length && !isIssueMatrixConfigLoading && (
+                    <Alert severity="info" sx={{ mb: 1.5 }}>
+                      No Issue Matrix is configured. Import one from Configuration first.
+                    </Alert>
+                  )}
+                  {isSelectedIssueMatrixError && (
+                    <Alert severity="error" sx={{ mb: 1.5 }}>
+                      Could not load the issues selected for this work order.
+                    </Alert>
+                  )}
+                  {isSelectedIssueMatrixLoading ? (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                      <CircularProgress size={26} />
+                    </Box>
+                  ) : selectedIssueMatrixItems.length === 0 ? (
+                    <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
+                      No issues selected for this work order.
+                    </Typography>
+                  ) : (
+                    <Box>
+                      {selectedIssueMatrixItems.map((item, index) => {
+                        const issueTitle = item.issue_row[issueColumnIndex] || item.issue_code;
+                        const details = [
+                          item.issue_row[subsystemColumnIndex],
+                          item.issue_row[systemColumnIndex],
+                        ].filter(Boolean);
+                        return (
+                          <React.Fragment key={item.id}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.75 }}>
+                              <Typography
+                                variant="body2"
+                                sx={{ minWidth: 32, fontWeight: 700, color: 'text.secondary' }}
+                              >
+                                {index + 1}.
+                              </Typography>
+                              <Box sx={{ flex: 1, minWidth: 0 }}>
+                                <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
+                                  {issueTitle}
+                                </Typography>
+                                {details.length > 0 && (
+                                  <Typography variant="caption" color="text.secondary">
+                                    {details.join(' · ')}
+                                  </Typography>
+                                )}
+                              </Box>
+                              <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+                                {item.issue_code}
+                              </Typography>
+                              <Tooltip title="Remove from work order">
+                                <IconButton
+                                  size="small"
+                                  aria-label="Remove issue from work order"
+                                  onClick={() => handleRemoveIssueMatrixItem(item.id)}
+                                >
+                                  <X size={16} />
+                                </IconButton>
+                              </Tooltip>
+                            </Box>
+                            {index < selectedIssueMatrixItems.length - 1 && <Divider />}
+                          </React.Fragment>
+                        );
+                      })}
+                    </Box>
+                  )}
+
+                  <Dialog
+                    open={isIssueMatrixPickerOpen}
+                    onClose={() => setIsIssueMatrixPickerOpen(false)}
+                    maxWidth="xl"
+                    fullWidth
+                  >
+                    <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      Add: Issue Matrix
+                      <IconButton aria-label="Close issue matrix picker" onClick={() => setIsIssueMatrixPickerOpen(false)}>
+                        <X size={20} />
+                      </IconButton>
+                    </DialogTitle>
+                    <DialogContent dividers>
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1.5,
+                          mb: 1.5,
+                          flexWrap: 'wrap',
+                        }}
+                      >
+                        <TextField
+                          size="small"
+                          placeholder="Search issues"
+                          value={issueMatrixSearch}
+                          onChange={(event) => setIssueMatrixSearch(event.target.value)}
+                          InputProps={{
+                            startAdornment: (
+                              <InputAdornment position="start">
+                                <Search size={16} />
+                              </InputAdornment>
+                            ),
+                          }}
+                          sx={{ flex: 1, minWidth: 220 }}
+                        />
+                        <FormControl size="small" sx={{ minWidth: 220 }}>
+                          <InputLabel id="issue-matrix-system-filter-label">System</InputLabel>
+                          <Select
+                            labelId="issue-matrix-system-filter-label"
+                            value={issueMatrixSystemFilter}
+                            label="System"
+                            onChange={(event) => setIssueMatrixSystemFilter(event.target.value)}
+                          >
+                            <MenuItem value="">All Systems</MenuItem>
+                            {issueMatrixSystems.map((system) => (
+                              <MenuItem key={system} value={system}>{system}</MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                        <Typography variant="body2" color="text.secondary">
+                          {selectedIssueRowIndexes.length} selected
+                        </Typography>
+                      </Box>
+
+                      {issueMatrixConfig?.rows.length ? (
+                        <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: '60vh' }}>
+                          <Table size="small" stickyHeader sx={{ minWidth: 1200 }}>
+                            <TableHead>
+                              <TableRow>
+                                <TableCell padding="checkbox" />
+                                {[
+                                  'Issue',
+                                  'Issue Code',
+                                  'Subsystem',
+                                  'Labour Time in Minutes',
+                                  'Warranty',
+                                  'Warranty Policy',
+                                  'Part Cost',
+                                  'Rework Cost (Software, Connector, Terminal)',
+                                  'Labour Cost',
+                                  'System',
+                                ].map((header) => (
+                                  <TableCell key={header} sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
+                                    {header}
+                                  </TableCell>
+                                ))}
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {filteredIssueMatrixGroups.map(([system, entries]) => {
+                                const isExpanded = expandedIssueSystems[system] !== false;
+                                return (
+                                  <React.Fragment key={system}>
+                                    <TableRow
+                                      hover
+                                      sx={{ cursor: 'pointer', bgcolor: '#F8FAFC' }}
+                                      onClick={() =>
+                                        setExpandedIssueSystems((current) => ({
+                                          ...current,
+                                          [system]: !isExpanded,
+                                        }))
+                                      }
+                                    >
+                                      <TableCell padding="checkbox">
+                                        <IconButton size="small" aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${system}`}>
+                                          <ChevronRight
+                                            size={16}
+                                            style={{ transform: isExpanded ? 'rotate(90deg)' : undefined }}
+                                          />
+                                        </IconButton>
+                                      </TableCell>
+                                      <TableCell colSpan={10} sx={{ fontWeight: 700 }}>
+                                        {system} ({entries.length})
+                                      </TableCell>
+                                    </TableRow>
+                                    {isExpanded && entries.map(({ row, index }) => {
+                                      const code = getIssueMatrixCode(row, index);
+                                      const isAlreadyAdded = selectedIssueCodes.has(code);
+                                      const pickerColumns = [
+                                        issueColumnIndex,
+                                        issueCodeColumnIndex,
+                                        subsystemColumnIndex,
+                                        issueMatrixHeaders.indexOf('Labour Time in Minutes'),
+                                        issueMatrixHeaders.indexOf('Warranty'),
+                                        issueMatrixHeaders.indexOf('Warranty Policy'),
+                                        issueMatrixHeaders.indexOf('Part Cost'),
+                                        issueMatrixHeaders.indexOf('Rework Cost (Software, Connector, Terminal)'),
+                                        issueMatrixHeaders.indexOf('Labour Cost'),
+                                        systemColumnIndex,
+                                      ];
+                                      return (
+                                        <TableRow key={`${index}-${code}`} hover>
+                                          <TableCell padding="checkbox">
+                                            <Checkbox
+                                              size="small"
+                                              checked={isAlreadyAdded || selectedIssueRowIndexes.includes(index)}
+                                              disabled={isAlreadyAdded || isAddingIssueMatrixItems}
+                                              onChange={() => handleToggleIssueMatrixRow(index)}
+                                            />
+                                          </TableCell>
+                                          {pickerColumns.map((columnIndex, column) => (
+                                            <TableCell key={`${index}-${column}`} sx={{ maxWidth: 240 }}>
+                                              {columnIndex >= 0 ? row[columnIndex] : ''}
+                                              {column === 0 && isAlreadyAdded && (
+                                                <Typography component="span" variant="caption" color="success.main" sx={{ ml: 1 }}>
+                                                  Added
+                                                </Typography>
+                                              )}
+                                            </TableCell>
+                                          ))}
+                                        </TableRow>
+                                      );
+                                    })}
+                                  </React.Fragment>
+                                );
+                              })}
+                              {filteredIssueMatrixGroups.length === 0 && (
+                                <TableRow>
+                                  <TableCell colSpan={11} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                                    No matching issues found.
+                                  </TableCell>
+                                </TableRow>
+                              )}
+                            </TableBody>
+                          </Table>
+                        </TableContainer>
+                      ) : (
+                        <Alert severity="info">Import an Issue Matrix in Configuration before selecting issues.</Alert>
+                      )}
+                    </DialogContent>
+                    <DialogActions sx={{ justifyContent: 'space-between', px: 3, py: 2 }}>
+                      <Button
+                        variant="contained"
+                        onClick={handleAddSelectedIssueMatrixRows}
+                        disabled={!selectedIssueRowIndexes.length || isAddingIssueMatrixItems}
+                        startIcon={isAddingIssueMatrixItems ? <CircularProgress size={16} color="inherit" /> : <Check size={16} />}
+                        sx={{ textTransform: 'none', fontWeight: 700 }}
+                      >
+                        Select
+                      </Button>
+                      <Button onClick={() => setIsIssueMatrixPickerOpen(false)} sx={{ textTransform: 'none' }}>
+                        Close
+                      </Button>
+                    </DialogActions>
+                  </Dialog>
+                </Box>
               )}
 
               {selectedWorkOrderTab === 2 && (

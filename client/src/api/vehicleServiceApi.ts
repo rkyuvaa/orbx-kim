@@ -39,6 +39,7 @@ import type {
   ServiceType,
   VSTechnicianAdvice,
   VSIssueMatrixConfig,
+  VSComplaintIssueMatrixItem,
 } from '@/types/vehicleService';
 
 export const vehicleServiceApi = baseApi.injectEndpoints({
@@ -53,6 +54,32 @@ export const vehicleServiceApi = baseApi.injectEndpoints({
     >({
       query: (body) => ({ url: '/vehicle-service/issue-matrix/config', method: 'PUT', body }),
       invalidatesTags: ['VSIssueMatrixConfig'],
+    }),
+    getVSComplaintIssueMatrixItems: build.query<VSComplaintIssueMatrixItem[], number>({
+      query: (complaintId) => ({ url: `/vehicle-service/complaints/${complaintId}/issue-matrix-items` }),
+      providesTags: (_result, _error, complaintId) => [{ type: 'VSComplaintIssueMatrixItems', id: complaintId }],
+    }),
+    addVSComplaintIssueMatrixItems: build.mutation<
+      VSComplaintIssueMatrixItem[],
+      { complaintId: number; row_indexes: number[] }
+    >({
+      query: ({ complaintId, ...body }) => ({
+        url: `/vehicle-service/complaints/${complaintId}/issue-matrix-items`,
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: (_result, _error, { complaintId }) => [
+        { type: 'VSComplaintIssueMatrixItems', id: complaintId },
+      ],
+    }),
+    deleteVSComplaintIssueMatrixItem: build.mutation<void, { complaintId: number; itemId: number }>({
+      query: ({ complaintId, itemId }) => ({
+        url: `/vehicle-service/complaints/${complaintId}/issue-matrix-items/${itemId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: (_result, _error, { complaintId }) => [
+        { type: 'VSComplaintIssueMatrixItems', id: complaintId },
+      ],
     }),
 
     // Technician Advice
@@ -447,6 +474,9 @@ export const vehicleServiceApi = baseApi.injectEndpoints({
 export const {
   useGetVSIssueMatrixConfigQuery,
   useImportVSIssueMatrixConfigMutation,
+  useGetVSComplaintIssueMatrixItemsQuery,
+  useAddVSComplaintIssueMatrixItemsMutation,
+  useDeleteVSComplaintIssueMatrixItemMutation,
   useGetVSTechnicianAdviceQuery,
   useCreateVSTechnicianAdviceMutation,
   useUpdateVSTechnicianAdviceMutation,

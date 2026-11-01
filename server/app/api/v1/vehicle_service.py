@@ -30,6 +30,7 @@ from app.services.pdf_kit_parser import parse_kit_traceability_pdf
 from app.models.vehicle_service import (
     VSComponentHistory,
     VSComplaint,
+    VSComplaintIssueMatrixItem,
     VSComplaintNote,
     VSCustomerFeedback,
     VSIssueMatrixConfig,
@@ -49,6 +50,8 @@ from app.models.vs_custom_field import (
 from app.schemas.vehicle_service import (
     VSIssueMatrixConfigOut,
     VSIssueMatrixImport,
+    VSComplaintIssueMatrixItemOut,
+    VSComplaintIssueMatrixSelection,
     VSAnomalyAlert,
     VSCategoryCount,
     VSComponentHistoryOut,
@@ -622,6 +625,100 @@ def import_issue_matrix_config(
     db.commit()
     db.refresh(config)
     return config
+
+
+@router.get(
+    "/complaints/{complaint_id}/issue-matrix-items",
+    response_model=List[VSComplaintIssueMatrixItemOut],
+)
+def list_complaint_issue_matrix_items(
+    complaint_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    complaint = db.query(VSComplaint).filter(VSComplaint.id == complaint_id).first()
+    if not complaint:
+        raise HTTPException(status_code=404, detail="Work order not found")
+    return (
+        db.query(VSComplaintIssueMatrixItem)
+        .filter(VSComplaintIssueMatrixItem.complaint_id == complaint_id)
+        .order_by(VSComplaintIssueMatrixItem.id.asc())
+        .all()
+    )
+
+
+@router.post(
+    "/complaints/{complaint_id}/issue-matrix-items",
+    response_model=List[VSComplaintIssueMatrixItemOut],
+    status_code=status.HTTP_201_CREATED,
+)
+def add_complaint_issue_matrix_items(
+    complaint_id: int,
+    payload: VSComplaintIssueMatrixSelection,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    complaint = db.query(VSComplaint).filter(VSComplaint.id == complaint_id).first()
+    if not complaint:
+        raise HTTPException(status_code=404, detail="Work order not found")
+
+    config = db.get(VSIssueMatrixConfig, 1)
+    if config is None:
+        raise HTTPException(status_code=404, detail="No Issue Matrix has been imported")
+    if any(index < 0 or index >= len(config.rows) for index in payload.row_indexes):
+        raise HTTPException(status_code=422, detail="One or more selected Issue Matrix rows are invalid")
+
+    existing_codes = {
+        item.issue_code
+        for item in db.query(VSComplaintIssueMatrixItem)
+        .filter(VSComplaintIssueMatrixItem.complaint_id == complaint_id)
+        .all()
+    }
+    issue_code_index = config.headers.index("Issue Code")
+    new_items = []
+    for row_index in dict.fromkeys(payload.row_indexes):
+        row = config.rows[row_index]
+        issue_code = row[issue_code_index].strip() or f"ROW-{row_index + 1}"
+        if issue_code in existing_codes:
+            continue
+        new_items.append(
+            VSComplaintIssueMatrixItem(
+                complaint_id=complaint_id,
+                issue_code=issue_code,
+                issue_row=row,
+            )
+        )
+        existing_codes.add(issue_code)
+
+    db.add_all(new_items)
+    db.commit()
+    for item in new_items:
+        db.refresh(item)
+    return new_items
+
+
+@router.delete(
+    "/complaints/{complaint_id}/issue-matrix-items/{item_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_complaint_issue_matrix_item(
+    complaint_id: int,
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    item = (
+        db.query(VSComplaintIssueMatrixItem)
+        .filter(
+            VSComplaintIssueMatrixItem.id == item_id,
+            VSComplaintIssueMatrixItem.complaint_id == complaint_id,
+        )
+        .first()
+    )
+    if not item:
+        raise HTTPException(status_code=404, detail="Selected Issue Matrix item not found")
+    db.delete(item)
+    db.commit()
 
 
 @router.get(

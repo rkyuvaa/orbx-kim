@@ -24,6 +24,22 @@ class VSIssueMatrixConfig(Base):
     imported_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class VSComplaintIssueMatrixItem(Base):
+    __tablename__ = "vs_complaint_issue_matrix_items"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    complaint_id: Mapped[int] = mapped_column(
+        ForeignKey("vs_complaints.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    issue_code: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    issue_row: Mapped[List[str]] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    complaint: Mapped["VSComplaint"] = relationship(
+        "VSComplaint", back_populates="issue_matrix_items"
+    )
+
+
 class VSTechnicianAdvice(Base):
     __tablename__ = "vs_technician_advice"
     __table_args__ = {"sqlite_autoincrement": True}
@@ -221,6 +237,9 @@ class VSComplaint(Base):
     )
     technician_advice: Mapped[List["VSTechnicianAdvice"]] = relationship(
         "VSTechnicianAdvice", back_populates="complaint", cascade="all, delete-orphan"
+    )
+    issue_matrix_items: Mapped[List["VSComplaintIssueMatrixItem"]] = relationship(
+        "VSComplaintIssueMatrixItem", back_populates="complaint", cascade="all, delete-orphan"
     )
 
 

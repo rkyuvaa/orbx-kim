@@ -113,6 +113,20 @@ class VSIssueMatrixConfigOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class VSComplaintIssueMatrixSelection(BaseModel):
+    row_indexes: List[int] = Field(..., min_length=1, max_length=500)
+
+
+class VSComplaintIssueMatrixItemOut(BaseModel):
+    id: int
+    complaint_id: int
+    issue_code: str
+    issue_row: List[str]
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # ============================================================================
 # Vehicle Components & Replacement History
 # ============================================================================

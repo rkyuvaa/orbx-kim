@@ -88,6 +88,14 @@ export interface VSIssueMatrixConfig {
   imported_at: string;
 }
 
+export interface VSComplaintIssueMatrixItem {
+  id: number;
+  complaint_id: number;
+  issue_code: string;
+  issue_row: string[];
+  created_at: string;
+}
+
 export interface VSComponentHistory {
   id: number;
   vehicle_component_id: number;
