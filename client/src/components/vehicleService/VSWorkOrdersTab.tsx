@@ -3378,12 +3378,6 @@ export default function VSWorkOrdersTab() {
                       }}
                     >
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                        <Chip
-                          size="small"
-                          label={`Status: ${selectedComplaint.status}`}
-                          color={STATUS_COLORS[selectedComplaint.status] || 'default'}
-                          sx={{ fontWeight: 700 }}
-                        />
                         {selectedComplaint.costs && selectedComplaint.costs.length > 0 && (
                           <Typography variant="body2" sx={{ fontWeight: 700, color: '#023020' }}>
                             Total Cost: ₹{selectedComplaint.costs.reduce((sum, c) => sum + (c.total_price || 0), 0).toLocaleString()}
