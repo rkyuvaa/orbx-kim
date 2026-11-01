@@ -2643,68 +2643,32 @@ export default function VSWorkOrdersTab() {
                 <Tab label="Issue Matrix" id="work-order-tab-1" aria-controls="work-order-panel-1" />
               </Tabs>
 
-              {selectedWorkOrderTab === 1 && (
-                <Box role="tabpanel" id="work-order-panel-1" aria-labelledby="work-order-tab-1" sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-              {/* Description */}
-              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
-                <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" gutterBottom>
-                  Customer Issue Description
-                </Typography>
-                <Typography variant="body1">
-                  {selectedComplaint.description}
-                </Typography>
-                {selectedComplaint.resolution_summary && (
-                  <Box sx={{ mt: 2, p: 1.5, bgcolor: '#ecfdf5', borderRadius: 1.5, border: '1px solid #a7f3d0' }}>
-                    <Typography variant="caption" fontWeight={700} color="#065f46" display="block">
-                      RESOLUTION SUMMARY
-                    </Typography>
-                    <Typography variant="body2" color="#047857">
-                      {selectedComplaint.resolution_summary}
-                    </Typography>
-                  </Box>
-                )}
-              </Paper>
-
-              {/* Customer Feedback if closed */}
-              {selectedComplaint.feedback && (
-                <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: '#fefce8', borderColor: '#fef08a' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                    <Typography variant="subtitle2" fontWeight={700} color="#854d0e">
-                      Customer Satisfaction Feedback
-                    </Typography>
-                    <Rating value={selectedComplaint.feedback.rating} readOnly size="small" />
-                  </Box>
+              {selectedComplaint.status === 'CLOSED' && selectedComplaint.feedback && (
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    p: 2,
+                    borderRadius: 2,
+                    bgcolor: '#fefce8',
+                    borderColor: '#fef08a',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 2,
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <Rating value={selectedComplaint.feedback.rating} readOnly size="small" />
                   {selectedComplaint.feedback.comment && (
                     <Typography variant="body2" color="#713f12">
-                      "{selectedComplaint.feedback.comment}"
+                      {selectedComplaint.feedback.comment}
                     </Typography>
                   )}
                 </Paper>
               )}
-              {manageCustomFields.length > 0 && (
-                <Box sx={{ mt: 1 }}>
-                  <Divider sx={{ mb: 1.5, borderColor: '#E4EBE1' }} />
-                  <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#023020', fontSize: 13 }}>
-                    Custom Fields
-                  </Typography>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                    {manageCustomFields.map((field) => (
-                      <CustomFieldRenderer
-                        key={field.id}
-                        field={field}
-                        value={manageCustomFieldValues[String(field.id)]}
-                        onChange={(fieldId, value) => {
-                          setManageCustomFieldValues((prev) => ({ ...prev, [String(fieldId)]: value }));
-                          markCustomFieldsDirty();
-                        }}
-                        users={users}
-                        uploadFile={(file) => uploadCustomFieldFileManage(file, field.id)}
-                      />
-                    ))}
-                  </Box>
-                </Box>
-              )}
-              </Box>
+
+              {selectedWorkOrderTab === 1 && (
+                <Box role="tabpanel" id="work-order-panel-1" aria-labelledby="work-order-tab-1" />
               )}
 
               {selectedWorkOrderTab === 0 && (
