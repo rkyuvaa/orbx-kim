@@ -90,6 +90,7 @@ class VSTechnicianAdviceUpdate(BaseModel):
 
 class VSTechnicianAdviceOut(BaseModel):
     id: int
+    complaint_id: int
     serial_number: str
     issue_to_resolve: str
     created_at: datetime

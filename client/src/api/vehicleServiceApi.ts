@@ -43,21 +43,32 @@ import type {
 export const vehicleServiceApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
     // Technician Advice
-    getVSTechnicianAdvice: build.query<VSTechnicianAdvice[], void>({
-      query: () => ({ url: '/vehicle-service/technician-advice' }),
-      providesTags: ['VSTechnicianAdvice'],
+    getVSTechnicianAdvice: build.query<VSTechnicianAdvice[], number>({
+      query: (complaintId) => ({ url: `/vehicle-service/complaints/${complaintId}/technician-advice` }),
+      providesTags: (_result, _error, complaintId) => [{ type: 'VSTechnicianAdvice', id: complaintId }],
     }),
-    createVSTechnicianAdvice: build.mutation<VSTechnicianAdvice, { issue_to_resolve: string }>({
-      query: (body) => ({ url: '/vehicle-service/technician-advice', method: 'POST', body }),
-      invalidatesTags: ['VSTechnicianAdvice'],
+    createVSTechnicianAdvice: build.mutation<VSTechnicianAdvice, { complaintId: number; issue_to_resolve: string }>({
+      query: ({ complaintId, ...body }) => ({
+        url: `/vehicle-service/complaints/${complaintId}/technician-advice`,
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: (_result, _error, { complaintId }) => [{ type: 'VSTechnicianAdvice', id: complaintId }],
     }),
-    updateVSTechnicianAdvice: build.mutation<VSTechnicianAdvice, { id: number; issue_to_resolve: string }>({
-      query: ({ id, ...body }) => ({ url: `/vehicle-service/technician-advice/${id}`, method: 'PATCH', body }),
-      invalidatesTags: ['VSTechnicianAdvice'],
+    updateVSTechnicianAdvice: build.mutation<VSTechnicianAdvice, { complaintId: number; id: number; issue_to_resolve: string }>({
+      query: ({ complaintId, id, ...body }) => ({
+        url: `/vehicle-service/complaints/${complaintId}/technician-advice/${id}`,
+        method: 'PATCH',
+        body,
+      }),
+      invalidatesTags: (_result, _error, { complaintId }) => [{ type: 'VSTechnicianAdvice', id: complaintId }],
     }),
-    deleteVSTechnicianAdvice: build.mutation<{ success: boolean; message: string }, number>({
-      query: (id) => ({ url: `/vehicle-service/technician-advice/${id}`, method: 'DELETE' }),
-      invalidatesTags: ['VSTechnicianAdvice'],
+    deleteVSTechnicianAdvice: build.mutation<{ success: boolean; message: string }, { complaintId: number; id: number }>({
+      query: ({ complaintId, id }) => ({
+        url: `/vehicle-service/complaints/${complaintId}/technician-advice/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: (_result, _error, { complaintId }) => [{ type: 'VSTechnicianAdvice', id: complaintId }],
     }),
 
     // Kits

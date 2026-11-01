@@ -1,16 +1,42 @@
+import uuid
+
 from app.models import UserRole
-from app.models.vehicle_service import VSTechnicianAdvice
+from app.models.vehicle_service import VSComplaint, VSTechnicianAdvice, VSVehicle
 from tests.conftest import auth_headers, login, make_user
 
 
 def test_technician_advice_crud_assigns_persistent_serial_numbers(client, db):
     user = make_user("technician-advice@kim.com", UserRole.ADMIN)
-    db.add(user)
+    vehicle = VSVehicle(
+        vehicle_number="ADVICE-001",
+        owner_name="Test Owner",
+        owner_phone="1234567890",
+        qr_token=uuid.uuid4().hex,
+    )
+    db.add_all([user, vehicle])
+    db.flush()
+    complaint = VSComplaint(
+        complaint_no="VS-ADVICE-001",
+        vehicle_id=vehicle.id,
+        reported_by="Test Owner",
+        reported_phone="1234567890",
+        description="Technician advice test",
+    )
+    other_complaint = VSComplaint(
+        complaint_no="VS-ADVICE-002",
+        vehicle_id=vehicle.id,
+        reported_by="Test Owner",
+        reported_phone="1234567890",
+        description="Second work order",
+    )
+    db.add_all([complaint, other_complaint])
     db.commit()
     headers = auth_headers(login(client, email=user.email))
-    base_url = "/api/v1/vehicle-service/technician-advice"
+    base_url = f"/api/v1/vehicle-service/complaints/{complaint.id}/technician-advice"
 
     assert client.get(base_url, headers=headers).json() == []
+    other_url = f"/api/v1/vehicle-service/complaints/{other_complaint.id}/technician-advice"
+    assert client.get(other_url, headers=headers).json() == []
 
     created = client.post(
         base_url,
@@ -46,3 +72,10 @@ def test_technician_advice_crud_assigns_persistent_serial_numbers(client, db):
     )
     assert next_entry.status_code == 201, next_entry.text
     assert next_entry.json()["serial_number"] == "TA-0002"
+
+    wrong_work_order = client.patch(
+        f"{other_url}/{next_entry.json()['id']}",
+        json={"issue_to_resolve": "Cross-work-order update"},
+        headers=headers,
+    )
+    assert wrong_work_order.status_code == 404

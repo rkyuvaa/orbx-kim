@@ -405,12 +405,16 @@ import {
   useAddVSComplaintNoteMutation,
   useCloseVSComplaintMutation,
   useCreateVSComplaintMutation,
+  useCreateVSTechnicianAdviceMutation,
+  useDeleteVSTechnicianAdviceMutation,
   useDeleteVSComplaintMutation,
+  useGetVSTechnicianAdviceQuery,
   useGetVSComplaintsQuery,
   useGetVSKitsQuery,
   useGetVSVehiclesQuery,
   useReplaceVSComponentMutation,
   useUpdateVSComplaintMutation,
+  useUpdateVSTechnicianAdviceMutation,
   useSendVSComplaintOTPMutation,
   useVerifyVSComplaintOTPMutation,
   useUploadInitialChecklistMutation,
@@ -523,6 +527,9 @@ export default function VSWorkOrdersTab() {
   const [addNote, { isLoading: isAddingNote }] = useAddVSComplaintNoteMutation();
   const [closeComplaint, { isLoading: isClosing }] = useCloseVSComplaintMutation();
   const [replaceComponent, { isLoading: isReplacing }] = useReplaceVSComponentMutation();
+  const [createTechnicianAdvice, { isLoading: isCreatingAdvice }] = useCreateVSTechnicianAdviceMutation();
+  const [updateTechnicianAdvice, { isLoading: isUpdatingAdvice }] = useUpdateVSTechnicianAdviceMutation();
+  const [deleteTechnicianAdvice] = useDeleteVSTechnicianAdviceMutation();
     const [sendOTP, { isLoading: isSendingOTP }] = useSendVSComplaintOTPMutation();
     const [verifyOTP, { isLoading: isVerifyingOTP }] = useVerifyVSComplaintOTPMutation();
         const [uploadInitialChecklist] = useUploadInitialChecklistMutation();
@@ -564,6 +571,14 @@ export default function VSWorkOrdersTab() {
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
   const [selectedComplaint, setSelectedComplaint] = useState<VSComplaint | null>(null);
   const [selectedWorkOrderTab, setSelectedWorkOrderTab] = useState(0);
+  const [newAdviceIssue, setNewAdviceIssue] = useState('');
+  const [editingAdviceId, setEditingAdviceId] = useState<number | null>(null);
+  const [editingAdviceIssue, setEditingAdviceIssue] = useState('');
+  const {
+    data: technicianAdvice = [],
+    isLoading: isAdviceLoading,
+    isError: isAdviceError,
+  } = useGetVSTechnicianAdviceQuery(selectedComplaint?.id ?? 0, { skip: !selectedComplaint });
   const complaintAddress = useResolvedAddress(
     selectedComplaint?.gps_latitude,
     selectedComplaint?.gps_longitude,
@@ -1173,6 +1188,50 @@ export default function VSWorkOrdersTab() {
   // =====================================================================
   // Service Workflow Handlers
   // =====================================================================
+
+  const handleCreateAdvice = async () => {
+    if (!selectedComplaint) return;
+    const issue = newAdviceIssue.trim();
+    if (!issue) return;
+    try {
+      await createTechnicianAdvice({
+        complaintId: selectedComplaint.id,
+        issue_to_resolve: issue,
+      }).unwrap();
+      setNewAdviceIssue('');
+      showToast('Technician advice added.', 'success');
+    } catch (err: any) {
+      showToast(err?.data?.detail || 'Failed to add technician advice.', 'error');
+    }
+  };
+
+  const handleUpdateAdvice = async (adviceId: number) => {
+    if (!selectedComplaint) return;
+    const issue = editingAdviceIssue.trim();
+    if (!issue) return;
+    try {
+      await updateTechnicianAdvice({
+        complaintId: selectedComplaint.id,
+        id: adviceId,
+        issue_to_resolve: issue,
+      }).unwrap();
+      setEditingAdviceId(null);
+      setEditingAdviceIssue('');
+      showToast('Technician advice updated.', 'success');
+    } catch (err: any) {
+      showToast(err?.data?.detail || 'Failed to update technician advice.', 'error');
+    }
+  };
+
+  const handleDeleteAdvice = async (adviceId: number) => {
+    if (!selectedComplaint || !window.confirm('Delete this technician advice entry?')) return;
+    try {
+      await deleteTechnicianAdvice({ complaintId: selectedComplaint.id, id: adviceId }).unwrap();
+      showToast('Technician advice deleted.', 'success');
+    } catch (err: any) {
+      showToast(err?.data?.detail || 'Failed to delete technician advice.', 'error');
+    }
+  };
 
   const handleTimerStart = async () => {
     if (!selectedComplaint) return;
@@ -2646,10 +2705,143 @@ export default function VSWorkOrdersTab() {
               >
                 <Tab label="Service Workflow" id="work-order-tab-0" aria-controls="work-order-panel-0" />
                 <Tab label="Issue Matrix" id="work-order-tab-1" aria-controls="work-order-panel-1" />
+                <Tab label="Technician Advice" id="work-order-tab-2" aria-controls="work-order-panel-2" />
               </Tabs>
 
               {selectedWorkOrderTab === 1 && (
                 <Box role="tabpanel" id="work-order-panel-1" aria-labelledby="work-order-tab-1" />
+              )}
+
+              {selectedWorkOrderTab === 2 && (
+                <Box role="tabpanel" id="work-order-panel-2" aria-labelledby="work-order-tab-2" sx={{ pt: 2 }}>
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="subtitle2" fontWeight={800} color="#023020">
+                      TECHNICIAN ADVICE
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Record the issues the technician needs to resolve for this work order.
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, mb: 2.5 }}>
+                    <TextField
+                      label="Issue to Resolve"
+                      value={newAdviceIssue}
+                      onChange={(event) => setNewAdviceIssue(event.target.value)}
+                      fullWidth
+                      multiline
+                      minRows={2}
+                      inputProps={{ maxLength: 2000 }}
+                      disabled={isCreatingAdvice}
+                    />
+                    <Button
+                      variant="contained"
+                      startIcon={isCreatingAdvice ? <CircularProgress size={16} color="inherit" /> : <Plus size={16} />}
+                      onClick={handleCreateAdvice}
+                      disabled={!newAdviceIssue.trim() || isCreatingAdvice}
+                      sx={{ minWidth: 120, mt: 0.5, textTransform: 'none', fontWeight: 700 }}
+                    >
+                      Add Issue
+                    </Button>
+                  </Box>
+                  {isAdviceError && (
+                    <Alert severity="error" sx={{ mb: 2 }}>
+                      Could not load technician advice for this work order.
+                    </Alert>
+                  )}
+                  {isAdviceLoading ? (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}>
+                      <CircularProgress size={28} />
+                    </Box>
+                  ) : technicianAdvice.length === 0 ? (
+                    <Box sx={{ py: 7, textAlign: 'center', color: 'text.secondary' }}>
+                      <Typography variant="subtitle1" fontWeight={700}>No technician advice added</Typography>
+                      <Typography variant="body2" sx={{ mt: 1 }}>
+                        Add an issue above to start the list for this work order.
+                      </Typography>
+                    </Box>
+                  ) : (
+                    <TableContainer component={Paper} variant="outlined">
+                      <Table size="small">
+                        <TableHead>
+                          <TableRow>
+                            <TableCell sx={{ fontWeight: 700, width: 140 }}>Serial Number</TableCell>
+                            <TableCell sx={{ fontWeight: 700 }}>Issue to Resolve</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 700, width: 120 }}>Actions</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {technicianAdvice.map((advice) => (
+                            <TableRow key={advice.id}>
+                              <TableCell sx={{ whiteSpace: 'nowrap', fontWeight: 600 }}>
+                                {advice.serial_number}
+                              </TableCell>
+                              <TableCell>
+                                {editingAdviceId === advice.id ? (
+                                  <TextField
+                                    value={editingAdviceIssue}
+                                    onChange={(event) => setEditingAdviceIssue(event.target.value)}
+                                    fullWidth
+                                    multiline
+                                    size="small"
+                                    inputProps={{ maxLength: 2000 }}
+                                  />
+                                ) : advice.issue_to_resolve}
+                              </TableCell>
+                              <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                                {editingAdviceId === advice.id ? (
+                                  <>
+                                    <Button
+                                      size="small"
+                                      onClick={() => handleUpdateAdvice(advice.id)}
+                                      disabled={!editingAdviceIssue.trim() || isUpdatingAdvice}
+                                      sx={{ textTransform: 'none' }}
+                                    >
+                                      Save
+                                    </Button>
+                                    <Button
+                                      size="small"
+                                      onClick={() => {
+                                        setEditingAdviceId(null);
+                                        setEditingAdviceIssue('');
+                                      }}
+                                      sx={{ textTransform: 'none' }}
+                                    >
+                                      Cancel
+                                    </Button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Tooltip title="Edit issue">
+                                      <IconButton
+                                        size="small"
+                                        aria-label="Edit issue"
+                                        onClick={() => {
+                                          setEditingAdviceId(advice.id);
+                                          setEditingAdviceIssue(advice.issue_to_resolve);
+                                        }}
+                                      >
+                                        <Edit2 size={16} />
+                                      </IconButton>
+                                    </Tooltip>
+                                    <Tooltip title="Delete issue">
+                                      <IconButton
+                                        size="small"
+                                        aria-label="Delete issue"
+                                        onClick={() => handleDeleteAdvice(advice.id)}
+                                      >
+                                        <TrashIcon size={16} />
+                                      </IconButton>
+                                    </Tooltip>
+                                  </>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  )}
+                </Box>
               )}
 
               {selectedWorkOrderTab === 0 && (

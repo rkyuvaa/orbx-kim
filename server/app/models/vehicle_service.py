@@ -19,9 +19,14 @@ class VSTechnicianAdvice(Base):
     __table_args__ = {"sqlite_autoincrement": True}
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    complaint_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("vs_complaints.id", ondelete="CASCADE"), index=True, nullable=True
+    )
     serial_number: Mapped[str] = mapped_column(String(20), unique=True, index=True, nullable=False)
     issue_to_resolve: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    complaint: Mapped[Optional["VSComplaint"]] = relationship("VSComplaint", back_populates="technician_advice")
 
 
 if TYPE_CHECKING:
@@ -203,6 +208,9 @@ class VSComplaint(Base):
     )
     custom_field_values: Mapped[List["VSComplaintCustomFieldValue"]] = relationship(
         "VSComplaintCustomFieldValue", back_populates="complaint", cascade="all, delete-orphan", lazy="selectin"
+    )
+    technician_advice: Mapped[List["VSTechnicianAdvice"]] = relationship(
+        "VSTechnicianAdvice", back_populates="complaint", cascade="all, delete-orphan"
     )
 
 

@@ -550,29 +550,46 @@ def submit_universal_complaint(
 # Authenticated Kit Master Endpoints
 # ============================================================================
 
-@router.get("/technician-advice", response_model=List[VSTechnicianAdviceOut])
+@router.get(
+    "/complaints/{complaint_id}/technician-advice",
+    response_model=List[VSTechnicianAdviceOut],
+)
 def list_technician_advice(
+    complaint_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return db.query(VSTechnicianAdvice).order_by(VSTechnicianAdvice.id.asc()).all()
+    complaint = db.query(VSComplaint).filter(VSComplaint.id == complaint_id).first()
+    if not complaint:
+        raise HTTPException(status_code=404, detail="Work order not found")
+    return (
+        db.query(VSTechnicianAdvice)
+        .filter(VSTechnicianAdvice.complaint_id == complaint_id)
+        .order_by(VSTechnicianAdvice.id.asc())
+        .all()
+    )
 
 
 @router.post(
-    "/technician-advice",
+    "/complaints/{complaint_id}/technician-advice",
     response_model=VSTechnicianAdviceOut,
     status_code=status.HTTP_201_CREATED,
 )
 def create_technician_advice(
+    complaint_id: int,
     payload: VSTechnicianAdviceCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    complaint = db.query(VSComplaint).filter(VSComplaint.id == complaint_id).first()
+    if not complaint:
+        raise HTTPException(status_code=404, detail="Work order not found")
     issue = payload.issue_to_resolve.strip()
     if not issue:
         raise HTTPException(status_code=422, detail="Issue to resolve cannot be blank")
 
     advice = VSTechnicianAdvice(
+        complaint_id=complaint_id,
         serial_number=f"TA-PENDING-{uuid.uuid4().hex}",
         issue_to_resolve=issue,
     )
@@ -584,14 +601,25 @@ def create_technician_advice(
     return advice
 
 
-@router.patch("/technician-advice/{advice_id}", response_model=VSTechnicianAdviceOut)
+@router.patch(
+    "/complaints/{complaint_id}/technician-advice/{advice_id}",
+    response_model=VSTechnicianAdviceOut,
+)
 def update_technician_advice(
+    complaint_id: int,
     advice_id: int,
     payload: VSTechnicianAdviceUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    advice = db.query(VSTechnicianAdvice).filter(VSTechnicianAdvice.id == advice_id).first()
+    advice = (
+        db.query(VSTechnicianAdvice)
+        .filter(
+            VSTechnicianAdvice.id == advice_id,
+            VSTechnicianAdvice.complaint_id == complaint_id,
+        )
+        .first()
+    )
     if not advice:
         raise HTTPException(status_code=404, detail="Technician advice entry not found")
 
@@ -605,13 +633,21 @@ def update_technician_advice(
     return advice
 
 
-@router.delete("/technician-advice/{advice_id}")
+@router.delete("/complaints/{complaint_id}/technician-advice/{advice_id}")
 def delete_technician_advice(
+    complaint_id: int,
     advice_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    advice = db.query(VSTechnicianAdvice).filter(VSTechnicianAdvice.id == advice_id).first()
+    advice = (
+        db.query(VSTechnicianAdvice)
+        .filter(
+            VSTechnicianAdvice.id == advice_id,
+            VSTechnicianAdvice.complaint_id == complaint_id,
+        )
+        .first()
+    )
     if not advice:
         raise HTTPException(status_code=404, detail="Technician advice entry not found")
     db.delete(advice)
