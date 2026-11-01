@@ -1040,6 +1040,10 @@ export default function VSWorkOrdersTab() {
 
   const handleCloseSubmit = async () => {
     if (!selectedComplaint) return;
+    if (timerRunning || (selectedComplaint.timer_started_at && !selectedComplaint.timer_ended_at)) {
+      showToast('Stop the service timer before closing this work order.', 'warning');
+      return;
+    }
 
     // Validate required custom fields for CLOSED status
     const requiredFields = getRequiredFieldsForStatus(manageCustomFields, 'CLOSED');
@@ -1071,6 +1075,10 @@ export default function VSWorkOrdersTab() {
   };
 
   const handleOTPSubmit = async () => {
+    if (timerRunning || (selectedComplaint?.timer_started_at && !selectedComplaint.timer_ended_at)) {
+      setOtpError('Stop the service timer before closing this work order.');
+      return;
+    }
     if (!selectedComplaint || !otpCode.trim()) {
       setOtpError('Please enter the OTP code.');
       return;
@@ -3390,24 +3398,32 @@ export default function VSWorkOrdersTab() {
                         )}
 
                         {selectedComplaint.status === 'RESOLVED' && (
-                          <Button
-                            size="small"
-                            variant="contained"
-                            onClick={() => {
-                              setCloseResolutionSummary(selectedComplaint.resolution_summary || '');
-                              setIsCloseDialogOpen(true);
-                            }}
-                            sx={{
-                              textTransform: 'none',
-                              fontWeight: 700,
-                              bgcolor: '#023020',
-                              color: '#fff',
-                              borderRadius: '8px',
-                              '&:hover': { bgcolor: '#034732' },
-                            }}
-                          >
-                            Close Work Order
-                          </Button>
+                          <>
+                            {(timerRunning || (selectedComplaint.timer_started_at && !selectedComplaint.timer_ended_at)) && (
+                              <Typography variant="caption" role="status" color="error">
+                                Stop the timer before closing
+                              </Typography>
+                            )}
+                            <Button
+                              size="small"
+                              variant="contained"
+                              disabled={timerRunning || Boolean(selectedComplaint.timer_started_at && !selectedComplaint.timer_ended_at)}
+                              onClick={() => {
+                                setCloseResolutionSummary(selectedComplaint.resolution_summary || '');
+                                setIsCloseDialogOpen(true);
+                              }}
+                              sx={{
+                                textTransform: 'none',
+                                fontWeight: 700,
+                                bgcolor: '#023020',
+                                color: '#fff',
+                                borderRadius: '8px',
+                                '&:hover': { bgcolor: '#034732' },
+                              }}
+                            >
+                              Close Work Order
+                            </Button>
+                          </>
                         )}
 
                         <Button
