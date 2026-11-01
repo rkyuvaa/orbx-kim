@@ -1,5 +1,6 @@
 import time
 import uuid
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -275,11 +276,11 @@ async def request_logging(request: Request, call_next):
 
 app.include_router(api_router, prefix=settings.api_v1_prefix)
 
-import os
 from fastapi.staticfiles import StaticFiles
 
-os.makedirs("uploads", exist_ok=True)
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+uploads_dir = Path(__file__).resolve().parents[1] / "uploads"
+uploads_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(uploads_dir)), name="uploads")
 
 @app.on_event("startup")
 async def startup_event():

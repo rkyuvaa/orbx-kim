@@ -601,7 +601,6 @@ export default function VSWorkOrdersTab() {
     const [timerRunning, setTimerRunning] = useState(false);
     const [timerStartTime, setTimerStartTime] = useState<Date | null>(null);
     const [serviceHours, setServiceHours] = useState<number | null>(null);
-    const [timerInterval, setTimerInterval] = useState<NodeJS.Timeout | null>(null);
 
     // File upload states
     const [initialChecklistFile, setInitialChecklistFile] = useState<File | null>(null);
@@ -1034,10 +1033,10 @@ export default function VSWorkOrdersTab() {
     if (!selectedComplaint) return;
 
     const payload: VSComplaintUpdate = {
-      est_delivery_date: estDeliveryDate || undefined,
+      est_delivery_date: estDeliveryDate || null,
       can_data_collected: canDataCollected,
-      technician_remarks: technicianRemarks.trim() || undefined,
-      odometer_reading: odometerReading ? Number(odometerReading) : undefined,
+      technician_remarks: technicianRemarks.trim() || null,
+      odometer_reading: odometerReading !== '' ? Number(odometerReading) : null,
       service_type: serviceType,
       timer_started_at: timerRunning ? new Date().toISOString() : undefined,
       timer_ended_at: !timerRunning && timerStartTime ? new Date().toISOString() : undefined,
@@ -1060,12 +1059,6 @@ export default function VSWorkOrdersTab() {
     const now = new Date();
     setTimerStartTime(now);
     setTimerRunning(true);
-    setTimerInterval(setInterval(() => {
-      if (timerStartTime) {
-        const elapsed = (Date.now() - timerStartTime.getTime()) / 1000 / 60 / 60;
-        setServiceHours(Number(elapsed.toFixed(2)));
-      }
-    }, 1000));
 
     // Update backend
     const payload: VSComplaintUpdate = {
@@ -1087,8 +1080,6 @@ export default function VSWorkOrdersTab() {
     const elapsedHours = (now.getTime() - timerStartTime.getTime()) / 1000 / 60 / 60;
     const finalHours = Number(elapsedHours.toFixed(2));
 
-    clearInterval(timerInterval!);
-    setTimerInterval(null);
     setTimerRunning(false);
     setServiceHours(finalHours);
     setTimerStartTime(null);
@@ -1247,13 +1238,6 @@ export default function VSWorkOrdersTab() {
       setCostUnitPrice('');
     }
   }, [selectedComplaint]);
-
-  // Cleanup timer interval on unmount
-  React.useEffect(() => {
-    return () => {
-      if (timerInterval) clearInterval(timerInterval);
-    };
-  }, [timerInterval]);
 
   const handleSaveCustomFields = async () => {
     if (!selectedComplaint) return;
@@ -2288,6 +2272,8 @@ export default function VSWorkOrdersTab() {
               display: 'flex',
               flexDirection: 'column',
               backgroundColor: '#FFFFFF',
+              overflow: 'hidden',
+              overscrollBehavior: 'contain',
               m: 0,
             },
           }}
@@ -2327,7 +2313,9 @@ export default function VSWorkOrdersTab() {
               flexDirection: { xs: 'column', md: 'row' },
               gap: 3,
               overflow: { xs: 'auto', md: 'hidden' },
+              overscrollBehavior: 'contain',
               flex: 1,
+              minHeight: 0,
             }}
           >
             {/* LEFT SIDE: Work Order Form & Details (~73%) */}
@@ -2336,6 +2324,8 @@ export default function VSWorkOrdersTab() {
                 flex: { xs: '1 1 100%', md: '1 1 73%' },
                 minWidth: 0,
                 overflowY: { xs: 'visible', md: 'auto' },
+                overscrollBehavior: 'contain',
+                minHeight: 0,
                 pr: { xs: 0, md: 1 },
                 display: 'flex',
                 flexDirection: 'column',
@@ -2508,7 +2498,7 @@ export default function VSWorkOrdersTab() {
                 
                               {/* Row 1: Est. Delivery Date, Service Type, Odometer */}
                               <Grid container spacing={2}>
-                                <Grid item xs={12} sm={6} md={4}>
+                                <Grid item xs={12} sm={6} md={2}>
                                   <TextField
                                     label="Est. Delivery Date"
                                     type="date"
@@ -2528,7 +2518,7 @@ export default function VSWorkOrdersTab() {
                                   />
                                 </Grid>
                   
-                                <Grid item xs={12} sm={6} md={4}>
+                                <Grid item xs={12} sm={6} md={2.8}>
                                   <AppDropdown
                                     label="Service Type"
                                     value={serviceType}
@@ -2543,7 +2533,7 @@ export default function VSWorkOrdersTab() {
                                   />
                                 </Grid>
                   
-                                <Grid item xs={12} sm={6} md={4}>
+                                <Grid item xs={12} sm={6} md={7.2}>
                                   <TextField
                                     label="Odometer Reading (km)"
                                     type="number"
@@ -2586,55 +2576,17 @@ export default function VSWorkOrdersTab() {
                                 </Grid>
                   
                                 <Grid item xs={12} sm={6} md={9}>
-                                  <Box sx={{ p: 1.5, bgcolor: timerRunning ? '#ecfdf5' : '#f8fafc', borderRadius: 1.5, border: timerRunning ? '1px solid #a7f3d0' : '1px solid #e0e0e0' }}>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
-                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        <Timer color={timerRunning ? '#065f46' : 'action'} fontSize="small" />
-                                        <Typography variant="subtitle2" fontWeight={700} color={timerRunning ? '#065f46' : '#0f172a'}>
-                                          Service Timer: {timerRunning ? 'RUNNING' : 'STOPPED'}
-                                        </Typography>
-                                        {serviceHours !== null && (
-                                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                            <Chip
-                                              label={`${serviceHours.toFixed(2)} hrs`}
-                                              size="small"
-                                              color={timerRunning ? 'success' : 'default'}
-                                              variant="outlined"
-                                              sx={{ fontWeight: 700, height: 24, fontSize: 11 }}
-                                            />
-                                            <Typography variant="caption" color="text.secondary">
-                                              Total Service Hours
-                                            </Typography>
-                                          </Box>
-                                        )}
-                                      </Box>
-                                      <Box sx={{ display: 'flex', gap: 1 }}>
-                                        {!timerRunning && (
-                                          <Button
-                                            variant="contained"
-                                            color="success"
-                                            startIcon={<Timer />}
-                                            onClick={handleTimerStart}
-                                            size="small"
-                                            sx={{ textTransform: 'none', fontWeight: 700 }}
-                                          >
-                                            Start Timer
-                                          </Button>
-                                        )}
-                                        {timerRunning && (
-                                          <Button
-                                            variant="contained"
-                                            color="error"
-                                            startIcon={<Timer />}
-                                            onClick={handleTimerStop}
-                                            size="small"
-                                            sx={{ textTransform: 'none', fontWeight: 700 }}
-                                          >
-                                            Stop Timer
-                                          </Button>
-                                        )}
-                                      </Box>
-                                    </Box>
+                                  <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                    <Button
+                                      variant="contained"
+                                      color={timerRunning ? 'error' : 'success'}
+                                      startIcon={<Timer />}
+                                      onClick={timerRunning ? handleTimerStop : handleTimerStart}
+                                      size="small"
+                                      sx={{ textTransform: 'none', fontWeight: 700 }}
+                                    >
+                                      {timerRunning ? 'Stop Timer' : 'Start Timer'}
+                                    </Button>
                                   </Box>
                                 </Grid>
                               </Grid>
@@ -3004,7 +2956,7 @@ export default function VSWorkOrdersTab() {
 
                                     <input
                                       type="file"
-                                      accept="image/*"
+                                      accept=".jpg,.jpeg,.png"
                                       multiple
                                       onChange={(e) => {
                                         const files = Array.from(e.target.files || []);
@@ -3021,11 +2973,21 @@ export default function VSWorkOrdersTab() {
                                       color="primary"
                                       size="small"
                                       startIcon={uploadingVehicleImages ? <CircularProgress size={16} /> : <Upload fontSize={16} />}
-                                      onClick={() => document.getElementById('vehicle-images-upload')?.click()}
+                                      onClick={() => {
+                                        if (vehicleImagesFiles.length > 0) {
+                                          handleVehicleImagesUpload(vehicleImagesFiles);
+                                        } else {
+                                          document.getElementById('vehicle-images-upload')?.click();
+                                        }
+                                      }}
                                       disabled={uploadingVehicleImages}
                                       fullWidth
                                     >
-                                      {uploadingVehicleImages ? 'Uploading...' : 'Upload Images'}
+                                      {uploadingVehicleImages
+                                        ? 'Uploading...'
+                                        : vehicleImagesFiles.length > 0
+                                          ? `Upload ${vehicleImagesFiles.length} Image${vehicleImagesFiles.length === 1 ? '' : 's'}`
+                                          : 'Choose Images'}
                                     </Button>
                                   </Paper>
                                 </Grid>
@@ -3179,6 +3141,7 @@ export default function VSWorkOrdersTab() {
                 width: { xs: '100%', md: '27%' },
                 minWidth: { xs: '100%', md: 260 },
                 maxWidth: { md: 340 },
+                minHeight: 0,
                 display: 'flex',
                 flexDirection: 'column',
                 borderRadius: '12px',
@@ -3186,6 +3149,7 @@ export default function VSWorkOrdersTab() {
                 backgroundColor: '#FAFBF9',
                 p: 2,
                 overflow: 'hidden',
+                overscrollBehavior: 'contain',
               }}
             >
               {/* Header */}
@@ -3291,6 +3255,7 @@ export default function VSWorkOrdersTab() {
                 sx={{
                   flex: 1,
                   overflowY: 'auto',
+                  overscrollBehavior: 'contain',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: 1.2,

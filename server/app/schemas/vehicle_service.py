@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from typing import Any, List, Optional
+from typing import Any, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -288,6 +288,18 @@ class VSComplaintUpdate(BaseModel):
     assigned_to_id: Optional[int] = None
     affected_component_id: Optional[int] = None
     resolution_summary: Optional[str] = None
+    est_delivery_date: Optional[date] = None
+    initial_checklist_url: Optional[str] = None
+    can_data_collected: Optional[bool] = None
+    master_checklist_url: Optional[str] = None
+    complaints_8d_url: Optional[str] = None
+    technician_remarks: Optional[str] = None
+    vehicle_images: Optional[str] = None
+    odometer_reading: Optional[float] = Field(None, ge=0)
+    timer_started_at: Optional[datetime] = None
+    timer_ended_at: Optional[datetime] = None
+    service_hours: Optional[float] = Field(None, ge=0)
+    service_type: Optional[Literal["FREE", "GENERAL", "PAID"]] = None
 
 
 class VSComplaintCloseRequest(BaseModel):

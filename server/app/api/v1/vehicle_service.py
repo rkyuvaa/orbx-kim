@@ -4,10 +4,12 @@ import string
 import urllib.request
 import uuid
 from datetime import UTC, date, datetime, timedelta
+from pathlib import Path
 from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy import func, or_
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user
@@ -93,6 +95,42 @@ from app.schemas.vehicle_service import (
 )
 
 router = APIRouter(prefix="/vehicle-service", tags=["vehicle-service"])
+VS_UPLOADS_DIR = Path(__file__).resolve().parents[3] / "uploads" / "vehicle_service"
+
+
+async def _save_vehicle_service_upload(
+    file: UploadFile,
+    complaint_id: int,
+    folder: str,
+    allowed_extensions: set[str],
+) -> tuple[str, Path]:
+    extension = Path(file.filename or "").suffix.lower()
+    if extension not in allowed_extensions:
+        raise HTTPException(status_code=400, detail="Unsupported file type")
+
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty")
+    if len(content) > 50 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="File size must not exceed 50 MB")
+
+    upload_dir = VS_UPLOADS_DIR / folder
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    filename = f"{complaint_id}_{uuid.uuid4().hex}{extension}"
+    file_path = upload_dir / filename
+    file_path.write_bytes(content)
+
+    return f"/uploads/vehicle_service/{folder}/{filename}", file_path
+
+
+def _commit_upload(db: Session, file_paths: list[Path]) -> None:
+    try:
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        for file_path in file_paths:
+            file_path.unlink(missing_ok=True)
+        raise
 
 
 def _generate_complaint_no(db: Session) -> str:
@@ -1095,6 +1133,27 @@ def update_complaint(
     if payload.resolution_summary is not None:
         complaint.resolution_summary = payload.resolution_summary
 
+    workflow_fields = (
+        "est_delivery_date",
+        "initial_checklist_url",
+        "can_data_collected",
+        "master_checklist_url",
+        "complaints_8d_url",
+        "technician_remarks",
+        "vehicle_images",
+        "odometer_reading",
+        "timer_started_at",
+        "timer_ended_at",
+        "service_hours",
+        "service_type",
+    )
+    for field in workflow_fields:
+        if field in payload.model_fields_set:
+            value = getattr(payload, field)
+            if field == "can_data_collected" and value is None:
+                continue
+            setattr(complaint, field, value)
+
     if payload.assigned_to_id is not None and payload.assigned_to_id != complaint.assigned_to_id:
         complaint.assigned_to_id = payload.assigned_to_id
         if complaint.status == ComplaintStatus.OPEN:
@@ -1321,29 +1380,11 @@ async def upload_initial_checklist(
     if not complaint:
         raise HTTPException(status_code=404, detail="Complaint not found")
 
-    # Validate file type
-    allowed_types = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg']
-    if file.content_type not in allowed_types:
-        raise HTTPException(status_code=400, detail="Only PDF, JPEG, and PNG files are allowed")
-
-    # Upload file (placeholder - implement actual file storage)
-    # For now, we'll save the file to a local uploads directory
-    import os
-    upload_dir = "uploads/vehicle_service/initial_checklists"
-    os.makedirs(upload_dir, exist_ok=True)
-
-    file_extension = os.path.splitext(file.filename)[1]
-    unique_filename = f"{complaint_id}_{uuid.uuid4().hex}{file_extension}"
-    file_path = os.path.join(upload_dir, unique_filename)
-
-    content = await file.read()
-    with open(file_path, "wb") as f:
-        f.write(content)
-
-    # Save URL to complaint
-    file_url = f"/uploads/vehicle_service/initial_checklists/{unique_filename}"
+    file_url, file_path = await _save_vehicle_service_upload(
+        file, complaint_id, "initial_checklists", {".pdf", ".jpg", ".jpeg", ".png"}
+    )
     complaint.initial_checklist_url = file_url
-    db.commit()
+    _commit_upload(db, [file_path])
 
     return VSFileUploadResponse(url=file_url)
 
@@ -1360,26 +1401,11 @@ async def upload_master_checklist(
     if not complaint:
         raise HTTPException(status_code=404, detail="Complaint not found")
 
-    # Validate file type
-    allowed_types = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg']
-    if file.content_type not in allowed_types:
-        raise HTTPException(status_code=400, detail="Only PDF, JPEG, and PNG files are allowed")
-
-    import os
-    upload_dir = "uploads/vehicle_service/master_checklists"
-    os.makedirs(upload_dir, exist_ok=True)
-
-    file_extension = os.path.splitext(file.filename)[1]
-    unique_filename = f"{complaint_id}_{uuid.uuid4().hex}{file_extension}"
-    file_path = os.path.join(upload_dir, unique_filename)
-
-    content = await file.read()
-    with open(file_path, "wb") as f:
-        f.write(content)
-
-    file_url = f"/uploads/vehicle_service/master_checklists/{unique_filename}"
+    file_url, file_path = await _save_vehicle_service_upload(
+        file, complaint_id, "master_checklists", {".pdf", ".jpg", ".jpeg", ".png"}
+    )
     complaint.master_checklist_url = file_url
-    db.commit()
+    _commit_upload(db, [file_path])
 
     return VSFileUploadResponse(url=file_url)
 
@@ -1396,26 +1422,11 @@ async def upload_complaints_8d(
     if not complaint:
         raise HTTPException(status_code=404, detail="Complaint not found")
 
-    # Validate file type
-    allowed_types = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg']
-    if file.content_type not in allowed_types:
-        raise HTTPException(status_code=400, detail="Only PDF, JPEG, and PNG files are allowed")
-
-    import os
-    upload_dir = "uploads/vehicle_service/complaints_8d"
-    os.makedirs(upload_dir, exist_ok=True)
-
-    file_extension = os.path.splitext(file.filename)[1]
-    unique_filename = f"{complaint_id}_{uuid.uuid4().hex}{file_extension}"
-    file_path = os.path.join(upload_dir, unique_filename)
-
-    content = await file.read()
-    with open(file_path, "wb") as f:
-        f.write(content)
-
-    file_url = f"/uploads/vehicle_service/complaints_8d/{unique_filename}"
+    file_url, file_path = await _save_vehicle_service_upload(
+        file, complaint_id, "complaints_8d", {".pdf", ".jpg", ".jpeg", ".png"}
+    )
     complaint.complaints_8d_url = file_url
-    db.commit()
+    _commit_upload(db, [file_path])
 
     return VSFileUploadResponse(url=file_url)
 
@@ -1432,35 +1443,32 @@ async def upload_vehicle_images(
     if not complaint:
         raise HTTPException(status_code=404, detail="Complaint not found")
 
-    # Validate file types
-    allowed_types = ['image/jpeg', 'image/png', 'image/jpg']
+    if not files:
+        raise HTTPException(status_code=400, detail="Select at least one image to upload")
+
+    allowed_extensions = {".jpg", ".jpeg", ".png"}
     for file in files:
-        if file.content_type not in allowed_types:
+        if Path(file.filename or "").suffix.lower() not in allowed_extensions:
             raise HTTPException(status_code=400, detail="Only JPEG and PNG images are allowed")
 
-    import os
-    import json
-    upload_dir = "uploads/vehicle_service/vehicle_images"
-    os.makedirs(upload_dir, exist_ok=True)
-
     urls = []
+    file_paths = []
     for file in files:
-        file_extension = os.path.splitext(file.filename)[1]
-        unique_filename = f"{complaint_id}_{uuid.uuid4().hex}{file_extension}"
-        file_path = os.path.join(upload_dir, unique_filename)
-
-        content = await file.read()
-        with open(file_path, "wb") as f:
-            f.write(content)
-
-        file_url = f"/uploads/vehicle_service/vehicle_images/{unique_filename}"
+        file_url, file_path = await _save_vehicle_service_upload(
+            file, complaint_id, "vehicle_images", allowed_extensions
+        )
         urls.append(file_url)
+        file_paths.append(file_path)
 
-    # Store as JSON array in vehicle_images field
-    existing_images = json.loads(complaint.vehicle_images) if complaint.vehicle_images else []
+    try:
+        existing_images = json.loads(complaint.vehicle_images) if complaint.vehicle_images else []
+    except json.JSONDecodeError as exc:
+        for file_path in file_paths:
+            file_path.unlink(missing_ok=True)
+        raise HTTPException(status_code=500, detail="Stored vehicle image list is invalid") from exc
     existing_images.extend(urls)
     complaint.vehicle_images = json.dumps(existing_images)
-    db.commit()
+    _commit_upload(db, file_paths)
 
     return VSVehicleImagesUploadResponse(urls=urls)
 

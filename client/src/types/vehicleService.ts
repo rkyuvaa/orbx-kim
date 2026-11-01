@@ -272,17 +272,17 @@ export interface VSComplaintUpdate {
   resolution_summary?: string;
   
   // New service workflow fields
-  est_delivery_date?: string;
-  initial_checklist_url?: string;
+  est_delivery_date?: string | null;
+  initial_checklist_url?: string | null;
   can_data_collected?: boolean;
-  master_checklist_url?: string;
-  complaints_8d_url?: string;
-  technician_remarks?: string;
-  vehicle_images?: string;
-  odometer_reading?: number;
-  timer_started_at?: string;
-  timer_ended_at?: string;
-  service_hours?: number;
+  master_checklist_url?: string | null;
+  complaints_8d_url?: string | null;
+  technician_remarks?: string | null;
+  vehicle_images?: string | null;
+  odometer_reading?: number | null;
+  timer_started_at?: string | null;
+  timer_ended_at?: string | null;
+  service_hours?: number | null;
   service_type?: ServiceType;
 }
 
