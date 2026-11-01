@@ -590,7 +590,7 @@ def create_technician_advice(
 
     advice = VSTechnicianAdvice(
         complaint_id=complaint_id,
-        serial_number=f"TA-PENDING-{uuid.uuid4().hex}",
+        serial_number=f"P-{uuid.uuid4().hex[:16]}",
         issue_to_resolve=issue,
     )
     db.add(advice)

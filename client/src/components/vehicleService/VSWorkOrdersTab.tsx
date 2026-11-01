@@ -2714,35 +2714,29 @@ export default function VSWorkOrdersTab() {
 
               {selectedWorkOrderTab === 2 && (
                 <Box role="tabpanel" id="work-order-panel-2" aria-labelledby="work-order-tab-2" sx={{ pt: 2 }}>
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="subtitle2" fontWeight={800} color="#023020">
-                      TECHNICIAN ADVICE
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Record the issues the technician needs to resolve for this work order.
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, mb: 2.5 }}>
+                  <Box
+                    component="form"
+                    onSubmit={(event: React.FormEvent) => {
+                      event.preventDefault();
+                      void handleCreateAdvice();
+                    }}
+                    sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}
+                  >
                     <TextField
-                      label="Issue to Resolve"
+                      variant="standard"
+                      placeholder="Type an issue and press Enter"
                       value={newAdviceIssue}
                       onChange={(event) => setNewAdviceIssue(event.target.value)}
                       fullWidth
                       inputProps={{ maxLength: 2000 }}
                       disabled={isCreatingAdvice}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter') {
-                          event.preventDefault();
-                          void handleCreateAdvice();
-                        }
-                      }}
                     />
                     <Button
-                      variant="contained"
-                      startIcon={isCreatingAdvice ? <CircularProgress size={16} color="inherit" /> : <Plus size={16} />}
-                      onClick={handleCreateAdvice}
+                      type="submit"
+                      variant="text"
+                      startIcon={isCreatingAdvice ? <CircularProgress size={16} /> : <Plus size={16} />}
                       disabled={!newAdviceIssue.trim() || isCreatingAdvice}
-                      sx={{ minWidth: 120, mt: 0.5, textTransform: 'none', fontWeight: 700 }}
+                      sx={{ whiteSpace: 'nowrap', textTransform: 'none', fontWeight: 700 }}
                     >
                       Add Issue
                     </Button>
@@ -2757,92 +2751,84 @@ export default function VSWorkOrdersTab() {
                       <CircularProgress size={28} />
                     </Box>
                   ) : technicianAdvice.length === 0 ? (
-                    <Box sx={{ py: 7, textAlign: 'center', color: 'text.secondary' }}>
-                      <Typography variant="subtitle1" fontWeight={700}>No technician advice added</Typography>
-                      <Typography variant="body2" sx={{ mt: 1 }}>
-                        Add an issue above to start the list for this work order.
-                      </Typography>
+                    <Box sx={{ py: 2, color: 'text.secondary' }}>
+                      <Typography variant="body2">No technician advice added.</Typography>
                     </Box>
                   ) : (
-                    <TableContainer component={Paper} variant="outlined">
-                      <Table size="small">
-                        <TableHead>
-                          <TableRow>
-                            <TableCell sx={{ fontWeight: 700, width: 140 }}>Serial Number</TableCell>
-                            <TableCell sx={{ fontWeight: 700 }}>Issue to Resolve</TableCell>
-                            <TableCell align="right" sx={{ fontWeight: 700, width: 120 }}>Actions</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {technicianAdvice.map((advice) => (
-                            <TableRow key={advice.id}>
-                              <TableCell sx={{ whiteSpace: 'nowrap', fontWeight: 600 }}>
-                                {advice.serial_number}
-                              </TableCell>
-                              <TableCell>
-                                {editingAdviceId === advice.id ? (
-                                  <TextField
-                                    value={editingAdviceIssue}
-                                    onChange={(event) => setEditingAdviceIssue(event.target.value)}
-                                    fullWidth
+                    <Box>
+                      {technicianAdvice.map((advice, index) => (
+                        <React.Fragment key={advice.id}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.75 }}>
+                            <Typography
+                              variant="body2"
+                              sx={{ minWidth: 72, fontWeight: 700, color: 'text.secondary' }}
+                            >
+                              {advice.serial_number}
+                            </Typography>
+                            {editingAdviceId === advice.id ? (
+                              <TextField
+                                variant="standard"
+                                value={editingAdviceIssue}
+                                onChange={(event) => setEditingAdviceIssue(event.target.value)}
+                                fullWidth
+                                inputProps={{ maxLength: 2000 }}
+                              />
+                            ) : (
+                              <Typography variant="body2" sx={{ flex: 1, overflowWrap: 'anywhere' }}>
+                                {advice.issue_to_resolve}
+                              </Typography>
+                            )}
+                            {editingAdviceId === advice.id ? (
+                              <>
+                                <Button
+                                  size="small"
+                                  onClick={() => handleUpdateAdvice(advice.id)}
+                                  disabled={!editingAdviceIssue.trim() || isUpdatingAdvice}
+                                  sx={{ textTransform: 'none' }}
+                                >
+                                  Save
+                                </Button>
+                                <Button
+                                  size="small"
+                                  onClick={() => {
+                                    setEditingAdviceId(null);
+                                    setEditingAdviceIssue('');
+                                  }}
+                                  sx={{ textTransform: 'none' }}
+                                >
+                                  Cancel
+                                </Button>
+                              </>
+                            ) : (
+                              <>
+                                <Tooltip title="Edit issue">
+                                  <IconButton
                                     size="small"
-                                    inputProps={{ maxLength: 2000 }}
-                                  />
-                                ) : advice.issue_to_resolve}
-                              </TableCell>
-                              <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                                {editingAdviceId === advice.id ? (
-                                  <>
-                                    <Button
-                                      size="small"
-                                      onClick={() => handleUpdateAdvice(advice.id)}
-                                      disabled={!editingAdviceIssue.trim() || isUpdatingAdvice}
-                                      sx={{ textTransform: 'none' }}
-                                    >
-                                      Save
-                                    </Button>
-                                    <Button
-                                      size="small"
-                                      onClick={() => {
-                                        setEditingAdviceId(null);
-                                        setEditingAdviceIssue('');
-                                      }}
-                                      sx={{ textTransform: 'none' }}
-                                    >
-                                      Cancel
-                                    </Button>
-                                  </>
-                                ) : (
-                                  <>
-                                    <Tooltip title="Edit issue">
-                                      <IconButton
-                                        size="small"
-                                        aria-label="Edit issue"
-                                        onClick={() => {
-                                          setEditingAdviceId(advice.id);
-                                          setEditingAdviceIssue(advice.issue_to_resolve);
-                                        }}
-                                      >
-                                        <Edit2 size={16} />
-                                      </IconButton>
-                                    </Tooltip>
-                                    <Tooltip title="Delete issue">
-                                      <IconButton
-                                        size="small"
-                                        aria-label="Delete issue"
-                                        onClick={() => handleDeleteAdvice(advice.id)}
-                                      >
-                                        <TrashIcon size={16} />
-                                      </IconButton>
-                                    </Tooltip>
-                                  </>
-                                )}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
+                                    aria-label="Edit issue"
+                                    onClick={() => {
+                                      setEditingAdviceId(advice.id);
+                                      setEditingAdviceIssue(advice.issue_to_resolve);
+                                    }}
+                                  >
+                                    <Edit2 size={16} />
+                                  </IconButton>
+                                </Tooltip>
+                                <Tooltip title="Delete issue">
+                                  <IconButton
+                                    size="small"
+                                    aria-label="Delete issue"
+                                    onClick={() => handleDeleteAdvice(advice.id)}
+                                  >
+                                    <TrashIcon size={16} />
+                                  </IconButton>
+                                </Tooltip>
+                              </>
+                            )}
+                          </Box>
+                          {index < technicianAdvice.length - 1 && <Divider />}
+                        </React.Fragment>
+                      ))}
+                    </Box>
                   )}
                 </Box>
               )}
