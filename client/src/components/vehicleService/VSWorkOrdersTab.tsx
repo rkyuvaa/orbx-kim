@@ -2809,22 +2809,6 @@ export default function VSWorkOrdersTab() {
                                           >
                                             View
                                           </Button>
-                                          <Button
-                                            size="small"
-                                            variant="outlined"
-                                            startIcon={<Download fontSize={12} />}
-                                            onClick={() => {
-                                              const link = document.createElement('a');
-                                              link.href = selectedComplaint!.initial_checklist_url!;
-                                              link.download = '';
-                                              document.body.appendChild(link);
-                                              link.click();
-                                              document.body.removeChild(link);
-                                            }}
-                                            disabled={uploadingInitialChecklist}
-                                          >
-                                            Download
-                                          </Button>
                                         </Box>
                                       </Box>
                                     )}
@@ -2894,22 +2878,6 @@ export default function VSWorkOrdersTab() {
                                           >
                                             View
                                           </Button>
-                                          <Button
-                                            size="small"
-                                            variant="outlined"
-                                            startIcon={<Download fontSize={12} />}
-                                            onClick={() => {
-                                              const link = document.createElement('a');
-                                              link.href = selectedComplaint!.master_checklist_url!;
-                                              link.download = '';
-                                              document.body.appendChild(link);
-                                              link.click();
-                                              document.body.removeChild(link);
-                                            }}
-                                            disabled={uploadingMasterChecklist}
-                                          >
-                                            Download
-                                          </Button>
                                         </Box>
                                       </Box>
                                     )}
@@ -2978,22 +2946,6 @@ export default function VSWorkOrdersTab() {
                                             disabled={uploadingComplaints8d}
                                           >
                                             View
-                                          </Button>
-                                          <Button
-                                            size="small"
-                                            variant="outlined"
-                                            startIcon={<Download fontSize={12} />}
-                                            onClick={() => {
-                                              const link = document.createElement('a');
-                                              link.href = selectedComplaint!.complaints_8d_url!;
-                                              link.download = '';
-                                              document.body.appendChild(link);
-                                              link.click();
-                                              document.body.removeChild(link);
-                                            }}
-                                            disabled={uploadingComplaints8d}
-                                          >
-                                            Download
                                           </Button>
                                         </Box>
                                       </Box>
