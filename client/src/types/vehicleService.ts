@@ -287,7 +287,7 @@ export interface VSComplaintUpdate {
 }
 
 export interface VSComplaintCloseRequest {
-  resolution_summary: string;
+  resolution_summary?: string;
   rating?: number;
   feedback_comment?: string;
 }

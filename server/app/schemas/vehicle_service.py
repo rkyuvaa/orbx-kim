@@ -291,7 +291,7 @@ class VSComplaintUpdate(BaseModel):
 
 
 class VSComplaintCloseRequest(BaseModel):
-    resolution_summary: str = Field(..., min_length=1)
+    resolution_summary: Optional[str] = None
     rating: Optional[int] = Field(None, ge=1, le=5)
     feedback_comment: Optional[str] = None
 

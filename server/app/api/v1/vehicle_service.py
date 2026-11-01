@@ -1180,7 +1180,9 @@ def close_complaint(
 
     complaint.status = ComplaintStatus.CLOSED
     complaint.closed_at = datetime.now(UTC)
-    complaint.resolution_summary = payload.resolution_summary
+    resolution_summary = (payload.resolution_summary or "").strip()
+    if resolution_summary:
+        complaint.resolution_summary = resolution_summary
 
     # Update vehicle last service date
     if complaint.vehicle:
@@ -1191,7 +1193,11 @@ def close_complaint(
             complaint_id=complaint.id,
             author_id=current_user.id,
             author_name=current_user.full_name,
-            note=f"Work Order Closed: {payload.resolution_summary}",
+            note=(
+                f"Work Order Closed: {resolution_summary}"
+                if resolution_summary
+                else "Work Order Closed"
+            ),
             is_status_change=True,
         )
     )

@@ -864,10 +864,7 @@ export default function VSWorkOrdersTab() {
   };
 
   const handleCloseSubmit = async () => {
-    if (!selectedComplaint || !closeResolutionSummary.trim()) {
-      showToast('Please enter a resolution summary.', 'warning');
-      return;
-    }
+    if (!selectedComplaint) return;
 
     // Validate required custom fields for CLOSED status
     const requiredFields = getRequiredFieldsForStatus(manageCustomFields, 'CLOSED');
@@ -914,7 +911,7 @@ export default function VSWorkOrdersTab() {
       await verifyOTP({ id: selectedComplaint.id, body: { otp_code: otpCode.trim() } }).unwrap();
 
       const payload: VSComplaintCloseRequest = {
-        resolution_summary: closeResolutionSummary.trim(),
+        resolution_summary: closeResolutionSummary.trim() || undefined,
         rating: closeRating || undefined,
         feedback_comment: closeFeedbackComment.trim() || undefined,
       };
@@ -3472,12 +3469,11 @@ export default function VSWorkOrdersTab() {
         <DialogTitle sx={{ fontWeight: 800 }}>Complete & Close Work Order</DialogTitle>
         <DialogContent dividers>
           <TextField
-            label="Resolution Summary *"
+            label="Resolution Summary (Optional)"
             placeholder="Describe repairs conducted, components replaced, tests verified..."
             multiline
             rows={3}
             fullWidth
-            required
             value={closeResolutionSummary}
             onChange={(e) => setCloseResolutionSummary(e.target.value)}
             sx={{ mb: 3 }}
