@@ -1102,9 +1102,12 @@ export default function VSWorkOrdersTab() {
     if (!selectedComplaint) return;
     setUploadingInitialChecklist(true);
     try {
-      await uploadInitialChecklist({ complaintId: selectedComplaint.id, file }).unwrap();
-      const updated = await updateComplaint({ id: selectedComplaint.id, body: {} }).unwrap();
-      setSelectedComplaint(updated);
+      const { url } = await uploadInitialChecklist({ complaintId: selectedComplaint.id, file }).unwrap();
+      setSelectedComplaint((current) =>
+        current?.id === selectedComplaint.id
+          ? { ...current, initial_checklist_url: url }
+          : current,
+      );
       setInitialChecklistFile(null);
       showToast('Initial Checklist uploaded successfully.', 'success');
       refetch();
@@ -1119,9 +1122,12 @@ export default function VSWorkOrdersTab() {
     if (!selectedComplaint) return;
     setUploadingMasterChecklist(true);
     try {
-      await uploadMasterChecklist({ complaintId: selectedComplaint.id, file }).unwrap();
-      const updated = await updateComplaint({ id: selectedComplaint.id, body: {} }).unwrap();
-      setSelectedComplaint(updated);
+      const { url } = await uploadMasterChecklist({ complaintId: selectedComplaint.id, file }).unwrap();
+      setSelectedComplaint((current) =>
+        current?.id === selectedComplaint.id
+          ? { ...current, master_checklist_url: url }
+          : current,
+      );
       setMasterChecklistFile(null);
       showToast('Master Checklist uploaded successfully.', 'success');
       refetch();
@@ -1136,9 +1142,12 @@ export default function VSWorkOrdersTab() {
     if (!selectedComplaint) return;
     setUploadingComplaints8d(true);
     try {
-      await uploadComplaints8D({ complaintId: selectedComplaint.id, file }).unwrap();
-      const updated = await updateComplaint({ id: selectedComplaint.id, body: {} }).unwrap();
-      setSelectedComplaint(updated);
+      const { url } = await uploadComplaints8D({ complaintId: selectedComplaint.id, file }).unwrap();
+      setSelectedComplaint((current) =>
+        current?.id === selectedComplaint.id
+          ? { ...current, complaints_8d_url: url }
+          : current,
+      );
       setComplaints8dFile(null);
       showToast('Complaints 8D Report uploaded successfully.', 'success');
       refetch();
@@ -1153,9 +1162,15 @@ export default function VSWorkOrdersTab() {
     if (!selectedComplaint) return;
     setUploadingVehicleImages(true);
     try {
-      await uploadVehicleImages({ complaintId: selectedComplaint.id, files }).unwrap();
-      const updated = await updateComplaint({ id: selectedComplaint.id, body: {} }).unwrap();
-      setSelectedComplaint(updated);
+      const { urls } = await uploadVehicleImages({ complaintId: selectedComplaint.id, files }).unwrap();
+      const existingImages = selectedComplaint.vehicle_images
+        ? JSON.parse(selectedComplaint.vehicle_images)
+        : [];
+      setSelectedComplaint((current) =>
+        current?.id === selectedComplaint.id
+          ? { ...current, vehicle_images: JSON.stringify([...existingImages, ...urls]) }
+          : current,
+      );
       setVehicleImagesFiles([]);
       showToast(`${files.length} vehicle image(s) uploaded successfully.`, 'success');
       refetch();
@@ -2672,6 +2687,7 @@ export default function VSWorkOrdersTab() {
                                       accept=".pdf,.png,.jpg,.jpeg"
                                       onChange={(e) => {
                                         const file = e.target.files?.[0];
+                                        e.target.value = '';
                                         if (file) {
                                           setInitialChecklistFile(file);
                                           handleInitialChecklistUpload(file);
@@ -2756,6 +2772,7 @@ export default function VSWorkOrdersTab() {
                                       accept=".pdf,.png,.jpg,.jpeg"
                                       onChange={(e) => {
                                         const file = e.target.files?.[0];
+                                        e.target.value = '';
                                         if (file) {
                                           setMasterChecklistFile(file);
                                           handleMasterChecklistUpload(file);
@@ -2840,6 +2857,7 @@ export default function VSWorkOrdersTab() {
                                       accept=".pdf,.png,.jpg,.jpeg"
                                       onChange={(e) => {
                                         const file = e.target.files?.[0];
+                                        e.target.value = '';
                                         if (file) {
                                           setComplaints8dFile(file);
                                           handleComplaints8DUpload(file);
@@ -2960,6 +2978,7 @@ export default function VSWorkOrdersTab() {
                                       multiple
                                       onChange={(e) => {
                                         const files = Array.from(e.target.files || []);
+                                        e.target.value = '';
                                         if (files.length > 0) {
                                           setVehicleImagesFiles(prev => [...prev, ...files]);
                                         }
