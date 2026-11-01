@@ -37,10 +37,29 @@ import type {
   VSVerifyOTPRequest,
   VSVerifyOTPResponse,
   ServiceType,
+  VSTechnicianAdvice,
 } from '@/types/vehicleService';
 
 export const vehicleServiceApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
+    // Technician Advice
+    getVSTechnicianAdvice: build.query<VSTechnicianAdvice[], void>({
+      query: () => ({ url: '/vehicle-service/technician-advice' }),
+      providesTags: ['VSTechnicianAdvice'],
+    }),
+    createVSTechnicianAdvice: build.mutation<VSTechnicianAdvice, { issue_to_resolve: string }>({
+      query: (body) => ({ url: '/vehicle-service/technician-advice', method: 'POST', body }),
+      invalidatesTags: ['VSTechnicianAdvice'],
+    }),
+    updateVSTechnicianAdvice: build.mutation<VSTechnicianAdvice, { id: number; issue_to_resolve: string }>({
+      query: ({ id, ...body }) => ({ url: `/vehicle-service/technician-advice/${id}`, method: 'PATCH', body }),
+      invalidatesTags: ['VSTechnicianAdvice'],
+    }),
+    deleteVSTechnicianAdvice: build.mutation<{ success: boolean; message: string }, number>({
+      query: (id) => ({ url: `/vehicle-service/technician-advice/${id}`, method: 'DELETE' }),
+      invalidatesTags: ['VSTechnicianAdvice'],
+    }),
+
     // Kits
     getVSKits: build.query<VSKit[], { search?: string; is_active?: boolean } | void>({
       query: (params) => {
@@ -402,6 +421,10 @@ export const vehicleServiceApi = baseApi.injectEndpoints({
     });
 
 export const {
+  useGetVSTechnicianAdviceQuery,
+  useCreateVSTechnicianAdviceMutation,
+  useUpdateVSTechnicianAdviceMutation,
+  useDeleteVSTechnicianAdviceMutation,
   useGetVSKitsQuery,
   useCreateVSKitMutation,
   useUpdateVSKitMutation,

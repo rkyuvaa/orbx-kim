@@ -66,14 +66,18 @@ import DropdownOptionsPanel from '@/features/configuration/DropdownOptionsPanel'
 import {
   useCreateVSKitMutation,
   useCreateVSMaintenanceMutation,
+  useCreateVSTechnicianAdviceMutation,
   useCreateVSVehicleMutation,
   useDeleteVSKitMutation,
+  useDeleteVSTechnicianAdviceMutation,
+  useGetVSTechnicianAdviceQuery,
   useGetVSKitsQuery,
   useGetVSMaintenanceQuery,
   useGetVSVehiclesQuery,
   useImportVSKitPdfMutation,
   useParseVSKitPdfMutation,
   useUpdateVSKitMutation,
+  useUpdateVSTechnicianAdviceMutation,
   useUpdateVSMaintenanceMutation,
 } from '@/api/vehicleServiceApi';
 import type {
@@ -196,6 +200,9 @@ function DdMmYyyyInput({
 
 export default function VSConfigurationTab() {
   const [activeTab, setActiveTab] = useState(0);
+  const [newAdviceIssue, setNewAdviceIssue] = useState('');
+  const [editingAdviceId, setEditingAdviceId] = useState<number | null>(null);
+  const [editingAdviceIssue, setEditingAdviceIssue] = useState('');
 
   // Auth & Admin verification
   const currentUser = useAppSelector((state) => state.auth.user);
@@ -210,6 +217,11 @@ export default function VSConfigurationTab() {
   const { data: kits = [], isLoading: isKitsLoading, refetch: refetchKits } = useGetVSKitsQuery();
   const { data: vehicles = [], isLoading: isVehiclesLoading, refetch: refetchVehicles } = useGetVSVehiclesQuery();
   const { data: maintenanceList = [], isLoading: isMaintLoading, refetch: refetchMaint } = useGetVSMaintenanceQuery();
+  const {
+    data: technicianAdvice = [],
+    isLoading: isAdviceLoading,
+    isError: isAdviceError,
+  } = useGetVSTechnicianAdviceQuery();
   const { data: users = [] } = useUsersQuery();
 
   // Mutations
@@ -221,6 +233,9 @@ export default function VSConfigurationTab() {
   const [createVehicle, { isLoading: isCreatingVehicle }] = useCreateVSVehicleMutation();
   const [createMaintenance, { isLoading: isCreatingMaint }] = useCreateVSMaintenanceMutation();
   const [updateMaintenance] = useUpdateVSMaintenanceMutation();
+  const [createTechnicianAdvice, { isLoading: isCreatingAdvice }] = useCreateVSTechnicianAdviceMutation();
+  const [updateTechnicianAdvice, { isLoading: isUpdatingAdvice }] = useUpdateVSTechnicianAdviceMutation();
+  const [deleteTechnicianAdvice] = useDeleteVSTechnicianAdviceMutation();
 
   // Dialogs
   const [isKitDialogOpen, setIsKitDialogOpen] = useState(false);
@@ -598,6 +613,41 @@ export default function VSConfigurationTab() {
       refetchMaint();
     } catch (err: any) {
       alert('Failed to mark maintenance completed.');
+    }
+  };
+
+  const handleCreateAdvice = async () => {
+    const issue = newAdviceIssue.trim();
+    if (!issue) return;
+    try {
+      await createTechnicianAdvice({ issue_to_resolve: issue }).unwrap();
+      setNewAdviceIssue('');
+      showToast('Technician advice added.', 'success');
+    } catch (err: any) {
+      showToast(err?.data?.detail || 'Failed to add technician advice.', 'error');
+    }
+  };
+
+  const handleUpdateAdvice = async (id: number) => {
+    const issue = editingAdviceIssue.trim();
+    if (!issue) return;
+    try {
+      await updateTechnicianAdvice({ id, issue_to_resolve: issue }).unwrap();
+      setEditingAdviceId(null);
+      setEditingAdviceIssue('');
+      showToast('Technician advice updated.', 'success');
+    } catch (err: any) {
+      showToast(err?.data?.detail || 'Failed to update technician advice.', 'error');
+    }
+  };
+
+  const handleDeleteAdvice = async (id: number) => {
+    if (!window.confirm('Delete this technician advice entry?')) return;
+    try {
+      await deleteTechnicianAdvice(id).unwrap();
+      showToast('Technician advice deleted.', 'success');
+    } catch (err: any) {
+      showToast(err?.data?.detail || 'Failed to delete technician advice.', 'error');
     }
   };
 
@@ -1097,13 +1147,132 @@ export default function VSConfigurationTab() {
           )}
 
           {activeTab === 6 && (
-            <Box sx={{ py: 8, textAlign: 'center', color: 'text.secondary' }}>
-              <Typography variant="subtitle1" fontWeight={700}>
-                Technician Advice
-              </Typography>
-              <Typography variant="body2" sx={{ mt: 1 }}>
-                Advice configuration will be added here.
-              </Typography>
+            <Box>
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="subtitle1" fontWeight={700}>
+                  Technician Advice
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Add issues that technicians should resolve. Serial numbers are assigned automatically.
+                </Typography>
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, mb: 2.5 }}>
+                <TextField
+                  label="Issue to Resolve"
+                  value={newAdviceIssue}
+                  onChange={(event) => setNewAdviceIssue(event.target.value)}
+                  fullWidth
+                  multiline
+                  minRows={2}
+                  inputProps={{ maxLength: 2000 }}
+                  disabled={isCreatingAdvice}
+                />
+                <Button
+                  variant="contained"
+                  startIcon={isCreatingAdvice ? <CircularProgress size={16} color="inherit" /> : <Plus size={16} />}
+                  onClick={handleCreateAdvice}
+                  disabled={!newAdviceIssue.trim() || isCreatingAdvice}
+                  sx={{ minWidth: 120, mt: 0.5, textTransform: 'none', fontWeight: 700 }}
+                >
+                  Add Issue
+                </Button>
+              </Box>
+              {isAdviceError && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                  Could not load technician advice. Refresh the page and try again.
+                </Alert>
+              )}
+              {isAdviceLoading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}>
+                  <CircularProgress size={28} />
+                </Box>
+              ) : technicianAdvice.length === 0 ? (
+                <Box sx={{ py: 7, textAlign: 'center', color: 'text.secondary' }}>
+                  <Typography variant="subtitle1" fontWeight={700}>No technician advice added</Typography>
+                  <Typography variant="body2" sx={{ mt: 1 }}>
+                    Add an issue above to start the list.
+                  </Typography>
+                </Box>
+              ) : (
+                <TableContainer component={Paper} variant="outlined">
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 700, width: 140 }}>Serial Number</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>Issue to Resolve</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, width: 120 }}>Actions</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {technicianAdvice.map((advice) => (
+                        <TableRow key={advice.id}>
+                          <TableCell sx={{ whiteSpace: 'nowrap', fontWeight: 600 }}>{advice.serial_number}</TableCell>
+                          <TableCell>
+                            {editingAdviceId === advice.id ? (
+                              <TextField
+                                value={editingAdviceIssue}
+                                onChange={(event) => setEditingAdviceIssue(event.target.value)}
+                                fullWidth
+                                multiline
+                                size="small"
+                                inputProps={{ maxLength: 2000 }}
+                              />
+                            ) : advice.issue_to_resolve}
+                          </TableCell>
+                          <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                            {editingAdviceId === advice.id ? (
+                              <>
+                                <Button
+                                  size="small"
+                                  onClick={() => handleUpdateAdvice(advice.id)}
+                                  disabled={!editingAdviceIssue.trim() || isUpdatingAdvice}
+                                  sx={{ textTransform: 'none' }}
+                                >
+                                  Save
+                                </Button>
+                                <Button
+                                  size="small"
+                                  onClick={() => {
+                                    setEditingAdviceId(null);
+                                    setEditingAdviceIssue('');
+                                  }}
+                                  sx={{ textTransform: 'none' }}
+                                >
+                                  Cancel
+                                </Button>
+                              </>
+                            ) : (
+                              <>
+                                <Tooltip title="Edit issue">
+                                  <IconButton
+                                    size="small"
+                                    aria-label="Edit issue"
+                                    onClick={() => {
+                                      setEditingAdviceId(advice.id);
+                                      setEditingAdviceIssue(advice.issue_to_resolve);
+                                    }}
+                                  >
+                                    <Pencil size={16} />
+                                  </IconButton>
+                                </Tooltip>
+                                <Tooltip title="Delete issue">
+                                  <IconButton
+                                    size="small"
+                                    aria-label="Delete issue"
+                                    onClick={() => handleDeleteAdvice(advice.id)}
+                                  >
+                                    <Trash2 size={16} />
+                                  </IconButton>
+                                </Tooltip>
+                              </>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
             </Box>
           )}
         </div>

@@ -74,6 +74,13 @@ export interface VSKitPdfParsePreview {
   total_skipped: number;
 }
 
+export interface VSTechnicianAdvice {
+  id: number;
+  serial_number: string;
+  issue_to_resolve: string;
+  created_at: string;
+}
+
 export interface VSComponentHistory {
   id: number;
   vehicle_component_id: number;

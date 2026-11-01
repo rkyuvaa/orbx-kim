@@ -38,6 +38,7 @@ from app.models.vehicle_service import (
     VSServiceCost,
     VSVehicle,
     VSVehicleComponent,
+    VSTechnicianAdvice,
 )
 from app.models.vs_custom_field import (
     VSCustomFieldDefinition,
@@ -70,6 +71,9 @@ from app.schemas.vehicle_service import (
     VSPublicVehicleInfo,
     VSServiceCostCreate,
     VSServiceCostOut,
+    VSTechnicianAdviceCreate,
+    VSTechnicianAdviceUpdate,
+    VSTechnicianAdviceOut,
     VSSendOTPRequest,
     VSSendOTPResponse,
     VSSeverityCount,
@@ -545,6 +549,75 @@ def submit_universal_complaint(
 # ============================================================================
 # Authenticated Kit Master Endpoints
 # ============================================================================
+
+@router.get("/technician-advice", response_model=List[VSTechnicianAdviceOut])
+def list_technician_advice(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return db.query(VSTechnicianAdvice).order_by(VSTechnicianAdvice.id.asc()).all()
+
+
+@router.post(
+    "/technician-advice",
+    response_model=VSTechnicianAdviceOut,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_technician_advice(
+    payload: VSTechnicianAdviceCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    issue = payload.issue_to_resolve.strip()
+    if not issue:
+        raise HTTPException(status_code=422, detail="Issue to resolve cannot be blank")
+
+    advice = VSTechnicianAdvice(
+        serial_number=f"TA-PENDING-{uuid.uuid4().hex}",
+        issue_to_resolve=issue,
+    )
+    db.add(advice)
+    db.flush()
+    advice.serial_number = f"TA-{advice.id:04d}"
+    db.commit()
+    db.refresh(advice)
+    return advice
+
+
+@router.patch("/technician-advice/{advice_id}", response_model=VSTechnicianAdviceOut)
+def update_technician_advice(
+    advice_id: int,
+    payload: VSTechnicianAdviceUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    advice = db.query(VSTechnicianAdvice).filter(VSTechnicianAdvice.id == advice_id).first()
+    if not advice:
+        raise HTTPException(status_code=404, detail="Technician advice entry not found")
+
+    issue = payload.issue_to_resolve.strip()
+    if not issue:
+        raise HTTPException(status_code=422, detail="Issue to resolve cannot be blank")
+
+    advice.issue_to_resolve = issue
+    db.commit()
+    db.refresh(advice)
+    return advice
+
+
+@router.delete("/technician-advice/{advice_id}")
+def delete_technician_advice(
+    advice_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    advice = db.query(VSTechnicianAdvice).filter(VSTechnicianAdvice.id == advice_id).first()
+    if not advice:
+        raise HTTPException(status_code=404, detail="Technician advice entry not found")
+    db.delete(advice)
+    db.commit()
+    return {"success": True, "message": "Technician advice entry deleted"}
+
 
 @router.get("/kits", response_model=List[VSKitOut])
 def list_kits(

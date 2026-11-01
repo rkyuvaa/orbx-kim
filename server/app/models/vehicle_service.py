@@ -14,6 +14,16 @@ class ServiceType(str, PyEnum):
     PAID = "PAID"
 
 
+class VSTechnicianAdvice(Base):
+    __tablename__ = "vs_technician_advice"
+    __table_args__ = {"sqlite_autoincrement": True}
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    serial_number: Mapped[str] = mapped_column(String(20), unique=True, index=True, nullable=False)
+    issue_to_resolve: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 if TYPE_CHECKING:
     from app.models.user import User
 
@@ -268,4 +278,3 @@ class VSServiceCost(Base):
 
     complaint: Mapped[Optional["VSComplaint"]] = relationship("VSComplaint", back_populates="costs")
     maintenance: Mapped[Optional["VSMaintenanceSchedule"]] = relationship("VSMaintenanceSchedule", back_populates="costs")
-

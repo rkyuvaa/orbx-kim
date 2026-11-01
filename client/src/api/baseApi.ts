@@ -114,6 +114,7 @@ export const baseApi = createApi({
       'VSCustomFieldTabs',
       'VSCustomFieldDefinitions',
       'VSCustomFieldValues',
-    ],
+      'VSTechnicianAdvice',
+      ],
   endpoints: () => ({}),
 });

@@ -80,6 +80,23 @@ class VSKitPdfParsePreview(BaseModel):
     total_skipped: int
 
 
+class VSTechnicianAdviceCreate(BaseModel):
+    issue_to_resolve: str = Field(..., min_length=1, max_length=2000)
+
+
+class VSTechnicianAdviceUpdate(BaseModel):
+    issue_to_resolve: str = Field(..., min_length=1, max_length=2000)
+
+
+class VSTechnicianAdviceOut(BaseModel):
+    id: int
+    serial_number: str
+    issue_to_resolve: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # ============================================================================
 # Vehicle Components & Replacement History
 # ============================================================================
