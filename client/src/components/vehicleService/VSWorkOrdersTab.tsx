@@ -627,6 +627,8 @@ export default function VSWorkOrdersTab() {
   const issueCodeColumnIndex = issueMatrixHeaders.indexOf('Issue Code');
   const issueColumnIndex = issueMatrixHeaders.indexOf('Issue');
   const subsystemColumnIndex = issueMatrixHeaders.indexOf('Subsystem');
+  const reworkCostColumnIndex = issueMatrixHeaders.indexOf('Rework Cost (Software, Connector, Terminal)');
+  const labourCostColumnIndex = issueMatrixHeaders.indexOf('Labour Cost');
   const issueMatrixSystems = useMemo(
     () => [...new Set((issueMatrixConfig?.rows ?? []).map((row) => row[systemColumnIndex]?.trim()).filter(Boolean))].sort(),
     [issueMatrixConfig, systemColumnIndex],
@@ -648,6 +650,18 @@ export default function VSWorkOrdersTab() {
     () => new Set(selectedIssueMatrixItems.map((item) => item.issue_code)),
     [selectedIssueMatrixItems],
   );
+  const selectedIssueMatrixTotals = useMemo(() => {
+    const sumColumn = (columnIndex: number) => selectedIssueMatrixItems.reduce((total, item) => {
+      const value = Number((item.issue_row[columnIndex] ?? '').replace(/,/g, '').trim());
+      return total + (Number.isFinite(value) ? value : 0);
+    }, 0);
+    return {
+      reworkCost: sumColumn(reworkCostColumnIndex),
+      labourCost: sumColumn(labourCostColumnIndex),
+    };
+  }, [selectedIssueMatrixItems, reworkCostColumnIndex, labourCostColumnIndex]);
+  const formatIssueMatrixCost = (amount: number) =>
+    `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const complaintAddress = useResolvedAddress(
     selectedComplaint?.gps_latitude,
     selectedComplaint?.gps_longitude,
@@ -2863,49 +2877,107 @@ export default function VSWorkOrdersTab() {
                       No issues selected for this work order.
                     </Typography>
                   ) : (
-                    <Box>
-                      {selectedIssueMatrixItems.map((item, index) => {
-                        const issueTitle = item.issue_row[issueColumnIndex] || item.issue_code;
-                        const details = [
-                          item.issue_row[subsystemColumnIndex],
-                          item.issue_row[systemColumnIndex],
-                        ].filter(Boolean);
-                        return (
-                          <React.Fragment key={item.id}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.75 }}>
-                              <Typography
-                                variant="body2"
-                                sx={{ minWidth: 32, fontWeight: 700, color: 'text.secondary' }}
+                    <Box sx={{ overflowX: 'auto' }}>
+                      <Box sx={{ minWidth: 760 }}>
+                        <Box
+                          sx={{
+                            display: 'grid',
+                            gridTemplateColumns: '40px minmax(260px, 1fr) minmax(130px, 160px) minmax(130px, 160px) 36px',
+                            alignItems: 'center',
+                            gap: 1,
+                            py: 1,
+                            borderBottom: '1px solid #E4EBE1',
+                          }}
+                        >
+                          <Box />
+                          <Typography variant="caption" fontWeight={700} color="text.secondary">Issue</Typography>
+                          <Typography variant="caption" fontWeight={700} color="text.secondary" textAlign="right">
+                            Rework Cost
+                          </Typography>
+                          <Typography variant="caption" fontWeight={700} color="text.secondary" textAlign="right">
+                            Labour Cost
+                          </Typography>
+                          <Box />
+                        </Box>
+                        {selectedIssueMatrixItems.map((item, index) => {
+                          const issueTitle = item.issue_row[issueColumnIndex] || 'Unnamed issue';
+                          const details = [
+                            item.issue_row[subsystemColumnIndex],
+                            item.issue_row[systemColumnIndex],
+                          ].filter(Boolean);
+                          return (
+                            <React.Fragment key={item.id}>
+                              <Box
+                                sx={{
+                                  display: 'grid',
+                                  gridTemplateColumns: '40px minmax(260px, 1fr) minmax(130px, 160px) minmax(130px, 160px) 36px',
+                                  alignItems: 'center',
+                                  gap: 1,
+                                  py: 0.75,
+                                }}
                               >
-                                {index + 1}.
-                              </Typography>
-                              <Box sx={{ flex: 1, minWidth: 0 }}>
-                                <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
-                                  {issueTitle}
-                                </Typography>
-                                {details.length > 0 && (
-                                  <Typography variant="caption" color="text.secondary">
-                                    {details.join(' · ')}
-                                  </Typography>
-                                )}
-                              </Box>
-                              <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
-                                {item.issue_code}
-                              </Typography>
-                              <Tooltip title="Remove from work order">
-                                <IconButton
-                                  size="small"
-                                  aria-label="Remove issue from work order"
-                                  onClick={() => handleRemoveIssueMatrixItem(item.id)}
+                                <Typography
+                                  variant="body2"
+                                  sx={{ fontWeight: 700, color: 'text.secondary' }}
                                 >
-                                  <X size={16} />
-                                </IconButton>
-                              </Tooltip>
-                            </Box>
-                            {index < selectedIssueMatrixItems.length - 1 && <Divider />}
-                          </React.Fragment>
-                        );
-                      })}
+                                  {index + 1}.
+                                </Typography>
+                                <Box sx={{ minWidth: 0 }}>
+                                  <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
+                                    {issueTitle}
+                                  </Typography>
+                                  {details.length > 0 && (
+                                    <Typography variant="caption" color="text.secondary">
+                                      {details.join(' · ')}
+                                    </Typography>
+                                  )}
+                                </Box>
+                                <Typography variant="body2" textAlign="right" sx={{ whiteSpace: 'nowrap' }}>
+                                  {formatIssueMatrixCost(
+                                    Number((item.issue_row[reworkCostColumnIndex] ?? '').replace(/,/g, '').trim()) || 0,
+                                  )}
+                                </Typography>
+                                <Typography variant="body2" textAlign="right" sx={{ whiteSpace: 'nowrap' }}>
+                                  {formatIssueMatrixCost(
+                                    Number((item.issue_row[labourCostColumnIndex] ?? '').replace(/,/g, '').trim()) || 0,
+                                  )}
+                                </Typography>
+                                <Tooltip title="Remove from work order">
+                                  <IconButton
+                                    size="small"
+                                    aria-label="Remove issue from work order"
+                                    onClick={() => handleRemoveIssueMatrixItem(item.id)}
+                                  >
+                                    <X size={16} />
+                                  </IconButton>
+                                </Tooltip>
+                              </Box>
+                              {index < selectedIssueMatrixItems.length - 1 && <Divider />}
+                            </React.Fragment>
+                          );
+                        })}
+                        <Box
+                          sx={{
+                            display: 'grid',
+                            gridTemplateColumns: '40px minmax(260px, 1fr) minmax(130px, 160px) minmax(130px, 160px) 36px',
+                            alignItems: 'center',
+                            gap: 1,
+                            py: 1.25,
+                            borderTop: '2px solid #CBD5E1',
+                            bgcolor: '#F8FAFC',
+                          }}
+                        >
+                          <Box />
+                          <Typography variant="body2" fontWeight={800}>Total</Typography>
+                          <Typography variant="body2" fontWeight={800} textAlign="right">
+                            {formatIssueMatrixCost(selectedIssueMatrixTotals.reworkCost)}
+                          </Typography>
+                          <Typography variant="body2" fontWeight={800} textAlign="right">
+                            {formatIssueMatrixCost(selectedIssueMatrixTotals.labourCost)}
+                          </Typography>
+                          <Box />
+                        </Box>
+                    </Box>
                     </Box>
                   )}
 
