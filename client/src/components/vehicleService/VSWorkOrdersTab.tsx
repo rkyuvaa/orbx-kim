@@ -2728,10 +2728,14 @@ export default function VSWorkOrdersTab() {
                       value={newAdviceIssue}
                       onChange={(event) => setNewAdviceIssue(event.target.value)}
                       fullWidth
-                      multiline
-                      minRows={2}
                       inputProps={{ maxLength: 2000 }}
                       disabled={isCreatingAdvice}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault();
+                          void handleCreateAdvice();
+                        }
+                      }}
                     />
                     <Button
                       variant="contained"
@@ -2781,7 +2785,6 @@ export default function VSWorkOrdersTab() {
                                     value={editingAdviceIssue}
                                     onChange={(event) => setEditingAdviceIssue(event.target.value)}
                                     fullWidth
-                                    multiline
                                     size="small"
                                     inputProps={{ maxLength: 2000 }}
                                   />
