@@ -20,21 +20,16 @@ import {
 } from '@mui/material';
 import {
   AlertTriangle,
-  BatteryCharging,
-  BookOpen,
   CheckCircle2,
   Clock,
   Download,
-  Gauge,
   HelpCircle,
   Lightbulb,
   Printer,
   ShieldAlert,
-  ShieldCheck,
   Star,
   TrendingUp,
   Wrench,
-  Zap,
 } from 'lucide-react';
 import {
   Bar,
@@ -258,87 +253,6 @@ export default function VSReportsTab() {
           </Paper>
         </Grid>
       </Grid>
-
-      {/* Customer Education & Misuse Prevention Section */}
-      <Paper sx={{ p: 3, mb: 4, borderRadius: 3, border: '1px solid #e2e8f0', bgcolor: '#fbfcfd' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-          <BookOpen size={22} color="#2563eb" />
-          <Box>
-            <Typography variant="subtitle1" fontWeight={800}>
-              Driver Education, Safety & Misuse Prevention Guidelines
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Standards broadcasted to auto-rickshaw drivers and retrofitted fleet operators
-            </Typography>
-          </Box>
-        </Box>
-
-        <Grid container spacing={2}>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ p: 2, borderRadius: 2, height: '100%', border: '1px solid #e2e8f0' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <BatteryCharging size={18} color="#f59e0b" />
-                <Typography variant="subtitle2" fontWeight={700}>
-                  Battery Charging Protocol
-                </Typography>
-              </Box>
-              <Typography variant="caption" color="text.secondary" display="block">
-                • Always charge using approved high-stability chargers.<br />
-                • Do not discharge below 10% SOC to protect cell health.<br />
-                • Avoid charging immediately after heavy uphill hauling under direct sun.
-              </Typography>
-            </Card>
-          </Grid>
-
-          <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ p: 2, borderRadius: 2, height: '100%', border: '1px solid #e2e8f0' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <Gauge size={18} color="#3b82f6" />
-                <Typography variant="subtitle2" fontWeight={700}>
-                  Motor & Controller Load
-                </Typography>
-              </Box>
-              <Typography variant="caption" color="text.secondary" display="block">
-                • Respect permissible gross passenger vehicle weight (400 kg max).<br />
-                • Gradual acceleration prevents high-amp spikes on the MOSFETs.<br />
-                • Stop immediately if the controller warning light flashes.
-              </Typography>
-            </Card>
-          </Grid>
-
-          <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ p: 2, borderRadius: 2, height: '100%', border: '1px solid #e2e8f0' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <ShieldCheck size={18} color="#10b981" />
-                <Typography variant="subtitle2" fontWeight={700}>
-                  Water Fording & Monsoon
-                </Typography>
-              </Box>
-              <Typography variant="caption" color="text.secondary" display="block">
-                • IP67 enclosures protect the battery and motor against splashes.<br />
-                • Do not submerge vehicle in standing flood water above hub level.<br />
-                • Inspect wiring harness boots after high-pressure washing.
-              </Typography>
-            </Card>
-          </Grid>
-
-          <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ p: 2, borderRadius: 2, height: '100%', border: '1px solid #e2e8f0' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <Zap size={18} color="#8b5cf6" />
-                <Typography variant="subtitle2" fontWeight={700}>
-                  QR Diagnostic Assistance
-                </Typography>
-              </Box>
-              <Typography variant="caption" color="text.secondary" display="block">
-                • Drivers can scan the dashboard QR code in seconds.<br />
-                • GPS coordinates immediately dispatch the closest roadside tech.<br />
-                • Avoid third-party roadside wiring bypasses.
-              </Typography>
-            </Card>
-          </Grid>
-        </Grid>
-      </Paper>
     </div>
   );
 }
