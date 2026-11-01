@@ -38,10 +38,23 @@ import type {
   VSVerifyOTPResponse,
   ServiceType,
   VSTechnicianAdvice,
+  VSIssueMatrixConfig,
 } from '@/types/vehicleService';
 
 export const vehicleServiceApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
+    getVSIssueMatrixConfig: build.query<VSIssueMatrixConfig | null, void>({
+      query: () => ({ url: '/vehicle-service/issue-matrix/config' }),
+      providesTags: ['VSIssueMatrixConfig'],
+    }),
+    importVSIssueMatrixConfig: build.mutation<
+      VSIssueMatrixConfig,
+      { headers: string[]; rows: string[][]; source_filename: string }
+    >({
+      query: (body) => ({ url: '/vehicle-service/issue-matrix/config', method: 'PUT', body }),
+      invalidatesTags: ['VSIssueMatrixConfig'],
+    }),
+
     // Technician Advice
     getVSTechnicianAdvice: build.query<VSTechnicianAdvice[], number>({
       query: (complaintId) => ({ url: `/vehicle-service/complaints/${complaintId}/technician-advice` }),
@@ -432,6 +445,8 @@ export const vehicleServiceApi = baseApi.injectEndpoints({
     });
 
 export const {
+  useGetVSIssueMatrixConfigQuery,
+  useImportVSIssueMatrixConfigMutation,
   useGetVSTechnicianAdviceQuery,
   useCreateVSTechnicianAdviceMutation,
   useUpdateVSTechnicianAdviceMutation,

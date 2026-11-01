@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
+import * as XLSX from 'xlsx';
 import {
   Alert,
   Box,
@@ -68,10 +69,12 @@ import {
   useCreateVSMaintenanceMutation,
   useCreateVSVehicleMutation,
   useDeleteVSKitMutation,
+  useGetVSIssueMatrixConfigQuery,
   useGetVSKitsQuery,
   useGetVSMaintenanceQuery,
   useGetVSVehiclesQuery,
   useImportVSKitPdfMutation,
+  useImportVSIssueMatrixConfigMutation,
   useParseVSKitPdfMutation,
   useUpdateVSKitMutation,
   useUpdateVSMaintenanceMutation,
@@ -94,6 +97,31 @@ const DEFAULT_KIT_COMPONENTS = [
   { component_type: 'WIRING_HARNESS', label: 'High-Voltage Wiring Harness', is_required: false },
   { component_type: 'DC_CONVERTER', label: 'DC-DC 12V Converter', is_required: false },
   { component_type: 'THROTTLE', label: 'Digital Electronic Throttle', is_required: false },
+];
+
+const ISSUE_MATRIX_HEADERS = [
+  'Issue',
+  'System',
+  'Subsystem',
+  'Priority',
+  'Safety Risk',
+  'Operable Vehicle',
+  'Diagnostic Method',
+  'Action Type',
+  'Corrective Action',
+  'Part ID',
+  'Qty',
+  'SOP',
+  'Labour Time in Minutes',
+  'Serviceable Location',
+  'Warranty',
+  'Warranty Policy',
+  'Loaner Vehicle Required',
+  'Part Cost',
+  'Rework Cost (Software, Connector, Terminal)',
+  'Labour Cost',
+  'Root Cause Category',
+  'Issue Code',
 ];
 
 function DdMmYyyyInput({
@@ -196,6 +224,8 @@ function DdMmYyyyInput({
 
 export default function VSConfigurationTab() {
   const [activeTab, setActiveTab] = useState(0);
+  const matrixFileInputRef = useRef<HTMLInputElement>(null);
+  const [matrixImportError, setMatrixImportError] = useState<string | null>(null);
 
   // Auth & Admin verification
   const currentUser = useAppSelector((state) => state.auth.user);
@@ -210,6 +240,11 @@ export default function VSConfigurationTab() {
   const { data: kits = [], isLoading: isKitsLoading, refetch: refetchKits } = useGetVSKitsQuery();
   const { data: vehicles = [], isLoading: isVehiclesLoading, refetch: refetchVehicles } = useGetVSVehiclesQuery();
   const { data: maintenanceList = [], isLoading: isMaintLoading, refetch: refetchMaint } = useGetVSMaintenanceQuery();
+  const {
+    data: issueMatrixConfig,
+    isLoading: isIssueMatrixLoading,
+    isError: isIssueMatrixError,
+  } = useGetVSIssueMatrixConfigQuery();
   const { data: users = [] } = useUsersQuery();
 
   // Mutations
@@ -221,6 +256,7 @@ export default function VSConfigurationTab() {
   const [createVehicle, { isLoading: isCreatingVehicle }] = useCreateVSVehicleMutation();
   const [createMaintenance, { isLoading: isCreatingMaint }] = useCreateVSMaintenanceMutation();
   const [updateMaintenance] = useUpdateVSMaintenanceMutation();
+  const [importIssueMatrix, { isLoading: isImportingIssueMatrix }] = useImportVSIssueMatrixConfigMutation();
 
   // Dialogs
   const [isKitDialogOpen, setIsKitDialogOpen] = useState(false);
@@ -598,6 +634,64 @@ export default function VSConfigurationTab() {
       refetchMaint();
     } catch (err: any) {
       alert('Failed to mark maintenance completed.');
+    }
+  };
+
+  const handleIssueMatrixFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const fileInput = event.currentTarget;
+    const file = fileInput.files?.[0];
+    if (!file) return;
+
+    if (issueMatrixConfig?.rows.length && !window.confirm('Replace the currently imported Issue Matrix?')) {
+      fileInput.value = '';
+      return;
+    }
+
+    setMatrixImportError(null);
+    try {
+      const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array', raw: false });
+      const firstSheetName = workbook.SheetNames[0];
+      if (!firstSheetName) throw new Error('The workbook contains no sheets.');
+
+      const worksheet = workbook.Sheets[firstSheetName];
+      const sheetRows = XLSX.utils.sheet_to_json<unknown[]>(worksheet, {
+        header: 1,
+        defval: '',
+        raw: false,
+        blankrows: false,
+      });
+      const fileHeaders = (sheetRows[0] || []).map((value) => String(value ?? ''));
+      if (
+        fileHeaders.length !== ISSUE_MATRIX_HEADERS.length ||
+        fileHeaders.some((header, index) => header !== ISSUE_MATRIX_HEADERS[index])
+      ) {
+        throw new Error('The spreadsheet headers do not exactly match the Issue Matrix template.');
+      }
+
+      const dataRows = sheetRows.slice(1).filter((row) =>
+        row.some((value) => String(value ?? '').trim() !== ''),
+      );
+      if (dataRows.length === 0) throw new Error('The spreadsheet contains no issue rows.');
+
+      const rows = dataRows.map((row, rowIndex) => {
+        if (row.slice(ISSUE_MATRIX_HEADERS.length).some((value) => String(value ?? '').trim() !== '')) {
+          throw new Error(`Row ${rowIndex + 2} contains data outside the expected columns.`);
+        }
+        return ISSUE_MATRIX_HEADERS.map((_, columnIndex) => String(row[columnIndex] ?? ''));
+      });
+
+      const imported = await importIssueMatrix({
+        headers: ISSUE_MATRIX_HEADERS,
+        rows,
+        source_filename: file.name,
+      }).unwrap();
+      showToast(`Imported ${imported.rows.length} Issue Matrix rows.`, 'success');
+    } catch (err: any) {
+      const message = err?.data?.detail || err?.message || 'Failed to import the Issue Matrix workbook.';
+      setMatrixImportError(message);
+      showToast(message, 'error');
+    } finally {
+      fileInput.value = '';
     }
   };
 
@@ -1085,13 +1179,112 @@ export default function VSConfigurationTab() {
           )}
 
           {activeTab === 5 && (
-            <Box sx={{ py: 8, textAlign: 'center', color: 'text.secondary' }}>
-              <Typography variant="subtitle1" fontWeight={700}>
-                Issue Matrix config
-              </Typography>
-              <Typography variant="body2" sx={{ mt: 1 }}>
-                Configuration options will be added here.
-              </Typography>
+            <Box>
+              <input
+                ref={matrixFileInputRef}
+                type="file"
+                accept=".xlsx,.xls"
+                hidden
+                onChange={handleIssueMatrixFile}
+              />
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: { xs: 'flex-start', sm: 'center' },
+                  justifyContent: 'space-between',
+                  gap: 2,
+                  mb: 2,
+                  flexWrap: 'wrap',
+                }}
+              >
+                <Box>
+                  <Typography variant="subtitle1" fontWeight={800}>
+                    Issue Matrix config
+                  </Typography>
+                  {issueMatrixConfig ? (
+                    <Typography variant="body2" color="text.secondary">
+                      {issueMatrixConfig.source_filename} · {issueMatrixConfig.rows.length} issues · Imported{' '}
+                      {formatDateTime(issueMatrixConfig.imported_at)}
+                    </Typography>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">
+                      Import the Issue Matrix Excel workbook with its original headers.
+                    </Typography>
+                  )}
+                </Box>
+                <Button
+                  variant="contained"
+                  startIcon={
+                    isImportingIssueMatrix
+                      ? <CircularProgress size={16} color="inherit" />
+                      : <Upload size={16} />
+                  }
+                  onClick={() => matrixFileInputRef.current?.click()}
+                  disabled={isImportingIssueMatrix}
+                  sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
+                >
+                  {isImportingIssueMatrix ? 'Importing…' : 'Import Excel'}
+                </Button>
+              </Box>
+
+              {matrixImportError && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                  {matrixImportError}
+                </Alert>
+              )}
+              {isIssueMatrixError && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                  Could not load the saved Issue Matrix configuration.
+                </Alert>
+              )}
+              {isIssueMatrixLoading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}>
+                  <CircularProgress size={28} />
+                </Box>
+              ) : issueMatrixConfig ? (
+                <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: '65vh', overflowX: 'auto' }}>
+                  <Table size="small" stickyHeader sx={{ minWidth: 2400 }}>
+                    <TableHead>
+                      <TableRow>
+                        {issueMatrixConfig.headers.map((header) => (
+                          <TableCell
+                            key={header}
+                            sx={{
+                              minWidth: 150,
+                              maxWidth: 260,
+                              whiteSpace: 'normal',
+                              fontWeight: 700,
+                              verticalAlign: 'top',
+                            }}
+                          >
+                            {header}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {issueMatrixConfig.rows.map((row, rowIndex) => (
+                        <TableRow key={`${rowIndex}-${row[0]}`} hover>
+                          {issueMatrixConfig.headers.map((header, columnIndex) => (
+                            <TableCell
+                              key={`${header}-${columnIndex}`}
+                              sx={{ minWidth: 150, maxWidth: 260, whiteSpace: 'normal', verticalAlign: 'top' }}
+                            >
+                              {row[columnIndex] ?? ''}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              ) : (
+                <Box sx={{ py: 5, textAlign: 'center', color: 'text.secondary' }}>
+                  <Typography variant="body2">
+                    No Issue Matrix imported yet. Choose “P1 Vehicle issue details work process and cost.xlsx” to import it.
+                  </Typography>
+                </Box>
+              )}
             </Box>
           )}
 

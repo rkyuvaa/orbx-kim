@@ -88,6 +88,7 @@ from app.models.vehicle_service import (
     VSCustomerFeedback,
     VSServiceCost,
     VSTechnicianAdvice,
+    VSIssueMatrixConfig,
 )
 from app.models.vs_custom_field import (
     VSCustomFieldTab,
@@ -262,6 +263,7 @@ __all__ = [
     "VSCustomerFeedback",
     "VSServiceCost",
     "VSTechnicianAdvice",
+    "VSIssueMatrixConfig",
         "VSCustomFieldTab",
         "VSCustomFieldDefinition",
         "VSComplaintCustomFieldValue",

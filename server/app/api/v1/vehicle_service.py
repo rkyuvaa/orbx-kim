@@ -32,6 +32,7 @@ from app.models.vehicle_service import (
     VSComplaint,
     VSComplaintNote,
     VSCustomerFeedback,
+    VSIssueMatrixConfig,
     VSKit,
     VSKitComponentType,
     VSMaintenanceSchedule,
@@ -46,6 +47,8 @@ from app.models.vs_custom_field import (
     VSComplaintCustomFieldValue,
 )
 from app.schemas.vehicle_service import (
+    VSIssueMatrixConfigOut,
+    VSIssueMatrixImport,
     VSAnomalyAlert,
     VSCategoryCount,
     VSComponentHistoryOut,
@@ -100,6 +103,30 @@ from app.schemas.vehicle_service import (
 
 router = APIRouter(prefix="/vehicle-service", tags=["vehicle-service"])
 VS_UPLOADS_DIR = Path(__file__).resolve().parents[3] / "uploads" / "vehicle_service"
+VS_ISSUE_MATRIX_HEADERS = [
+    "Issue",
+    "System",
+    "Subsystem",
+    "Priority",
+    "Safety Risk",
+    "Operable Vehicle",
+    "Diagnostic Method",
+    "Action Type",
+    "Corrective Action",
+    "Part ID",
+    "Qty",
+    "SOP",
+    "Labour Time in Minutes",
+    "Serviceable Location",
+    "Warranty",
+    "Warranty Policy",
+    "Loaner Vehicle Required",
+    "Part Cost",
+    "Rework Cost (Software, Connector, Terminal)",
+    "Labour Cost",
+    "Root Cause Category",
+    "Issue Code",
+]
 
 
 async def _save_vehicle_service_upload(
@@ -549,6 +576,53 @@ def submit_universal_complaint(
 # ============================================================================
 # Authenticated Kit Master Endpoints
 # ============================================================================
+
+@router.get("/issue-matrix/config", response_model=Optional[VSIssueMatrixConfigOut])
+def get_issue_matrix_config(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return db.get(VSIssueMatrixConfig, 1)
+
+
+@router.put("/issue-matrix/config", response_model=VSIssueMatrixConfigOut)
+def import_issue_matrix_config(
+    payload: VSIssueMatrixImport,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if payload.headers != VS_ISSUE_MATRIX_HEADERS:
+        raise HTTPException(
+            status_code=422,
+            detail="Spreadsheet headers must exactly match the Issue Matrix template, in the same order.",
+        )
+    if any(len(row) != len(VS_ISSUE_MATRIX_HEADERS) for row in payload.rows):
+        raise HTTPException(
+            status_code=422,
+            detail=f"Every row must contain exactly {len(VS_ISSUE_MATRIX_HEADERS)} columns.",
+        )
+    if not payload.rows:
+        raise HTTPException(status_code=422, detail="Spreadsheet must contain at least one data row.")
+
+    config = db.get(VSIssueMatrixConfig, 1)
+    if config is None:
+        config = VSIssueMatrixConfig(
+            id=1,
+            headers=payload.headers,
+            rows=payload.rows,
+            source_filename=payload.source_filename,
+        )
+        db.add(config)
+    else:
+        config.headers = payload.headers
+        config.rows = payload.rows
+        config.source_filename = payload.source_filename
+        config.imported_at = datetime.now(UTC)
+
+    db.commit()
+    db.refresh(config)
+    return config
+
 
 @router.get(
     "/complaints/{complaint_id}/technician-advice",

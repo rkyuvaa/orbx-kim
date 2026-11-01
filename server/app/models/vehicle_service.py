@@ -2,7 +2,7 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING, List, Optional
 from enum import Enum as PyEnum
 
-from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, Numeric, String, Text, func, Enum as SQLEnum
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, JSON, Numeric, String, Text, func, Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -12,6 +12,16 @@ class ServiceType(str, PyEnum):
     FREE = "FREE"
     GENERAL = "GENERAL"
     PAID = "PAID"
+
+
+class VSIssueMatrixConfig(Base):
+    __tablename__ = "vs_issue_matrix_config"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    headers: Mapped[List[str]] = mapped_column(JSON, nullable=False)
+    rows: Mapped[List[List[str]]] = mapped_column(JSON, nullable=False)
+    source_filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    imported_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class VSTechnicianAdvice(Base):

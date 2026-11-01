@@ -81,6 +81,13 @@ export interface VSTechnicianAdvice {
   created_at: string;
 }
 
+export interface VSIssueMatrixConfig {
+  headers: string[];
+  rows: string[][];
+  source_filename: string;
+  imported_at: string;
+}
+
 export interface VSComponentHistory {
   id: number;
   vehicle_component_id: number;

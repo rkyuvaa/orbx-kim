@@ -98,6 +98,21 @@ class VSTechnicianAdviceOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class VSIssueMatrixImport(BaseModel):
+    headers: List[str] = Field(..., min_length=1, max_length=100)
+    rows: List[List[str]] = Field(..., max_length=10000)
+    source_filename: str = Field(..., min_length=1, max_length=255)
+
+
+class VSIssueMatrixConfigOut(BaseModel):
+    headers: List[str]
+    rows: List[List[str]]
+    source_filename: str
+    imported_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # ============================================================================
 # Vehicle Components & Replacement History
 # ============================================================================
