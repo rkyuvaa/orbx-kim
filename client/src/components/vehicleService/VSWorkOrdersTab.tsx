@@ -415,6 +415,7 @@ import {
   useGetVSIssueMatrixConfigQuery,
   useGetVSComplaintIssueMatrixItemsQuery,
   useGetVSComplaintsQuery,
+  useGetVSPublicCategoriesQuery,
   useGetVSKitsQuery,
   useGetVSVehiclesQuery,
   useReplaceVSComponentMutation,
@@ -514,6 +515,11 @@ export default function VSWorkOrdersTab() {
   const { data: vehicles = [] } = useGetVSVehiclesQuery();
   const { data: kits = [] } = useGetVSKitsQuery();
   const { data: users = [] } = useUsersQuery();
+  const {
+    data: complaintCategories = [],
+    isLoading: isComplaintCategoriesLoading,
+    isError: isComplaintCategoriesError,
+  } = useGetVSPublicCategoriesQuery();
 
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = {
@@ -676,7 +682,7 @@ export default function VSWorkOrdersTab() {
   const [newComponentId, setNewComponentId] = useState<number | ''>('');
   const [newReportedBy, setNewReportedBy] = useState('');
   const [newReportedPhone, setNewReportedPhone] = useState('');
-  const [newCategory, setNewCategory] = useState('BREAKDOWN');
+  const [newCategory, setNewCategory] = useState('');
   const [newSeverity, setNewSeverity] = useState('MEDIUM');
   const [newDescription, setNewDescription] = useState('');
   const [newAssignedTo, setNewAssignedTo] = useState<number | ''>('');
@@ -751,6 +757,16 @@ export default function VSWorkOrdersTab() {
     return () => clearInterval(intervalId);
   }, [timerRunning]);
 
+  useEffect(() => {
+    if (!complaintCategories.length) {
+      setNewCategory('');
+      return;
+    }
+    if (!complaintCategories.some((category) => category.key === newCategory)) {
+      setNewCategory(complaintCategories[0].key);
+    }
+  }, [complaintCategories, newCategory]);
+
   const searchTrimmed = vehicleSearchText.trim();
   const hasMinDigits = searchTrimmed.length >= 4;
 
@@ -792,7 +808,7 @@ export default function VSWorkOrdersTab() {
     setNewComponentId('');
     setNewReportedBy('');
     setNewReportedPhone('');
-    setNewCategory('BREAKDOWN');
+    setNewCategory(complaintCategories[0]?.key ?? '');
     setNewSeverity('MEDIUM');
     setNewDescription('');
     setNewAssignedTo('');
@@ -831,6 +847,10 @@ export default function VSWorkOrdersTab() {
       return;
     }
     setCreateError(null);
+    if (!complaintCategories.some((category) => category.key === newCategory)) {
+      setCreateError('Select a category configured in Vehicle Service Configuration.');
+      return;
+    }
 
       const hasInitialCustomFieldValues = Object.values(newCustomFieldValues).some(
         (value) => value !== undefined && value !== null && String(value).trim() !== '',
@@ -852,7 +872,7 @@ export default function VSWorkOrdersTab() {
       const phone = newReportedPhone.trim() || '0000000000';
       const desc =
         newDescription.trim() ||
-        `${newCategory} issue reported for ${selectedKit?.vehicle_number || selectedKit?.kit_name || 'Vehicle'}`;
+        `${complaintCategories.find((category) => category.key === newCategory)?.label ?? newCategory} issue reported for ${selectedKit?.vehicle_number || selectedKit?.kit_name || 'Vehicle'}`;
 
       const payload: VSComplaintCreate = {
         kit_id: selectedKit?.id,
@@ -2325,16 +2345,12 @@ export default function VSWorkOrdersTab() {
                 <AppDropdown
                   label="Category"
                   value={newCategory}
-                  options={[
-                    { value: 'BREAKDOWN', label: 'Breakdown' },
-                    { value: 'BATTERY', label: 'Battery / Range' },
-                    { value: 'MOTOR', label: 'Motor' },
-                    { value: 'CONTROLLER', label: 'Controller' },
-                    { value: 'CHARGING', label: 'Charging' },
-                    { value: 'PERFORMANCE', label: 'Performance' },
-                    { value: 'OTHER', label: 'Other' },
-                  ]}
+                  options={complaintCategories.map((category) => ({
+                    value: category.key,
+                    label: category.label,
+                  }))}
                   onChange={(val) => setNewCategory(String(val))}
+                  disabled={isComplaintCategoriesLoading || isComplaintCategoriesError || !complaintCategories.length}
                 />
               </Grid>
               <Grid item xs={6}>
@@ -2351,6 +2367,15 @@ export default function VSWorkOrdersTab() {
                 />
               </Grid>
             </Grid>
+            {isComplaintCategoriesError ? (
+              <Alert severity="error">
+                Could not load categories from Vehicle Service Configuration. Please try again.
+              </Alert>
+            ) : complaintCategories.length === 0 && !isComplaintCategoriesLoading ? (
+              <Alert severity="info">
+                No complaint categories are configured. Add categories in Vehicle Service Configuration first.
+              </Alert>
+            ) : null}
 
             {/* Assignee */}
             <AppDropdown
@@ -2571,7 +2596,12 @@ export default function VSWorkOrdersTab() {
           <Button
             variant="contained"
             onClick={handleCreateSubmit}
-            disabled={isCreating}
+            disabled={
+              isCreating ||
+              isComplaintCategoriesLoading ||
+              isComplaintCategoriesError ||
+              !complaintCategories.some((category) => category.key === newCategory)
+            }
             sx={{
               textTransform: 'none',
               fontWeight: 700,
