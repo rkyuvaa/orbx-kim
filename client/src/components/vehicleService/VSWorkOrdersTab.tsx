@@ -22,6 +22,8 @@ import {
   Paper,
   Rating,
   Select,
+  Tab,
+  Tabs,
   Table,
   TableBody,
   TableCell,
@@ -561,6 +563,7 @@ export default function VSWorkOrdersTab() {
   // Dialog states
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
   const [selectedComplaint, setSelectedComplaint] = useState<VSComplaint | null>(null);
+  const [selectedWorkOrderTab, setSelectedWorkOrderTab] = useState(0);
   const complaintAddress = useResolvedAddress(
     selectedComplaint?.gps_latitude,
     selectedComplaint?.gps_longitude,
@@ -1345,6 +1348,7 @@ export default function VSWorkOrdersTab() {
     const complaintId = selectedComplaint?.id ?? null;
     if (initializedComplaintIdRef.current === complaintId) return;
     initializedComplaintIdRef.current = complaintId;
+    setSelectedWorkOrderTab(0);
     workflowRevisionRef.current += 1;
     customFieldsRevisionRef.current += 1;
     setWorkflowDirty(false);
@@ -2625,6 +2629,22 @@ export default function VSWorkOrdersTab() {
                 </Grid>
               </Grid>
 
+              <Tabs
+                value={selectedWorkOrderTab}
+                onChange={(_, value: number) => setSelectedWorkOrderTab(value)}
+                aria-label="Work order sections"
+                sx={{
+                  minHeight: 40,
+                  borderBottom: '1px solid #E4EBE1',
+                  '& .MuiTab-root': { minHeight: 40, textTransform: 'none', fontWeight: 700 },
+                }}
+              >
+                <Tab label="Service Workflow" id="work-order-tab-0" aria-controls="work-order-panel-0" />
+                <Tab label="Issue Matrix" id="work-order-tab-1" aria-controls="work-order-panel-1" />
+              </Tabs>
+
+              {selectedWorkOrderTab === 1 && (
+                <Box role="tabpanel" id="work-order-panel-1" aria-labelledby="work-order-tab-1" sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
               {/* Description */}
               <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
                 <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" gutterBottom>
@@ -2661,7 +2681,34 @@ export default function VSWorkOrdersTab() {
                   )}
                 </Paper>
               )}
+              {manageCustomFields.length > 0 && (
+                <Box sx={{ mt: 1 }}>
+                  <Divider sx={{ mb: 1.5, borderColor: '#E4EBE1' }} />
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#023020', fontSize: 13 }}>
+                    Custom Fields
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                    {manageCustomFields.map((field) => (
+                      <CustomFieldRenderer
+                        key={field.id}
+                        field={field}
+                        value={manageCustomFieldValues[String(field.id)]}
+                        onChange={(fieldId, value) => {
+                          setManageCustomFieldValues((prev) => ({ ...prev, [String(fieldId)]: value }));
+                          markCustomFieldsDirty();
+                        }}
+                        users={users}
+                        uploadFile={(file) => uploadCustomFieldFileManage(file, field.id)}
+                      />
+                    ))}
+                  </Box>
+                </Box>
+              )}
+              </Box>
+              )}
 
+              {selectedWorkOrderTab === 0 && (
+                <Box role="tabpanel" id="work-order-panel-0" aria-labelledby="work-order-tab-0" sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
               {/* Service Workflow Section */}
               <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, border: '1px solid #E4EBE1' }}>
                               <Typography variant="subtitle2" fontWeight={800} color="#023020" sx={{ mb: 1.5, lineHeight: 1.3 }}>
@@ -2819,12 +2866,12 @@ export default function VSWorkOrdersTab() {
                                         </Tooltip>
                                       )}
                                     </Box>
-                                    {selectedComplaint?.initial_checklist_url && !initialChecklistFile && (
+                                    {selectedComplaint?.initial_checklist_url && (
                                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mb: 1 }}>
                                         <Typography variant="caption" color="text.secondary" display="block">
                                           Uploaded: {selectedComplaint.initial_checklist_url.split('/').pop()}
                                         </Typography>
-                                        <Box sx={{ display: 'flex', gap: 0.5 }}>
+                                        <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
                                           <Button
                                             size="small"
                                             variant="outlined"
@@ -2833,6 +2880,17 @@ export default function VSWorkOrdersTab() {
                                             disabled={uploadingInitialChecklist}
                                           >
                                             View
+                                          </Button>
+                                          <Button
+                                            variant="contained"
+                                            color="primary"
+                                            size="small"
+                                            startIcon={uploadingInitialChecklist ? <CircularProgress size={14} color="inherit" /> : <Upload fontSize={14} />}
+                                            onClick={() => document.getElementById('initial-checklist-upload')?.click()}
+                                            disabled={uploadingInitialChecklist}
+                                            sx={{ flex: '1 1 88px', minWidth: 84, px: 1, whiteSpace: 'nowrap' }}
+                                          >
+                                            {uploadingInitialChecklist ? 'Uploading...' : 'Replace'}
                                           </Button>
                                         </Box>
                                       </Box>
@@ -2852,7 +2910,7 @@ export default function VSWorkOrdersTab() {
                                       style={{ display: 'none' }}
                                       id="initial-checklist-upload"
                                     />
-                                    <Button
+                                    {!selectedComplaint?.initial_checklist_url && <Button
                                       variant={initialChecklistFile || selectedComplaint?.initial_checklist_url ? 'contained' : 'outlined'}
                                       color="primary"
                                       size="small"
@@ -2861,8 +2919,8 @@ export default function VSWorkOrdersTab() {
                                       disabled={uploadingInitialChecklist}
                                       fullWidth
                                     >
-                                      {uploadingInitialChecklist ? 'Uploading...' : selectedComplaint?.initial_checklist_url ? 'Replace' : 'Upload'}
-                                    </Button>
+                                      {uploadingInitialChecklist ? 'Uploading...' : 'Upload'}
+                                    </Button>}
                                   </Paper>
                                 </Grid>
 
@@ -2888,12 +2946,12 @@ export default function VSWorkOrdersTab() {
                                         </Tooltip>
                                       )}
                                     </Box>
-                                    {selectedComplaint?.master_checklist_url && !masterChecklistFile && (
+                                    {selectedComplaint?.master_checklist_url && (
                                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mb: 1 }}>
                                         <Typography variant="caption" color="text.secondary" display="block">
                                           Uploaded: {selectedComplaint.master_checklist_url.split('/').pop()}
                                         </Typography>
-                                        <Box sx={{ display: 'flex', gap: 0.5 }}>
+                                        <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
                                           <Button
                                             size="small"
                                             variant="outlined"
@@ -2902,6 +2960,17 @@ export default function VSWorkOrdersTab() {
                                             disabled={uploadingMasterChecklist}
                                           >
                                             View
+                                          </Button>
+                                          <Button
+                                            variant="contained"
+                                            color="primary"
+                                            size="small"
+                                            startIcon={uploadingMasterChecklist ? <CircularProgress size={14} color="inherit" /> : <Upload fontSize={14} />}
+                                            onClick={() => document.getElementById('master-checklist-upload')?.click()}
+                                            disabled={uploadingMasterChecklist}
+                                            sx={{ flex: '1 1 88px', minWidth: 84, px: 1, whiteSpace: 'nowrap' }}
+                                          >
+                                            {uploadingMasterChecklist ? 'Uploading...' : 'Replace'}
                                           </Button>
                                         </Box>
                                       </Box>
@@ -2921,7 +2990,7 @@ export default function VSWorkOrdersTab() {
                                       style={{ display: 'none' }}
                                       id="master-checklist-upload"
                                     />
-                                    <Button
+                                    {!selectedComplaint?.master_checklist_url && <Button
                                       variant={masterChecklistFile || selectedComplaint?.master_checklist_url ? 'contained' : 'outlined'}
                                       color="primary"
                                       size="small"
@@ -2930,8 +2999,8 @@ export default function VSWorkOrdersTab() {
                                       disabled={uploadingMasterChecklist}
                                       fullWidth
                                     >
-                                      {uploadingMasterChecklist ? 'Uploading...' : selectedComplaint?.master_checklist_url ? 'Replace' : 'Upload'}
-                                    </Button>
+                                      {uploadingMasterChecklist ? 'Uploading...' : 'Upload'}
+                                    </Button>}
                                   </Paper>
                                 </Grid>
 
@@ -2957,12 +3026,12 @@ export default function VSWorkOrdersTab() {
                                         </Tooltip>
                                       )}
                                     </Box>
-                                    {selectedComplaint?.complaints_8d_url && !complaints8dFile && (
+                                    {selectedComplaint?.complaints_8d_url && (
                                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mb: 1 }}>
                                         <Typography variant="caption" color="text.secondary" display="block">
                                           Uploaded: {selectedComplaint.complaints_8d_url.split('/').pop()}
                                         </Typography>
-                                        <Box sx={{ display: 'flex', gap: 0.5 }}>
+                                        <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
                                           <Button
                                             size="small"
                                             variant="outlined"
@@ -2971,6 +3040,17 @@ export default function VSWorkOrdersTab() {
                                             disabled={uploadingComplaints8d}
                                           >
                                             View
+                                          </Button>
+                                          <Button
+                                            variant="contained"
+                                            color="primary"
+                                            size="small"
+                                            startIcon={uploadingComplaints8d ? <CircularProgress size={14} color="inherit" /> : <Upload fontSize={14} />}
+                                            onClick={() => document.getElementById('complaints-8d-upload')?.click()}
+                                            disabled={uploadingComplaints8d}
+                                            sx={{ flex: '1 1 88px', minWidth: 84, px: 1, whiteSpace: 'nowrap' }}
+                                          >
+                                            {uploadingComplaints8d ? 'Uploading...' : 'Replace'}
                                           </Button>
                                         </Box>
                                       </Box>
@@ -2990,7 +3070,7 @@ export default function VSWorkOrdersTab() {
                                       style={{ display: 'none' }}
                                       id="complaints-8d-upload"
                                     />
-                                    <Button
+                                    {!selectedComplaint?.complaints_8d_url && <Button
                                       variant={complaints8dFile || selectedComplaint?.complaints_8d_url ? 'contained' : 'outlined'}
                                       color="primary"
                                       size="small"
@@ -2999,8 +3079,8 @@ export default function VSWorkOrdersTab() {
                                       disabled={uploadingComplaints8d}
                                       fullWidth
                                     >
-                                      {uploadingComplaints8d ? 'Uploading...' : selectedComplaint?.complaints_8d_url ? 'Replace' : 'Upload'}
-                                    </Button>
+                                      {uploadingComplaints8d ? 'Uploading...' : 'Upload'}
+                                    </Button>}
                                   </Paper>
                                 </Grid>
 
@@ -3135,31 +3215,8 @@ export default function VSWorkOrdersTab() {
                                 </Grid>
                               </Grid>
                             </Paper>
-
-                                          {/* Custom Fields for Manage Dialog */}
-                            {manageCustomFields.length > 0 && (
-                              <Box sx={{ mt: 1 }}>
-                                <Divider sx={{ mb: 1.5, borderColor: '#E4EBE1' }} />
-                                <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#023020', fontSize: 13 }}>
-                                  Custom Fields
-                                </Typography>
-                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                                  {manageCustomFields.map((field) => (
-                                    <CustomFieldRenderer
-                                      key={field.id}
-                                      field={field}
-                                      value={manageCustomFieldValues[String(field.id)]}
-                                      onChange={(fieldId, value) => {
-                                        setManageCustomFieldValues((prev) => ({ ...prev, [String(fieldId)]: value }));
-                                        markCustomFieldsDirty();
-                                      }}
-                                      users={users}
-                                                                  uploadFile={(file) => uploadCustomFieldFileManage(file, field.id)}
-                                    />
-                                  ))}
-                                </Box>
-                              </Box>
-                            )}
+                </Box>
+              )}
 
                           </Box>
 
