@@ -2628,7 +2628,7 @@ export default function VSWorkOrdersTab() {
               {/* Description */}
               <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
                 <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" gutterBottom>
-                  ISSUE DESCRIPTION
+                  Customer Issue Description
                 </Typography>
                 <Typography variant="body1">
                   {selectedComplaint.description}
@@ -2672,7 +2672,7 @@ export default function VSWorkOrdersTab() {
                               <Grid container spacing={2}>
                                 <Grid item xs={12} sm={6} md={3}>
                                   <TextField
-                                    label="Est. Delivery Date"
+                                    label="Estimated Delivery Date"
                                     type="date"
                                     size="small"
                                     fullWidth
@@ -2774,14 +2774,14 @@ export default function VSWorkOrdersTab() {
                                 </Grid>
                               </Grid>
 
-                              {/* Row 3: Technician Remarks */}
+                              {/* Row 3: Technician service notes */}
                               <TextField
-                                label="Technician Remarks"
+                                label="Technician's Service Notes"
                                 multiline
                                 rows={2}
                                 size="small"
                                 fullWidth
-                                placeholder="Technician notes, observations, recommendations..."
+                                placeholder="Record service observations, work performed, or recommendations..."
                                 value={technicianRemarks}
                                 onChange={(e) => {
                                   setTechnicianRemarks(e.target.value);
