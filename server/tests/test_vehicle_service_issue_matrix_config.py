@@ -61,6 +61,12 @@ def test_issue_matrix_import_persists_exact_headers_and_replaces_rows(client, db
     url = "/api/v1/vehicle-service/issue-matrix/config"
     selected_url = f"/api/v1/vehicle-service/complaints/{complaint.id}/issue-matrix-items"
     other_selected_url = f"/api/v1/vehicle-service/complaints/{other_complaint.id}/issue-matrix-items"
+    assigned = client.patch(
+        f"/api/v1/vehicle-service/complaints/{complaint.id}",
+        json={"assigned_to_id": user.id},
+        headers=headers,
+    )
+    assert assigned.status_code == 200, assigned.text
 
     assert client.get(url, headers=headers).json() is None
 

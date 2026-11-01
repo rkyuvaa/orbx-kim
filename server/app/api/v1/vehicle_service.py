@@ -132,6 +132,14 @@ VS_ISSUE_MATRIX_HEADERS = [
 ]
 
 
+def _require_assigned_technician(complaint: VSComplaint) -> None:
+    if complaint.assigned_to_id is None:
+        raise HTTPException(
+            status_code=409,
+            detail="Assign a technician before modifying this work order",
+        )
+
+
 async def _save_vehicle_service_upload(
     file: UploadFile,
     complaint_id: int,
@@ -424,6 +432,12 @@ def submit_public_complaint(
             detail=f"A service request ({existing_today.complaint_no}) has already been registered for vehicle {vehicle.vehicle_number} today. Maximum 1 request per day is allowed to prevent duplicate requests.",
         )
 
+    assigned_user = None
+    if payload.assigned_to_id is not None:
+        assigned_user = db.query(User).filter(User.id == payload.assigned_to_id).first()
+        if assigned_user is None:
+            raise HTTPException(status_code=422, detail="Selected technician does not exist")
+
     complaint_no = _generate_complaint_no(db)
     gps_addr = payload.gps_address or _reverse_geocode_area_and_city(payload.gps_latitude, payload.gps_longitude)
     complaint = VSComplaint(
@@ -661,6 +675,7 @@ def add_complaint_issue_matrix_items(
     complaint = db.query(VSComplaint).filter(VSComplaint.id == complaint_id).first()
     if not complaint:
         raise HTTPException(status_code=404, detail="Work order not found")
+    _require_assigned_technician(complaint)
 
     config = db.get(VSIssueMatrixConfig, 1)
     if config is None:
@@ -717,6 +732,10 @@ def delete_complaint_issue_matrix_item(
     )
     if not item:
         raise HTTPException(status_code=404, detail="Selected Issue Matrix item not found")
+    complaint = db.query(VSComplaint).filter(VSComplaint.id == complaint_id).first()
+    if not complaint:
+        raise HTTPException(status_code=404, detail="Work order not found")
+    _require_assigned_technician(complaint)
     db.delete(item)
     db.commit()
 
@@ -755,6 +774,7 @@ def create_technician_advice(
     complaint = db.query(VSComplaint).filter(VSComplaint.id == complaint_id).first()
     if not complaint:
         raise HTTPException(status_code=404, detail="Work order not found")
+    _require_assigned_technician(complaint)
     issue = payload.issue_to_resolve.strip()
     if not issue:
         raise HTTPException(status_code=422, detail="Issue to resolve cannot be blank")
@@ -793,6 +813,10 @@ def update_technician_advice(
     )
     if not advice:
         raise HTTPException(status_code=404, detail="Technician advice entry not found")
+    complaint = db.query(VSComplaint).filter(VSComplaint.id == complaint_id).first()
+    if not complaint:
+        raise HTTPException(status_code=404, detail="Work order not found")
+    _require_assigned_technician(complaint)
 
     issue = payload.issue_to_resolve.strip()
     if not issue:
@@ -821,6 +845,10 @@ def delete_technician_advice(
     )
     if not advice:
         raise HTTPException(status_code=404, detail="Technician advice entry not found")
+    complaint = db.query(VSComplaint).filter(VSComplaint.id == complaint_id).first()
+    if not complaint:
+        raise HTTPException(status_code=404, detail="Work order not found")
+    _require_assigned_technician(complaint)
     db.delete(advice)
     db.commit()
     return {"success": True, "message": "Technician advice entry deleted"}
@@ -1206,6 +1234,11 @@ def replace_component(
     )
     if not component:
         raise HTTPException(status_code=404, detail="Vehicle component not found")
+    if payload.complaint_id is not None:
+        complaint = db.query(VSComplaint).filter(VSComplaint.id == payload.complaint_id).first()
+        if not complaint:
+            raise HTTPException(status_code=404, detail="Complaint not found")
+        _require_assigned_technician(complaint)
 
     old_serial = component.serial_number
     new_serial = payload.new_serial_number.strip()
@@ -1236,6 +1269,16 @@ def replace_component(
             is_status_change=False,
         )
         db.add(note)
+        if assigned_user:
+            db.add(
+                VSComplaintNote(
+                    complaint_id=complaint.id,
+                    author_id=current_user.id,
+                    author_name=current_user.full_name,
+                    note=f"Assigned to {assigned_user.full_name}",
+                    is_status_change=True,
+                )
+            )
 
     db.commit()
     db.refresh(hist)
@@ -1370,7 +1413,7 @@ def create_complaint(
         gps_longitude=payload.gps_longitude,
         gps_address=gps_addr,
         registered_via=RegisteredVia.STAFF,
-        status=ComplaintStatus.OPEN,
+        status=ComplaintStatus.ASSIGNED if assigned_user else ComplaintStatus.OPEN,
         assigned_to_id=payload.assigned_to_id,
     )
     db.add(complaint)
@@ -1417,6 +1460,56 @@ def update_complaint(
         raise HTTPException(status_code=404, detail="Complaint not found")
 
     old_status = complaint.status
+    requested_assignee = (
+        payload.assigned_to_id
+        if "assigned_to_id" in payload.model_fields_set
+        else complaint.assigned_to_id
+    )
+    content_fields = payload.model_fields_set - {"status", "assigned_to_id"}
+    if content_fields and requested_assignee is None:
+        _require_assigned_technician(complaint)
+
+    next_status = complaint.status
+    requested_assignee_user = None
+    if payload.assigned_to_id is not None and payload.assigned_to_id != complaint.assigned_to_id:
+        requested_assignee_user = db.query(User).filter(User.id == payload.assigned_to_id).first()
+        if requested_assignee_user is None:
+            raise HTTPException(status_code=422, detail="Selected technician does not exist")
+        if complaint.status in {ComplaintStatus.OPEN, ComplaintStatus.ACKNOWLEDGED}:
+            next_status = ComplaintStatus.ASSIGNED
+
+    if payload.status is not None and payload.status != next_status:
+        valid_transition = (
+            (next_status == ComplaintStatus.OPEN and payload.status == ComplaintStatus.ACKNOWLEDGED)
+            or (
+                next_status in {ComplaintStatus.OPEN, ComplaintStatus.ACKNOWLEDGED}
+                and payload.status == ComplaintStatus.ASSIGNED
+                and requested_assignee is not None
+            )
+            or (
+                next_status == ComplaintStatus.ASSIGNED
+                and payload.status == ComplaintStatus.IN_PROGRESS
+                and requested_assignee is not None
+                and payload.timer_started_at is not None
+            )
+            or (
+                next_status == ComplaintStatus.IN_PROGRESS
+                and payload.status == ComplaintStatus.RESOLVED
+                and requested_assignee is not None
+                and payload.timer_ended_at is not None
+            )
+        )
+        if not valid_transition:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Work order cannot move from {next_status} to {payload.status}",
+            )
+        next_status = payload.status
+    elif payload.status == ComplaintStatus.CLOSED:
+        raise HTTPException(
+            status_code=409,
+            detail="Use the close work order process to close a work order",
+        )
 
     if payload.severity is not None:
         complaint.severity = payload.severity
@@ -1448,10 +1541,7 @@ def update_complaint(
 
     if payload.assigned_to_id is not None and payload.assigned_to_id != complaint.assigned_to_id:
         complaint.assigned_to_id = payload.assigned_to_id
-        if complaint.status == ComplaintStatus.OPEN:
-            complaint.status = ComplaintStatus.ASSIGNED
-        assignee = db.query(User).filter(User.id == payload.assigned_to_id).first()
-        assignee_name = assignee.full_name if assignee else f"User #{payload.assigned_to_id}"
+        assignee_name = requested_assignee_user.full_name
         db.add(
             VSComplaintNote(
                 complaint_id=complaint.id,
@@ -1462,26 +1552,20 @@ def update_complaint(
             )
         )
 
-    if payload.status is not None and payload.status != old_status:
-        complaint.status = payload.status
+    if next_status != old_status:
+        complaint.status = next_status
         now = datetime.now(UTC)
-        if old_status == ComplaintStatus.RESOLVED and payload.status != ComplaintStatus.RESOLVED:
-            complaint.resolved_at = None
-        if old_status == ComplaintStatus.ACKNOWLEDGED and payload.status == ComplaintStatus.OPEN:
-            complaint.acknowledged_at = None
-        if payload.status == ComplaintStatus.ACKNOWLEDGED and not complaint.acknowledged_at:
+        if next_status == ComplaintStatus.ACKNOWLEDGED and not complaint.acknowledged_at:
             complaint.acknowledged_at = now
-        elif payload.status == ComplaintStatus.RESOLVED and not complaint.resolved_at:
+        elif next_status == ComplaintStatus.RESOLVED and not complaint.resolved_at:
             complaint.resolved_at = now
-        elif payload.status == ComplaintStatus.CLOSED and not complaint.closed_at:
-            complaint.closed_at = now
 
         db.add(
             VSComplaintNote(
                 complaint_id=complaint.id,
                 author_id=current_user.id,
                 author_name=current_user.full_name,
-                note=f"Status changed from {old_status} to {payload.status}",
+                note=f"Status changed from {old_status} to {next_status}",
                 is_status_change=True,
             )
         )
@@ -1501,6 +1585,7 @@ def add_complaint_note(
     complaint = db.query(VSComplaint).filter(VSComplaint.id == complaint_id).first()
     if not complaint:
         raise HTTPException(status_code=404, detail="Complaint not found")
+    _require_assigned_technician(complaint)
 
     note = VSComplaintNote(
         complaint_id=complaint.id,
@@ -1525,6 +1610,10 @@ def close_complaint(
     complaint = db.query(VSComplaint).filter(VSComplaint.id == complaint_id).first()
     if not complaint:
         raise HTTPException(status_code=404, detail="Complaint not found")
+    _require_assigned_technician(complaint)
+
+    if complaint.status != ComplaintStatus.RESOLVED:
+        raise HTTPException(status_code=409, detail="Resolve the work order before closing it")
 
     # Check OTP verification before closing
     if not complaint.otp_verified:
@@ -1587,6 +1676,7 @@ def send_otp(
     complaint = db.query(VSComplaint).filter(VSComplaint.id == complaint_id).first()
     if not complaint:
         raise HTTPException(status_code=404, detail="Complaint not found")
+    _require_assigned_technician(complaint)
 
     # Generate 6-digit OTP
     otp_code = ''.join(random.choices(string.digits, k=6))
@@ -1622,6 +1712,7 @@ def verify_otp(
     complaint = db.query(VSComplaint).filter(VSComplaint.id == complaint_id).first()
     if not complaint:
         raise HTTPException(status_code=404, detail="Complaint not found")
+    _require_assigned_technician(complaint)
 
     if not complaint.otp_code or not complaint.otp_expires_at:
         raise HTTPException(
@@ -1675,6 +1766,7 @@ async def upload_initial_checklist(
     complaint = db.query(VSComplaint).filter(VSComplaint.id == complaint_id).first()
     if not complaint:
         raise HTTPException(status_code=404, detail="Complaint not found")
+    _require_assigned_technician(complaint)
 
     file_url, file_path = await _save_vehicle_service_upload(
         file, complaint_id, "initial_checklists", {".pdf", ".jpg", ".jpeg", ".png"}
@@ -1696,6 +1788,7 @@ async def upload_master_checklist(
     complaint = db.query(VSComplaint).filter(VSComplaint.id == complaint_id).first()
     if not complaint:
         raise HTTPException(status_code=404, detail="Complaint not found")
+    _require_assigned_technician(complaint)
 
     file_url, file_path = await _save_vehicle_service_upload(
         file, complaint_id, "master_checklists", {".pdf", ".jpg", ".jpeg", ".png"}
@@ -1717,6 +1810,7 @@ async def upload_complaints_8d(
     complaint = db.query(VSComplaint).filter(VSComplaint.id == complaint_id).first()
     if not complaint:
         raise HTTPException(status_code=404, detail="Complaint not found")
+    _require_assigned_technician(complaint)
 
     file_url, file_path = await _save_vehicle_service_upload(
         file, complaint_id, "complaints_8d", {".pdf", ".jpg", ".jpeg", ".png"}
@@ -1738,6 +1832,7 @@ async def upload_vehicle_images(
     complaint = db.query(VSComplaint).filter(VSComplaint.id == complaint_id).first()
     if not complaint:
         raise HTTPException(status_code=404, detail="Complaint not found")
+    _require_assigned_technician(complaint)
 
     if not files:
         raise HTTPException(status_code=400, detail="Select at least one image to upload")
@@ -1779,6 +1874,7 @@ def add_service_cost(
     complaint = db.query(VSComplaint).filter(VSComplaint.id == complaint_id).first()
     if not complaint:
         raise HTTPException(status_code=404, detail="Complaint not found")
+    _require_assigned_technician(complaint)
 
     total = round(payload.quantity * payload.unit_price, 2)
     cost = VSServiceCost(
@@ -1807,6 +1903,10 @@ def delete_service_cost(
     ).first()
     if not cost:
         raise HTTPException(status_code=404, detail='Service cost item not found')
+    complaint = db.query(VSComplaint).filter(VSComplaint.id == complaint_id).first()
+    if not complaint:
+        raise HTTPException(status_code=404, detail="Complaint not found")
+    _require_assigned_technician(complaint)
     db.delete(cost)
     db.commit()
     return None
@@ -1834,6 +1934,7 @@ def delete_complaint(
     complaint = db.query(VSComplaint).filter(VSComplaint.id == complaint_id).first()
     if not complaint:
         raise HTTPException(status_code=404, detail="Work Order / Complaint not found")
+    _require_assigned_technician(complaint)
 
     complaint_no = complaint.complaint_no
     db.delete(complaint)
@@ -2306,6 +2407,7 @@ def upsert_custom_field_values_for_complaint(
     complaint = db.query(VSComplaint).filter(VSComplaint.id == complaint_id).first()
     if not complaint:
         raise HTTPException(status_code=404, detail="Complaint not found")
+    _require_assigned_technician(complaint)
 
     results = []
     for item in payload.values:
@@ -2399,6 +2501,7 @@ async def upload_custom_field_file(
     complaint = db.query(VSComplaint).filter(VSComplaint.id == complaint_id).first()
     if not complaint:
         raise HTTPException(status_code=404, detail="Complaint not found")
+    _require_assigned_technician(complaint)
 
     # Validate file type
     file_config = field.file_config or {}

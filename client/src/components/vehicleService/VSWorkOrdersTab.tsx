@@ -606,14 +606,6 @@ export default function VSWorkOrdersTab() {
   const [newAdviceIssue, setNewAdviceIssue] = useState('');
   const [editingAdviceId, setEditingAdviceId] = useState<number | null>(null);
   const [editingAdviceIssue, setEditingAdviceIssue] = useState('');
-  const [pendingStatusUndo, setPendingStatusUndo] = useState<{
-    complaintId: number;
-    previousStatus: string;
-    nextStatus: string;
-    expiresAt: number;
-  } | null>(null);
-  const [undoSecondsRemaining, setUndoSecondsRemaining] = useState(0);
-  const [isAdvancingStatus, setIsAdvancingStatus] = useState(false);
   const [isIssueMatrixPickerOpen, setIsIssueMatrixPickerOpen] = useState(false);
   const [issueMatrixSearch, setIssueMatrixSearch] = useState('');
   const [issueMatrixSystemFilter, setIssueMatrixSystemFilter] = useState('');
@@ -670,15 +662,6 @@ export default function VSWorkOrdersTab() {
   }, [selectedIssueMatrixItems, reworkCostColumnIndex, labourCostColumnIndex]);
   const formatIssueMatrixCost = (amount: number) =>
     `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  const nextStatusByCurrent: Record<string, string | undefined> = {
-    OPEN: 'ACKNOWLEDGED',
-    ACKNOWLEDGED: selectedComplaint?.assigned_to_id ? 'ASSIGNED' : 'IN_PROGRESS',
-    ASSIGNED: 'IN_PROGRESS',
-    IN_PROGRESS: 'RESOLVED',
-  };
-  const nextWorkOrderStatus = selectedComplaint
-    ? nextStatusByCurrent[selectedComplaint.status]
-    : undefined;
   const complaintAddress = useResolvedAddress(
     selectedComplaint?.gps_latitude,
     selectedComplaint?.gps_longitude,
@@ -768,29 +751,6 @@ export default function VSWorkOrdersTab() {
     return () => clearInterval(intervalId);
   }, [timerRunning]);
 
-  useEffect(() => {
-    if (!pendingStatusUndo) return;
-
-    const updateCountdown = () => {
-      const secondsLeft = Math.ceil((pendingStatusUndo.expiresAt - Date.now()) / 1000);
-      if (secondsLeft <= 0) {
-        setPendingStatusUndo(null);
-        setUndoSecondsRemaining(0);
-        return;
-      }
-      setUndoSecondsRemaining(secondsLeft);
-    };
-
-    updateCountdown();
-    const intervalId = window.setInterval(updateCountdown, 200);
-    return () => window.clearInterval(intervalId);
-  }, [pendingStatusUndo]);
-
-  useEffect(() => {
-    setPendingStatusUndo(null);
-    setUndoSecondsRemaining(0);
-  }, [selectedComplaint?.id]);
-
   const searchTrimmed = vehicleSearchText.trim();
   const hasMinDigits = searchTrimmed.length >= 4;
 
@@ -871,6 +831,14 @@ export default function VSWorkOrdersTab() {
       return;
     }
     setCreateError(null);
+
+      const hasInitialCustomFieldValues = Object.values(newCustomFieldValues).some(
+        (value) => value !== undefined && value !== null && String(value).trim() !== '',
+      );
+      if (!newAssignedTo && (newInitialNote.trim() || hasInitialCustomFieldValues)) {
+        setCreateError('Assign a technician before saving intake notes or custom field values.');
+        return;
+      }
 
       // Validate required custom fields for OPEN status
       const requiredFields = getRequiredFieldsForStatus(newCustomFields, 'OPEN');
@@ -1124,73 +1092,20 @@ export default function VSWorkOrdersTab() {
       return results.every(Boolean);
     };
 
-    const handleUpdateStatus = async (complaintId: number, nextStatus: string): Promise<VSComplaint | null> => {
-    setPendingStatusUndo(null);
-    setUndoSecondsRemaining(0);
-    // Validate required custom fields for the next status
-    const requiredFields = getRequiredFieldsForStatus(manageCustomFields, nextStatus);
-    const validationErrors = validateRequiredFields(manageCustomFieldValues, requiredFields);
-    if (validationErrors.length > 0) {
-      showToast(`Cannot change status: ${validationErrors.join('; ')}`, 'warning');
-      return null;
-    }
-    if (!(await flushAutoSaves(complaintId))) return null;
-
-    const payload: VSComplaintUpdate = {
-      status: nextStatus,
-      est_delivery_date: estDeliveryDate || undefined,
-      can_data_collected: canDataCollected,
-      technician_remarks: technicianRemarks.trim() || undefined,
-      odometer_reading: odometerReading ? Number(odometerReading) : undefined,
-      service_type: serviceType,
-      service_hours: serviceHours,
-    };
+  const handleOpenWorkOrder = async (complaint: VSComplaint) => {
+    setSelectedComplaint(complaint);
+    if (complaint.status !== 'OPEN') return;
 
     try {
-      const updated = await updateComplaint({ id: complaintId, body: payload }).unwrap();
-      setSelectedComplaint(updated);
-      showToast(`Work order status updated to ${nextStatus}`, 'success');
+      const updated = await updateComplaint({
+        id: complaint.id,
+        body: { status: 'ACKNOWLEDGED' },
+      }).unwrap();
+      setSelectedComplaint((current) => current?.id === complaint.id ? updated : current);
       refetch();
-      return updated;
     } catch (err: any) {
-      showToast(err?.data?.detail || 'Failed to update status.', 'error');
-      return null;
+      showToast(err?.data?.detail || 'Failed to acknowledge work order.', 'error');
     }
-  };
-
-  const handleAdvanceWorkOrderStatus = async () => {
-    if (!selectedComplaint || !nextWorkOrderStatus || isAdvancingStatus || pendingStatusUndo) return;
-
-    const previousStatus = selectedComplaint.status;
-    setIsAdvancingStatus(true);
-    const updated = await handleUpdateStatus(selectedComplaint.id, nextWorkOrderStatus);
-    setIsAdvancingStatus(false);
-    if (updated) {
-      setPendingStatusUndo({
-        complaintId: selectedComplaint.id,
-        previousStatus,
-        nextStatus: nextWorkOrderStatus,
-        expiresAt: Date.now() + 5000,
-      });
-      setUndoSecondsRemaining(5);
-    }
-  };
-
-  const handleUndoWorkOrderStatus = async () => {
-    if (
-      !pendingStatusUndo ||
-      !selectedComplaint ||
-      pendingStatusUndo.complaintId !== selectedComplaint.id ||
-      selectedComplaint.status !== pendingStatusUndo.nextStatus
-    ) {
-      setPendingStatusUndo(null);
-      return;
-    }
-
-    const undo = pendingStatusUndo;
-    setPendingStatusUndo(null);
-    setUndoSecondsRemaining(0);
-    await handleUpdateStatus(undo.complaintId, undo.previousStatus);
   };
 
   const handleAssignUser = async (complaintId: number, userId: number) => {
@@ -1447,13 +1362,22 @@ export default function VSWorkOrdersTab() {
 
   const handleTimerStart = async () => {
     if (!selectedComplaint) return;
-  
-    const now = new Date();
-    setTimerStartTime(now);
-    setTimerRunning(true);
+    if (!selectedComplaint.assigned_to_id) {
+      showToast('Assign a technician before starting service.', 'warning');
+      return;
+    }
 
-    // Update backend
+    const requiredFields = getRequiredFieldsForStatus(manageCustomFields, 'IN_PROGRESS');
+    const validationErrors = validateRequiredFields(manageCustomFieldValues, requiredFields);
+    if (validationErrors.length > 0) {
+      showToast(`Cannot start service: ${validationErrors.join('; ')}`, 'warning');
+      return;
+    }
+    if (!(await flushAutoSaves(selectedComplaint.id))) return;
+
+    const now = new Date();
     const payload: VSComplaintUpdate = {
+      status: 'IN_PROGRESS',
       timer_started_at: now.toISOString(),
       timer_ended_at: null,
       service_hours: 0,
@@ -1461,9 +1385,11 @@ export default function VSWorkOrdersTab() {
     try {
       const updated = await updateComplaint({ id: selectedComplaint.id, body: payload }).unwrap();
       setSelectedComplaint(updated);
+      setTimerStartTime(now);
+      setTimerRunning(true);
+      setServiceHours(0);
+      refetch();
     } catch (err: any) {
-      setTimerRunning(false);
-      setTimerStartTime(null);
       console.error('Failed to start timer:', err);
       showToast(err?.data?.detail || 'Failed to start service timer.', 'error');
     }
@@ -1471,28 +1397,37 @@ export default function VSWorkOrdersTab() {
 
   const handleTimerStop = async () => {
     if (!selectedComplaint || !timerStartTime) return;
+    if (!selectedComplaint.assigned_to_id) {
+      showToast('Assign a technician before ending service.', 'warning');
+      return;
+    }
+
+    const requiredFields = getRequiredFieldsForStatus(manageCustomFields, 'RESOLVED');
+    const validationErrors = validateRequiredFields(manageCustomFieldValues, requiredFields);
+    if (validationErrors.length > 0) {
+      showToast(`Cannot end service: ${validationErrors.join('; ')}`, 'warning');
+      return;
+    }
+    if (!(await flushAutoSaves(selectedComplaint.id))) return;
 
     const now = new Date();
     const elapsedHours = (now.getTime() - timerStartTime.getTime()) / 1000 / 60 / 60;
     const finalHours = Number(elapsedHours.toFixed(2));
 
-    setTimerRunning(false);
-    setServiceHours(finalHours);
-    setTimerStartTime(null);
-
-    // Update backend
     const payload: VSComplaintUpdate = {
+      status: 'RESOLVED',
       timer_ended_at: now.toISOString(),
       service_hours: finalHours,
     };
     try {
       const updated = await updateComplaint({ id: selectedComplaint.id, body: payload }).unwrap();
       setSelectedComplaint(updated);
-      showToast(`Service timer stopped. Recorded: ${finalHours} hrs`, 'info');
+      setTimerRunning(false);
+      setServiceHours(finalHours);
+      setTimerStartTime(null);
+      showToast(`Service ended and work order resolved. Recorded: ${finalHours} hrs`, 'success');
       refetch();
     } catch (err: any) {
-      setTimerRunning(true);
-      setTimerStartTime(new Date(selectedComplaint.timer_started_at || timerStartTime.toISOString()));
       console.error('Failed to stop timer:', err);
       showToast(err?.data?.detail || 'Failed to stop service timer.', 'error');
     }
@@ -1946,7 +1881,7 @@ export default function VSWorkOrdersTab() {
                     key={c.id}
                     hover
                     sx={{ cursor: 'pointer' }}
-                    onClick={() => setSelectedComplaint(c)}
+                    onClick={() => void handleOpenWorkOrder(c)}
                   >
                     <TableCell sx={{ fontWeight: 800, color: '#2563eb' }}>
                       {c.complaint_no}
@@ -2056,7 +1991,7 @@ export default function VSWorkOrdersTab() {
         <MenuItem
           onClick={() => {
             if (actionTargetComplaint) {
-              setSelectedComplaint(actionTargetComplaint);
+              void handleOpenWorkOrder(actionTargetComplaint);
             }
             handleCloseActionMenu();
           }}
@@ -2577,12 +2512,18 @@ export default function VSWorkOrdersTab() {
                 fullWidth
                 value={newInitialNote}
                 onChange={(e) => setNewInitialNote(e.target.value)}
+                disabled={!newAssignedTo}
                 sx={{
                   backgroundColor: '#FFFFFF',
                   borderRadius: '6px',
                   '& .MuiOutlinedInput-root': { fontSize: 11.5 },
                 }}
               />
+              {!newAssignedTo && (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                  Assign a technician before entering intake notes or custom field values.
+                </Typography>
+              )}
               <Typography variant="caption" sx={{ color: '#64748B', fontSize: 10.5, display: 'block', mt: 0.5 }}>
                 Will be captured in the work order changelog upon creation.
               </Typography>
@@ -2604,6 +2545,7 @@ export default function VSWorkOrdersTab() {
                                   onChange={(fieldId, value) => setNewCustomFieldValues(prev => ({ ...prev, [String(fieldId)]: value }))}
                                   users={users}
                                   uploadFile={uploadCustomFieldFile}
+                                  disabled={!newAssignedTo}
                                 />
                               ))}
                             </Box>
@@ -2700,42 +2642,13 @@ export default function VSWorkOrdersTab() {
                     fontWeight: 800,
                   }}
                 />
-                <Tooltip
-                  title={
-                    nextWorkOrderStatus
-                      ? `Click to move to ${nextWorkOrderStatus.replace('_', ' ')}`
-                      : selectedComplaint.status === 'RESOLVED'
-                        ? 'Use Close Work Order to complete OTP verification and close'
-                        : 'This work order is closed'
-                  }
-                >
-                  <span>
-                    <Chip
-                      label={selectedComplaint.status.replace('_', ' ')}
-                      color={STATUS_COLORS[selectedComplaint.status] || 'default'}
-                      clickable={Boolean(nextWorkOrderStatus)}
-                      disabled={!nextWorkOrderStatus || isAdvancingStatus || Boolean(pendingStatusUndo)}
-                      onClick={() => void handleAdvanceWorkOrderStatus()}
-                      aria-label={
-                        nextWorkOrderStatus
-                          ? `Move work order to ${nextWorkOrderStatus.replace('_', ' ')}`
-                          : `Work order status ${selectedComplaint.status.replace('_', ' ')}`
-                      }
-                      sx={{ fontWeight: 800 }}
-                    />
-                  </span>
-                </Tooltip>
+                <Chip
+                  label={selectedComplaint.status.replace('_', ' ')}
+                  color={STATUS_COLORS[selectedComplaint.status] || 'default'}
+                  aria-label={`Work order status ${selectedComplaint.status.replace('_', ' ')}`}
+                  sx={{ fontWeight: 800 }}
+                />
               </Box>
-              {pendingStatusUndo?.complaintId === selectedComplaint.id && (
-                <Button
-                  size="small"
-                  color="warning"
-                  onClick={() => void handleUndoWorkOrderStatus()}
-                  sx={{ minHeight: 24, py: 0, textTransform: 'none', fontWeight: 700 }}
-                >
-                  Undo ({undoSecondsRemaining})
-                </Button>
-              )}
               {selectedComplaint.status === 'CLOSED' && selectedComplaint.feedback && (
                 <Rating value={selectedComplaint.feedback.rating} readOnly size="small" aria-label="Customer satisfaction rating" />
               )}
@@ -2831,6 +2744,7 @@ export default function VSWorkOrdersTab() {
                         <Button
                           size="small"
                           variant="outlined"
+                          disabled={!selectedComplaint.assigned_to_id}
                           onClick={() => {
                             setReplaceComponentId(selectedComplaint.affected_component_id || '');
                             setReplaceNewSerial('');
@@ -2849,14 +2763,17 @@ export default function VSWorkOrdersTab() {
                     {/* Technician Assignment */}
                     <AppDropdown
                       label="Assigned Technician"
-                      value={selectedComplaint.assigned_to_id || ''}
-                      emptyLabel="Unassigned"
-                      allowEmpty
-                      options={users.map((u) => ({
-                        value: u.id,
-                        label: `${u.full_name} (${u.role})`,
-                      }))}
-                      onChange={(val) => handleAssignUser(selectedComplaint.id, Number(val))}
+                      value={selectedComplaint.assigned_to_id ?? -1}
+                      options={[
+                        { value: -1, label: 'Unassigned', disabled: true },
+                        ...users.map((u) => ({
+                          value: u.id,
+                          label: `${u.full_name} (${u.role})`,
+                        })),
+                      ]}
+                      onChange={(val) => {
+                        if (val) void handleAssignUser(selectedComplaint.id, Number(val));
+                      }}
                     />
 
                     <Box
@@ -2906,35 +2823,26 @@ export default function VSWorkOrdersTab() {
                       ))}
                     </Box>
 
-                    {/* Quick Action buttons below Assigned Technician */}
-                    {(selectedComplaint.status === 'OPEN' || selectedComplaint.status === 'ACKNOWLEDGED') && (
-                      <Box sx={{ mt: 1.5, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                        {selectedComplaint.status === 'OPEN' && (
-                          <Button
-                            size="small"
-                            variant="contained"
-                            color="warning"
-                            onClick={() => handleUpdateStatus(selectedComplaint.id, 'ACKNOWLEDGED')}
-                            sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '8px' }}
-                          >
-                            Acknowledge
-                          </Button>
-                        )}
-                        <Button
-                          size="small"
-                          variant="contained"
-                          color="primary"
-                          onClick={() => handleUpdateStatus(selectedComplaint.id, 'IN_PROGRESS')}
-                          sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '8px' }}
-                        >
-                          Start Service
-                        </Button>
-                      </Box>
-                    )}
                   </Paper>
                 </Grid>
               </Grid>
 
+              {!selectedComplaint.assigned_to_id && (
+                <Alert severity="info">
+                  Assign a technician before entering or changing work-order details.
+                </Alert>
+              )}
+              <Box
+                component="fieldset"
+                disabled={!selectedComplaint.assigned_to_id}
+                sx={{
+                  minWidth: 0,
+                  m: 0,
+                  p: 0,
+                  border: 0,
+                  opacity: selectedComplaint.assigned_to_id ? 1 : 0.55,
+                }}
+              >
               <Tabs
                 value={selectedWorkOrderTab}
                 onChange={(_, value: number) => setSelectedWorkOrderTab(value)}
@@ -3486,10 +3394,15 @@ export default function VSWorkOrdersTab() {
                                       color={timerRunning ? 'error' : 'success'}
                                       startIcon={<Timer />}
                                       onClick={timerRunning ? handleTimerStop : handleTimerStart}
+                                      disabled={
+                                        !selectedComplaint.assigned_to_id ||
+                                        selectedComplaint.status === 'RESOLVED' ||
+                                        selectedComplaint.status === 'CLOSED'
+                                      }
                                       size="small"
                                       sx={{ textTransform: 'none', fontWeight: 700, minHeight: 40 }}
                                     >
-                                      {timerRunning ? 'Stop Timer' : 'Start Timer'}
+                                      {timerRunning ? 'End Service' : 'Start Service'}
                                     </Button>
                                   </Box>
                                 </Grid>
@@ -3918,6 +3831,7 @@ export default function VSWorkOrdersTab() {
               )}
 
                           </Box>
+              </Box>
 
             {/* RIGHT SIDE: Changelog & Activity Logs (~27%) */}
             <Paper
@@ -4003,6 +3917,7 @@ export default function VSWorkOrdersTab() {
                   fullWidth
                   value={newNoteText}
                   onChange={(e) => setNewNoteText(e.target.value)}
+                  disabled={!selectedComplaint.assigned_to_id}
                   sx={{
                     '& .MuiOutlinedInput-root': {
                       fontSize: 12,
@@ -4016,7 +3931,7 @@ export default function VSWorkOrdersTab() {
                     variant="contained"
                     size="small"
                     onClick={handleAddNote}
-                    disabled={isAddingNote || !newNoteText.trim()}
+                    disabled={!selectedComplaint.assigned_to_id || isAddingNote || !newNoteText.trim()}
                     startIcon={<Send size={12} />}
                     sx={{
                       textTransform: 'none',
@@ -4141,18 +4056,6 @@ export default function VSWorkOrdersTab() {
                       </Box>
 
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                        {selectedComplaint.status === 'IN_PROGRESS' && (
-                          <Button
-                            size="small"
-                            variant="contained"
-                            color="success"
-                            onClick={() => handleUpdateStatus(selectedComplaint.id, 'RESOLVED')}
-                            sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '8px' }}
-                          >
-                            Mark Resolved
-                          </Button>
-                        )}
-
                         {selectedComplaint.status === 'RESOLVED' && (
                           <>
                             {(timerRunning || (selectedComplaint.timer_started_at && !selectedComplaint.timer_ended_at)) && (
@@ -4163,7 +4066,11 @@ export default function VSWorkOrdersTab() {
                             <Button
                               size="small"
                               variant="contained"
-                              disabled={timerRunning || Boolean(selectedComplaint.timer_started_at && !selectedComplaint.timer_ended_at)}
+                              disabled={
+                                !selectedComplaint.assigned_to_id ||
+                                timerRunning ||
+                                Boolean(selectedComplaint.timer_started_at && !selectedComplaint.timer_ended_at)
+                              }
                               onClick={() => {
                                 setCloseResolutionSummary(selectedComplaint.resolution_summary || '');
                                 setIsCloseDialogOpen(true);

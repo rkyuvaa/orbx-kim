@@ -33,6 +33,18 @@ def test_technician_advice_crud_assigns_persistent_serial_numbers(client, db):
     db.commit()
     headers = auth_headers(login(client, email=user.email))
     base_url = f"/api/v1/vehicle-service/complaints/{complaint.id}/technician-advice"
+    blocked_create = client.post(
+        base_url,
+        json={"issue_to_resolve": "Must remain blocked"},
+        headers=headers,
+    )
+    assert blocked_create.status_code == 409
+    assigned = client.patch(
+        f"/api/v1/vehicle-service/complaints/{complaint.id}",
+        json={"assigned_to_id": user.id},
+        headers=headers,
+    )
+    assert assigned.status_code == 200, assigned.text
 
     assert client.get(base_url, headers=headers).json() == []
     other_url = f"/api/v1/vehicle-service/complaints/{other_complaint.id}/technician-advice"

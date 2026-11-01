@@ -26,10 +26,16 @@ def test_workflow_updates_and_attachments_persist(client, db, monkeypatch, tmp_p
     db.add(complaint)
     db.commit()
     complaint_id = complaint.id
-
     upload_root = tmp_path / "vehicle_service"
     monkeypatch.setattr(vehicle_service, "VS_UPLOADS_DIR", upload_root)
     headers = auth_headers(login(client, email=user.email))
+    assigned = client.patch(
+        f"/api/v1/vehicle-service/complaints/{complaint_id}",
+        json={"assigned_to_id": user.id},
+        headers=headers,
+    )
+    assert assigned.status_code == 200, assigned.text
+    assert assigned.json()["status"] == "ASSIGNED"
 
     document_uploads = (
         ("initial-checklist", "initial.pdf"),
@@ -108,7 +114,7 @@ def test_workflow_updates_and_attachments_persist(client, db, monkeypatch, tmp_p
     assert saved.service_type.value == "PAID"
 
 
-def test_reverting_work_order_from_resolved_clears_resolution_timestamp(client, db):
+def test_work_order_status_lifecycle_and_unassigned_edit_guard(client, db):
     user = make_user("service-status-undo@kim.com", UserRole.ADMIN)
     vehicle = VSVehicle(
         vehicle_number="UNDO-001",
@@ -130,16 +136,65 @@ def test_reverting_work_order_from_resolved_clears_resolution_timestamp(client, 
     headers = auth_headers(login(client, email=user.email))
     complaint_url = f"/api/v1/vehicle-service/complaints/{complaint.id}"
 
-    resolved = client.patch(complaint_url, json={"status": "RESOLVED"}, headers=headers)
+    blocked_update = client.patch(
+        complaint_url,
+        json={"technician_remarks": "Must remain blocked"},
+        headers=headers,
+    )
+    assert blocked_update.status_code == 409
+    blocked_note = client.post(
+        f"{complaint_url}/notes",
+        json={"note": "Must remain blocked"},
+        headers=headers,
+    )
+    assert blocked_note.status_code == 409
+    blocked_upload = client.post(
+        f"{complaint_url}/initial-checklist",
+        files={"file": ("initial.pdf", b"test document", "application/pdf")},
+        headers=headers,
+    )
+    assert blocked_upload.status_code == 409
+
+    acknowledged = client.patch(complaint_url, json={"status": "ACKNOWLEDGED"}, headers=headers)
+    assert acknowledged.status_code == 200, acknowledged.text
+    assert acknowledged.json()["status"] == "ACKNOWLEDGED"
+
+    assigned = client.patch(
+        complaint_url,
+        json={"assigned_to_id": user.id},
+        headers=headers,
+    )
+    assert assigned.status_code == 200, assigned.text
+    assert assigned.json()["status"] == "ASSIGNED"
+
+    blocked_start = client.patch(complaint_url, json={"status": "IN_PROGRESS"}, headers=headers)
+    assert blocked_start.status_code == 409
+
+    started = client.patch(
+        complaint_url,
+        json={"status": "IN_PROGRESS", "timer_started_at": "2026-11-01T10:00:00Z"},
+        headers=headers,
+    )
+    assert started.status_code == 200, started.text
+    assert started.json()["status"] == "IN_PROGRESS"
+
+    resolved = client.patch(
+        complaint_url,
+        json={"status": "RESOLVED", "timer_ended_at": "2026-11-01T11:00:00Z"},
+        headers=headers,
+    )
     assert resolved.status_code == 200, resolved.text
+    assert resolved.json()["status"] == "RESOLVED"
     assert resolved.json()["resolved_at"] is not None
 
     reverted = client.patch(complaint_url, json={"status": "IN_PROGRESS"}, headers=headers)
-    assert reverted.status_code == 200, reverted.text
-    assert reverted.json()["status"] == "IN_PROGRESS"
-    assert reverted.json()["resolved_at"] is None
+    assert reverted.status_code == 409
+    still_resolved = client.get(complaint_url, headers=headers)
+    assert still_resolved.json()["status"] == "RESOLVED"
+    assert still_resolved.json()["resolved_at"] is not None
 
     db.expire_all()
     saved = db.get(VSComplaint, complaint.id)
     assert saved is not None
-    assert saved.resolved_at is None
+    assert saved.status == "RESOLVED"
+    assert saved.resolved_at is not None
