@@ -627,6 +627,7 @@ export default function VSConfigurationTab() {
           <Tab value={2} label="2. QR Code Center" />
           <Tab value={4} label="3. Complaint Categories" />
           <Tab value={5} label="4. Issue Matrix config" />
+          <Tab value={6} label="5. Technician Advice" />
         </Tabs>
       </Box>
 
@@ -1091,6 +1092,17 @@ export default function VSConfigurationTab() {
               </Typography>
               <Typography variant="body2" sx={{ mt: 1 }}>
                 Configuration options will be added here.
+              </Typography>
+            </Box>
+          )}
+
+          {activeTab === 6 && (
+            <Box sx={{ py: 8, textAlign: 'center', color: 'text.secondary' }}>
+              <Typography variant="subtitle1" fontWeight={700}>
+                Technician Advice
+              </Typography>
+              <Typography variant="body2" sx={{ mt: 1 }}>
+                Advice configuration will be added here.
               </Typography>
             </Box>
           )}
