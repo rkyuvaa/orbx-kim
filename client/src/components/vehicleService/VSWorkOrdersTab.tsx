@@ -2654,17 +2654,15 @@ export default function VSWorkOrdersTab() {
                 </Paper>
               )}
 
-                            {/* =====================================================================
-                                SERVICE WORKFLOW SECTION
-                            ====================================================================== */}
-                            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, border: '1px solid #E4EBE1' }}>
-                              <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" gutterBottom>
+              {/* Service Workflow Section */}
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, border: '1px solid #E4EBE1' }}>
+                              <Typography variant="subtitle2" fontWeight={800} color="#023020" sx={{ mb: 1.5, lineHeight: 1.3 }}>
                                 SERVICE WORKFLOW
                               </Typography>
                 
-                              {/* Row 1: Est. Delivery Date, Service Type, Odometer */}
+                              {/* Row 1: Delivery date, service type, odometer and timer */}
                               <Grid container spacing={2}>
-                                <Grid item xs={12} sm={6} md={2}>
+                                <Grid item xs={12} sm={6} md={3}>
                                   <TextField
                                     label="Est. Delivery Date"
                                     type="date"
@@ -2687,7 +2685,7 @@ export default function VSWorkOrdersTab() {
                                   />
                                 </Grid>
                   
-                                <Grid item xs={12} sm={6} md={2.8}>
+                                <Grid item xs={12} sm={6} md={3}>
                                   <AppDropdown
                                     label="Service Type"
                                     value={serviceType}
@@ -2705,7 +2703,7 @@ export default function VSWorkOrdersTab() {
                                   />
                                 </Grid>
                   
-                                <Grid item xs={12} sm={6} md={7.2}>
+                                <Grid item xs={12} sm={6} md={3}>
                                   <TextField
                                     label="Odometer Reading (km)"
                                     type="number"
@@ -2727,11 +2725,25 @@ export default function VSWorkOrdersTab() {
                                     sx={{ '& .MuiOutlinedInput-root': { fontSize: 12.5 } }}
                                   />
                                 </Grid>
+                                <Grid item xs={12} sm={6} md={3}>
+                                  <Box sx={{ display: 'flex', justifyContent: { xs: 'flex-start', md: 'flex-end' }, alignItems: 'center', height: '100%' }}>
+                                    <Button
+                                      variant="contained"
+                                      color={timerRunning ? 'error' : 'success'}
+                                      startIcon={<Timer />}
+                                      onClick={timerRunning ? handleTimerStop : handleTimerStart}
+                                      size="small"
+                                      sx={{ textTransform: 'none', fontWeight: 700, minHeight: 40 }}
+                                    >
+                                      {timerRunning ? 'Stop Timer' : 'Start Timer'}
+                                    </Button>
+                                  </Box>
+                                </Grid>
                               </Grid>
 
-                              {/* Row 2: CAN Data Collected, Timer Controls */}
-                              <Grid container spacing={2} sx={{ mt: 1 }}>
-                                <Grid item xs={12} sm={6} md={3}>
+                              {/* Row 2: CAN Data Collected */}
+                              <Grid container spacing={2} sx={{ mt: 0.5 }}>
+                                <Grid item xs={12}>
                                   <FormControl component="fieldset" sx={{ mt: 1 }}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                       <input
@@ -2751,21 +2763,6 @@ export default function VSWorkOrdersTab() {
                                       </Tooltip>
                                     </Box>
                                   </FormControl>
-                                </Grid>
-                  
-                                <Grid item xs={12} sm={6} md={9}>
-                                  <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                                    <Button
-                                      variant="contained"
-                                      color={timerRunning ? 'error' : 'success'}
-                                      startIcon={<Timer />}
-                                      onClick={timerRunning ? handleTimerStop : handleTimerStart}
-                                      size="small"
-                                      sx={{ textTransform: 'none', fontWeight: 700 }}
-                                    >
-                                      {timerRunning ? 'Stop Timer' : 'Start Timer'}
-                                    </Button>
-                                  </Box>
                                 </Grid>
                               </Grid>
 
