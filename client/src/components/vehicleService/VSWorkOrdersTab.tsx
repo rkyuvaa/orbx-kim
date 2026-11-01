@@ -72,7 +72,6 @@ import {
   Edit2,
   Eye,
   Trash2 as TrashIcon,
-  Receipt,
 } from 'lucide-react';
 
 import { useAppSelector } from '@/app/hooks';
@@ -385,8 +384,6 @@ function CustomFieldRenderer({ field, value, onChange, users, uploadFile, disabl
 
 import {
   useAddVSComplaintNoteMutation,
-  useAddVSServiceCostMutation,
-  useDeleteVSServiceCostMutation,
   useCloseVSComplaintMutation,
   useCreateVSComplaintMutation,
   useDeleteVSComplaintMutation,
@@ -507,8 +504,6 @@ export default function VSWorkOrdersTab() {
   const [addNote, { isLoading: isAddingNote }] = useAddVSComplaintNoteMutation();
   const [closeComplaint, { isLoading: isClosing }] = useCloseVSComplaintMutation();
   const [replaceComponent, { isLoading: isReplacing }] = useReplaceVSComponentMutation();
-  const [addCost, { isLoading: isAddingCost }] = useAddVSServiceCostMutation();
-  const [deleteCost, { isLoading: isDeletingCost }] = useDeleteVSServiceCostMutation();
     const [sendOTP, { isLoading: isSendingOTP }] = useSendVSComplaintOTPMutation();
     const [verifyOTP, { isLoading: isVerifyingOTP }] = useVerifyVSComplaintOTPMutation();
         const [uploadInitialChecklist] = useUploadInitialChecklistMutation();
@@ -628,11 +623,6 @@ export default function VSWorkOrdersTab() {
   const [replaceComponentId, setReplaceComponentId] = useState<number | ''>('');
   const [replaceNewSerial, setReplaceNewSerial] = useState('');
   const [replaceReason, setReplaceReason] = useState('');
-
-  // Service Cost state
-  const [costItemName, setCostItemName] = useState('');
-  const [costQty, setCostQty] = useState(1);
-  const [costUnitPrice, setCostUnitPrice] = useState<number | ''>('');
 
   const selectedVehicleObj: VSVehicle | undefined = vehicles.find((v) => v.id === newVehicleId);
 
@@ -1145,49 +1135,6 @@ export default function VSWorkOrdersTab() {
     }
   };
 
-  const handleAddCostSubmit = async () => {
-    if (!selectedComplaint || !costItemName.trim() || !costUnitPrice) {
-      showToast('Please enter part/labor name and unit price.', 'warning');
-      return;
-    }
-
-    try {
-      await addCost({
-        complaintId: selectedComplaint.id,
-        body: {
-          item_name: costItemName.trim(),
-          quantity: costQty,
-          unit_price: Number(costUnitPrice),
-        },
-      }).unwrap();
-
-      setCostItemName('');
-      setCostQty(1);
-      setCostUnitPrice('');
-      showToast('Cost item added successfully.', 'success');
-
-      // Refresh complaint
-      const updated = await updateComplaint({ id: selectedComplaint.id, body: {} }).unwrap();
-      setSelectedComplaint(updated);
-      refetch();
-    } catch (err: any) {
-      showToast(err?.data?.detail || 'Failed to add cost item.', 'error');
-    }
-  };
-
-  const handleDeleteCost = async (costId: number) => {
-    if (!selectedComplaint) return;
-    try {
-      await deleteCost({ complaintId: selectedComplaint.id, costId }).unwrap();
-      showToast('Cost item removed.', 'success');
-      const updated = await updateComplaint({ id: selectedComplaint.id, body: {} }).unwrap();
-      setSelectedComplaint(updated);
-      refetch();
-    } catch (err: any) {
-      showToast(err?.data?.detail || 'Failed to remove cost item.', 'error');
-    }
-  };
-
   // =====================================================================
   // Service Workflow Handlers
   // =====================================================================
@@ -1383,9 +1330,6 @@ export default function VSWorkOrdersTab() {
       setMasterChecklistFile(null);
       setComplaints8dFile(null);
       setVehicleImagesFiles([]);
-      setCostItemName('');
-      setCostQty(1);
-      setCostUnitPrice('');
       
       setTimerStartTime(
         selectedComplaint.timer_started_at && !selectedComplaint.timer_ended_at
@@ -1405,9 +1349,6 @@ export default function VSWorkOrdersTab() {
       setMasterChecklistFile(null);
       setComplaints8dFile(null);
       setVehicleImagesFiles([]);
-      setCostItemName('');
-      setCostQty(1);
-      setCostUnitPrice('');
     }
   }, [selectedComplaint]);
 
@@ -3111,121 +3052,6 @@ export default function VSWorkOrdersTab() {
                               </Grid>
                             </Paper>
 
-                            {/* =====================================================================
-                                PARTS & LABOR / SERVICE COSTS SECTION
-                            ====================================================================== */}
-                            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, border: '1px solid #E4EBE1' }}>
-                              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                  <Receipt size={18} color="#023020" />
-                                  <Typography variant="subtitle2" fontWeight={800} color="#023020">
-                                    Parts & Labor (Service Costs)
-                                  </Typography>
-                                </Box>
-                                <Chip
-                                  size="small"
-                                  label={`Total: ₹${(selectedComplaint.costs || []).reduce((sum, c) => sum + (c.total_price || 0), 0).toLocaleString()}`}
-                                  sx={{ fontWeight: 800, bgcolor: '#ECFDF5', color: '#065F46', border: '1px solid #A7F3D0' }}
-                                />
-                              </Box>
-
-                              {/* Existing Costs Table */}
-                              {selectedComplaint.costs && selectedComplaint.costs.length > 0 ? (
-                                <TableContainer component={Box} sx={{ mb: 2, border: '1px solid #F1F5F9', borderRadius: 1.5, overflow: 'hidden' }}>
-                                  <Table size="small">
-                                    <TableHead sx={{ bgcolor: '#F8FAFC' }}>
-                                      <TableRow>
-                                        <TableCell sx={{ fontWeight: 700, fontSize: 11.5, color: '#475569' }}>Item / Description</TableCell>
-                                        <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11.5, color: '#475569' }}>Qty</TableCell>
-                                        <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11.5, color: '#475569' }}>Unit Price (₹)</TableCell>
-                                        <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11.5, color: '#475569' }}>Total (₹)</TableCell>
-                                        <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11.5, color: '#475569', width: 48 }}>Action</TableCell>
-                                      </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                      {selectedComplaint.costs.map((item) => (
-                                        <TableRow key={item.id} hover>
-                                          <TableCell sx={{ fontSize: 12, fontWeight: 600, color: '#1E293B' }}>{item.item_name}</TableCell>
-                                          <TableCell align="center" sx={{ fontSize: 12 }}>{item.quantity}</TableCell>
-                                          <TableCell align="right" sx={{ fontSize: 12 }}>₹{Number(item.unit_price).toLocaleString()}</TableCell>
-                                          <TableCell align="right" sx={{ fontSize: 12, fontWeight: 700, color: '#023020' }}>
-                                            ₹{Number(item.total_price).toLocaleString()}
-                                          </TableCell>
-                                          <TableCell align="center">
-                                            <Tooltip title="Delete item">
-                                              <IconButton
-                                                size="small"
-                                                onClick={() => handleDeleteCost(item.id)}
-                                                disabled={isDeletingCost}
-                                                sx={{ color: '#EF4444', p: 0.5, '&:hover': { bgcolor: '#FEE2E2' } }}
-                                              >
-                                                <TrashIcon size={14} />
-                                              </IconButton>
-                                            </Tooltip>
-                                          </TableCell>
-                                        </TableRow>
-                                      ))}
-                                    </TableBody>
-                                  </Table>
-                                </TableContainer>
-                              ) : (
-                                <Box sx={{ p: 2, mb: 2, bgcolor: '#F8FAFC', borderRadius: 1.5, textAlign: 'center' }}>
-                                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: 12 }}>
-                                    No parts or labor charges logged yet. Use the form below to record billable items.
-                                  </Typography>
-                                </Box>
-                              )}
-
-                              {/* Add Cost Form Row */}
-                              <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: { xs: 'wrap', sm: 'nowrap' } }}>
-                                <TextField
-                                  size="small"
-                                  label="Part / Labor Item Name"
-                                  placeholder="e.g. Brake Pads, Wire Harness, Diagnostic Fee"
-                                  value={costItemName}
-                                  onChange={(e) => setCostItemName(e.target.value)}
-                                  sx={{ flex: 3, '& .MuiOutlinedInput-root': { fontSize: 12.5 } }}
-                                />
-                                <TextField
-                                  size="small"
-                                  type="number"
-                                  label="Qty"
-                                  value={costQty}
-                                  onChange={(e) => setCostQty(Math.max(1, Number(e.target.value)))}
-                                  sx={{ flex: 1, minWidth: 70, '& .MuiOutlinedInput-root': { fontSize: 12.5 } }}
-                                  inputProps={{ min: 1 }}
-                                />
-                                <TextField
-                                  size="small"
-                                  type="number"
-                                  label="Unit Price (₹)"
-                                  placeholder="0.00"
-                                  value={costUnitPrice}
-                                  onChange={(e) => setCostUnitPrice(e.target.value === '' ? '' : Number(e.target.value))}
-                                  sx={{ flex: 1.5, minWidth: 100, '& .MuiOutlinedInput-root': { fontSize: 12.5 } }}
-                                  inputProps={{ min: 0 }}
-                                />
-                                <Button
-                                  variant="contained"
-                                  size="small"
-                                  onClick={handleAddCostSubmit}
-                                  disabled={isAddingCost || !costItemName.trim() || !costUnitPrice}
-                                  startIcon={<Plus size={14} />}
-                                  sx={{
-                                    textTransform: 'none',
-                                    fontWeight: 700,
-                                    backgroundColor: '#023020',
-                                    '&:hover': { backgroundColor: '#034732' },
-                                    height: 40,
-                                    px: 2,
-                                    whiteSpace: 'nowrap',
-                                  }}
-                                >
-                                  {isAddingCost ? 'Adding...' : 'Add Cost'}
-                                </Button>
-                              </Box>
-                            </Paper>
-
                                           {/* Custom Fields for Manage Dialog */}
                             {manageCustomFields.length > 0 && (
                               <Box sx={{ mt: 1 }}>
@@ -3460,11 +3286,6 @@ export default function VSWorkOrdersTab() {
                       }}
                     >
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                        {selectedComplaint.costs && selectedComplaint.costs.length > 0 && (
-                          <Typography variant="body2" sx={{ fontWeight: 700, color: '#023020' }}>
-                            Total Cost: ₹{selectedComplaint.costs.reduce((sum, c) => sum + (c.total_price || 0), 0).toLocaleString()}
-                          </Typography>
-                        )}
                         <Typography variant="caption" role="status" sx={{ color: workflowAutoSaveStatus === 'error' ? '#b91c1c' : '#64748b' }}>
                           {workflowAutoSaveStatus === 'saving' ? 'Saving workflow...' :
                             workflowAutoSaveStatus === 'unsaved' ? 'Workflow changes will save automatically' :
