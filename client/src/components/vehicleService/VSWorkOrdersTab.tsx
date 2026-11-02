@@ -3963,7 +3963,9 @@ export default function VSWorkOrdersTab() {
                 }}
               >
                 {selectedComplaint.notes && selectedComplaint.notes.length > 0 ? (
-                  selectedComplaint.notes.map((n) => (
+                  [...selectedComplaint.notes]
+                    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                    .map((n) => (
                     <Box
                       key={n.id}
                       sx={{
