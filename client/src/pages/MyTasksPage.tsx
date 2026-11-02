@@ -276,7 +276,6 @@ export default function MyTasksPage() {
         if (taskScopeFilter === 'open') {
           return list.filter(
             (t) =>
-              (!t.assignee_id || t.assignee_id === currentUser?.id) &&
               !t.is_completed &&
               !t.cancelled_at &&
               !t.is_archived &&

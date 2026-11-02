@@ -560,6 +560,9 @@ def _format_task_out(
         out.assigned_at = first_a.assigned_at
         out.assigned_by = first_a.assigned_by
         out.assigned_by_name = first_a.assigner.full_name if first_a.assigner else None
+    if not out.assigned_by_name and t.creator:
+        out.assigned_by = t.created_by
+        out.assigned_by_name = t.creator.full_name
     if t.is_completed:
         out.status_name = "Completed"
         out.status_color = "#16C47F"
