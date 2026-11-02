@@ -2307,26 +2307,30 @@ export default function VSWorkOrdersTab() {
                   <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" gutterBottom>
                     ASSIGN TECHNICIAN
                   </Typography>
-                  <Box sx={{ width: { xs: '100%', sm: '50%' } }}>
-                    <AppDropdown
-                      label="Assigned Technician"
-                      value={newAssignedTo}
-                      emptyLabel="Leave Unassigned"
-                      allowEmpty
-                      options={users.map((u) => ({ value: u.id, label: u.full_name }))}
-                      onChange={(val) => setNewAssignedTo(val as number | '')}
-                    />
-                    <AppDropdown
-                      label="Severity"
-                      value={newSeverity}
-                      options={[
-                        { value: 'CRITICAL', label: 'Critical' },
-                        { value: 'HIGH', label: 'High' },
-                        { value: 'MEDIUM', label: 'Medium' },
-                        { value: 'LOW', label: 'Low' },
-                      ]}
-                      onChange={(val) => setNewSeverity(String(val))}
-                    />
+                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+                    <Box sx={{ width: { xs: '100%', sm: '50%' } }}>
+                      <AppDropdown
+                        label="Assigned Technician"
+                        value={newAssignedTo}
+                        emptyLabel="Leave Unassigned"
+                        allowEmpty
+                        options={users.map((u) => ({ value: u.id, label: u.full_name }))}
+                        onChange={(val) => setNewAssignedTo(val as number | '')}
+                      />
+                    </Box>
+                    <Box sx={{ width: { xs: '100%', sm: '50%' } }}>
+                      <AppDropdown
+                        label="Severity"
+                        value={newSeverity}
+                        options={[
+                          { value: 'CRITICAL', label: 'Critical' },
+                          { value: 'HIGH', label: 'High' },
+                          { value: 'MEDIUM', label: 'Medium' },
+                          { value: 'LOW', label: 'Low' },
+                        ]}
+                        onChange={(val) => setNewSeverity(String(val))}
+                      />
+                    </Box>
                   </Box>
                   <Box sx={{ mt: 1.25, p: 1.25, border: '1px solid #E4EBE1', borderRadius: 1.5, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 1 }}>
                     {[
