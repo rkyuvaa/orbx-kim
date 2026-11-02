@@ -981,7 +981,8 @@ export default function MyTasksPage() {
         reminders={reminders.filter((r) => r.task_id === selectedTaskId)}
         onClose={() => setDrawerOpen(false)}
         onUpdateTask={async (id, patch) => {
-          await updateTask({ id, data: patch }).unwrap();
+          const updated = await updateTask({ id, data: patch }).unwrap();
+          setSelectedTask(updated);
           refetchTasks();
         }}
         onToggleComplete={handleToggleComplete}

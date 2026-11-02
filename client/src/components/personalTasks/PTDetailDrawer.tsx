@@ -58,6 +58,8 @@ import PTReminderPanel from './PTReminderPanel';
 import AutoSaveStatusBadge from '@/components/common/AutoSaveStatusBadge';
 import { useAutoSave } from '@/hooks/useAutoSave';
 import { useAppSelector } from '@/app/hooks';
+import { useUsersQuery } from '@/api/mastersApi';
+import { UserBrief } from '@/types';
 
 const formatDisplayDate = (dateStr?: string, fallback?: string): string => {
   if (dateStr) {
@@ -148,6 +150,24 @@ export default function PTDetailDrawer({
   const currentUser = useAppSelector((state) => state.auth.user);
 
   const { data: existingTags = [] } = useGetPersonalTagsQuery();
+  const { data: users = [], isLoading: isLoadingUsers } = useUsersQuery();
+
+  // Filter registered users excluding the current user
+  const assignableUsers = React.useMemo(() => {
+    return users.filter((u) => u.id !== currentUser?.id);
+  }, [users, currentUser?.id]);
+
+  // Own task logic: by default, show as blank if it's an own task
+  const isOwnTask = !task?.assignee_id || task?.assignee_id === currentUser?.id || task?.assignee_id === task?.created_by;
+  const selectedAssignee = isOwnTask ? null : (users.find((u) => u.id === task?.assignee_id) || null);
+
+  const handleAssigneeChange = async (newUser: UserBrief | null) => {
+    if (!task) return;
+    const newAssigneeId = newUser ? newUser.id : (currentUser?.id || task.created_by);
+    if (newAssigneeId !== task.assignee_id) {
+      await onUpdateTask(task.id, { assignee_id: newAssigneeId });
+    }
+  };
 
   // Task log notes query and mutation
   const { data: logNotes = [], isLoading: isLoadingNotes } = useGetTaskLogNotesQuery(task?.id || 0, {
@@ -581,31 +601,88 @@ export default function PTDetailDrawer({
 
 
 
-                {/* Tags Autocomplete */}
-                <Autocomplete
-                  multiple
-                  freeSolo
-                  options={existingTags}
-                  value={tags}
-                  onChange={(_, newTags) => {
-                    const normalized = newTags.map((t) => (t.startsWith('#') ? t.slice(1) : t).trim()).filter(Boolean);
-                    setTags(normalized);
-                    autoSave.saveField('tag_names', normalized);
-                  }}
-                  renderTags={(val, getTagProps) =>
-                    val.map((option, index) => (
-                      <Chip
-                        size="small"
-                        label={`#${option}`}
-                        {...getTagProps({ index })}
-                        key={option}
-                      />
-                    ))
-                  }
-                  renderInput={(params) => (
-                    <TextField {...params} size="small" label="Tags" placeholder="Select or type #tag" />
-                  )}
-                />
+                {/* Tags (50%) & Assign To (50%) Row */}
+                <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2 }}>
+                  {/* Tags Autocomplete (50%) */}
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Autocomplete
+                      multiple
+                      freeSolo
+                      options={existingTags}
+                      value={tags}
+                      onChange={(_, newTags) => {
+                        const normalized = newTags.map((t) => (t.startsWith('#') ? t.slice(1) : t).trim()).filter(Boolean);
+                        setTags(normalized);
+                        autoSave.saveField('tag_names', normalized);
+                      }}
+                      renderTags={(val, getTagProps) =>
+                        val.map((option, index) => (
+                          <Chip
+                            size="small"
+                            label={`#${option}`}
+                            {...getTagProps({ index })}
+                            key={option}
+                          />
+                        ))
+                      }
+                      renderInput={(params) => (
+                        <TextField {...params} size="small" label="Tags" placeholder="Select or type #tag" />
+                      )}
+                    />
+                  </Box>
+
+                  {/* Assign To Autocomplete (50%) */}
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Autocomplete
+                      options={assignableUsers}
+                      loading={isLoadingUsers}
+                      value={selectedAssignee}
+                      onChange={(_, val) => handleAssigneeChange(val)}
+                      getOptionLabel={(option) => `${option.full_name} (${option.role_name || option.role || 'Member'})`}
+                      isOptionEqualToValue={(option, val) => option.id === val.id}
+                      renderOption={(props, option) => (
+                        <Box component="li" {...props} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 0.8 }}>
+                          <Avatar
+                            sx={{
+                              width: 26,
+                              height: 26,
+                              fontSize: '0.75rem',
+                              bgcolor: isDark ? '#16C47F' : '#203020',
+                              color: '#FFFFFF',
+                            }}
+                          >
+                            {option.full_name.charAt(0).toUpperCase()}
+                          </Avatar>
+                          <Box sx={{ minWidth: 0 }}>
+                            <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.82rem', lineHeight: 1.2 }}>
+                              {option.full_name}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: '#64748B', fontSize: '0.72rem', display: 'block' }}>
+                              {option.role_name || option.role} {option.email ? `• ${option.email}` : ''}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      )}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          size="small"
+                          label="Assign To"
+                          placeholder="Select user to assign..."
+                          InputProps={{
+                            ...params.InputProps,
+                            endAdornment: (
+                              <>
+                                {isLoadingUsers ? <CircularProgress color="inherit" size={16} /> : null}
+                                {params.InputProps.endAdornment}
+                              </>
+                            ),
+                          }}
+                        />
+                      )}
+                    />
+                  </Box>
+                </Box>
 
                 {/* Recurrence Rule */}
                 <Box>

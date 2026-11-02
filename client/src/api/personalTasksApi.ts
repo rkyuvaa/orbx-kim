@@ -92,6 +92,7 @@ export interface PTTaskUpdate {
   description?: string;
   status_id?: number;
   priority?: TaskPriority;
+  assignee_id?: number | null;
   start_date?: string;
   start_time?: string;
   due_date?: string;
