@@ -31,7 +31,7 @@ ISSUE_MATRIX_HEADERS = [
 ]
 
 
-def test_issue_matrix_import_persists_exact_headers_and_replaces_rows(client, db):
+def test_issue_matrix_import_persists_exact_headers_and_upserts_rows(client, db):
     user = make_user("issue-matrix@kim.com", UserRole.ADMIN)
     vehicle = VSVehicle(
         vehicle_number="MATRIX-001",
@@ -84,7 +84,8 @@ def test_issue_matrix_import_persists_exact_headers_and_replaces_rows(client, db
     assert response.status_code == 200, response.text
     assert response.json()["headers"] == ISSUE_MATRIX_HEADERS
     assert response.json()["rows"] == [first_row]
-    assert response.json()["row_ids"] == ["IM-1-1"]
+    application_id = response.json()["row_ids"][0]
+    assert application_id
 
     selected = client.post(selected_url, json={"row_indexes": [0]}, headers=headers)
     assert selected.status_code == 201, selected.text
@@ -111,6 +112,7 @@ def test_issue_matrix_import_persists_exact_headers_and_replaces_rows(client, db
         json={
             "headers": ISSUE_MATRIX_HEADERS,
             "rows": [replacement_row],
+            "row_ids": [application_id],
             "source_filename": "replacement.xlsx",
         },
         headers=headers,
@@ -135,3 +137,77 @@ def test_issue_matrix_import_persists_exact_headers_and_replaces_rows(client, db
     assert saved is not None
     assert saved.headers == ISSUE_MATRIX_HEADERS
     assert saved.source_filename == "replacement.xlsx"
+
+
+def test_issue_matrix_import_upserts_by_application_id_and_rolls_back_invalid_batch(client, db):
+    user = make_user("issue-matrix-upsert@kim.com", UserRole.ADMIN)
+    db.add(user)
+    db.commit()
+    headers = auth_headers(login(client, email=user.email))
+    url = "/api/v1/vehicle-service/issue-matrix/config"
+
+    original_row = ["Throttle tight/jammed", "Throttle"] + [""] * 20
+    original_row[10] = "2"
+    original_row[21] = "THR-001"
+    created = client.put(
+        url,
+        json={
+            "headers": ISSUE_MATRIX_HEADERS,
+            "rows": [original_row],
+            "row_ids": ["APP-001"],
+            "source_filename": "initial.xlsx",
+        },
+        headers=headers,
+    )
+    assert created.status_code == 200, created.text
+    assert created.json()["row_ids"] == ["APP-001"]
+
+    partial_headers = ["Application ID", "Issue"]
+    partial_update = client.put(
+        url,
+        json={
+            "headers": partial_headers,
+            "rows": [["APP-001", "Throttle jammed"], ["APP-002", "Speed fluctuating"], ["", "Autocut off issue"]],
+            "row_ids": ["APP-001", "APP-002", ""],
+            "source_filename": "updates.xlsx",
+        },
+        headers=headers,
+    )
+    assert partial_update.status_code == 200, partial_update.text
+    result = partial_update.json()
+    assert len(result["rows"]) == 3
+    assert result["rows"][0][0] == "Throttle jammed"
+    assert result["rows"][0][1] == "Throttle"
+    assert result["rows"][0][10] == "2"
+    assert result["row_ids"][0] == "APP-001"
+    assert result["row_ids"][1] == "APP-002"
+    assert result["row_ids"][2].startswith("IM-")
+
+    invalid_batch = client.put(
+        url,
+        json={
+            "headers": ["Application ID", "Issue", "Qty"],
+            "rows": [["APP-001", "Should not persist", "4"], ["APP-003", "Invalid quantity", "-1"]],
+            "row_ids": ["APP-001", "APP-003"],
+            "source_filename": "invalid.xlsx",
+        },
+        headers=headers,
+    )
+    assert invalid_batch.status_code == 422
+    assert 'Row 3, column "Qty"' in invalid_batch.json()["detail"]
+    unchanged = client.get(url, headers=headers).json()
+    assert unchanged["rows"] == result["rows"]
+    assert unchanged["row_ids"] == result["row_ids"]
+
+    duplicate_ids = client.put(
+        url,
+        json={
+            "headers": ["Application ID", "Issue"],
+            "rows": [["APP-001", "first"], ["APP-001", "second"]],
+            "row_ids": ["APP-001", "APP-001"],
+            "source_filename": "duplicate.xlsx",
+        },
+        headers=headers,
+    )
+    assert duplicate_ids.status_code == 422
+    assert client.get(url, headers=headers).json()["rows"] == result["rows"]

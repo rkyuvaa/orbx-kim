@@ -604,71 +604,127 @@ def import_issue_matrix_config(
     current_user: User = Depends(get_current_user),
 ):
     legacy_headers = VS_ISSUE_MATRIX_HEADERS[1:]
-    include_application_id = payload.headers == VS_ISSUE_MATRIX_HEADERS
-    if payload.headers not in (VS_ISSUE_MATRIX_HEADERS, legacy_headers):
-        raise HTTPException(
-            status_code=422,
-            detail="Spreadsheet headers must exactly match the Issue Matrix template, in the same order.",
-        )
-    data_column_count = len(payload.headers)
-    if any(len(row) != data_column_count for row in payload.rows):
-        raise HTTPException(
-            status_code=422,
-            detail=f"Every row must contain exactly {data_column_count} columns.",
-        )
+    allowed_headers = set(VS_ISSUE_MATRIX_HEADERS)
+    if len(set(payload.headers)) != len(payload.headers):
+        duplicate = next(header for index, header in enumerate(payload.headers) if header in payload.headers[:index])
+        raise HTTPException(status_code=422, detail=f'Duplicate column: "{duplicate}".')
+    unsupported = [header for header in payload.headers if header not in allowed_headers]
+    if unsupported:
+        raise HTTPException(status_code=422, detail=f'Unsupported column: "{unsupported[0]}".')
+    expected_order = [header for header in VS_ISSUE_MATRIX_HEADERS if header in payload.headers]
+    if not payload.headers or payload.headers != expected_order:
+        raise HTTPException(status_code=422, detail="Import columns must follow the Issue Matrix template order.")
+    data_headers = [header for header in payload.headers if header != "Application ID"]
+    if not data_headers:
+        raise HTTPException(status_code=422, detail="Include at least one Issue Matrix data column.")
     if not payload.rows:
         raise HTTPException(status_code=422, detail="Spreadsheet must contain at least one data row.")
+    if payload.row_ids and len(payload.row_ids) != len(payload.rows):
+        raise HTTPException(status_code=422, detail="Provide one Application ID per imported row.")
 
     config = db.get(VSIssueMatrixConfig, 1)
-    if config and not config.row_ids:
-        config.row_ids = [f'IM-{config.id}-{index + 1}' for index, _ in enumerate(config.rows)]
-    existing_ids = dict(zip(config.row_ids or [], config.rows or [])) if config else {}
-    row_ids = list(payload.row_ids or [])
-    if not row_ids and payload.headers == legacy_headers:
-        row_ids = [f'IM-1-{index + 1}' for index, _ in enumerate(payload.rows)]
-    if len(row_ids) != len(payload.rows):
-        raise HTTPException(status_code=422, detail='Every imported row must have one Application ID.')
-    if len(set(row_ids)) != len(row_ids):
-        raise HTTPException(status_code=422, detail='Duplicate Application IDs are not allowed in an import.')
-    merged_by_id = dict(existing_ids)
-    for row_id, row in zip(row_ids, payload.rows):
-        expected_row_columns = len(payload.headers)
-        if len(row) != expected_row_columns:
-            raise HTTPException(status_code=422, detail=f'Application ID "{row_id}": row has an invalid number of columns.')
-        if not row_id:
-            raise HTTPException(status_code=422, detail='Application IDs cannot be empty after import preview.')
-        normalized_id = row_id
-        if normalized_id.startswith('NEW-'):
-            normalized_id = f'IM-{uuid.uuid4().hex}'
-        stored_row = row
-        existing = existing_ids.get(normalized_id)
-        if existing is None:
-            merged_by_id[normalized_id] = stored_row
-        else:
-            merged = list(existing)
-            for index in range(len(stored_row)):
-                merged[index] = stored_row[index]
-            merged_by_id[normalized_id] = merged
-        if normalized_id != row_id:
-            row_ids[row_ids.index(row_id)] = normalized_id
+    current_ids = list(config.row_ids or []) if config else []
+    current_rows = list(config.rows or []) if config else []
+    current_headers = list(config.headers or legacy_headers) if config else legacy_headers
+    has_current_id_column = bool(current_headers and current_headers[0] == "Application ID")
+    current_data_headers = current_headers[1:] if has_current_id_column else current_headers
+    if len(current_ids) < len(current_rows):
+        current_ids.extend(
+            f"IM-{config.id if config else 1}-{index + 1}"
+            for index in range(len(current_ids), len(current_rows))
+        )
+    existing_by_id: dict[str, list[str]] = {}
+    for index, row in enumerate(current_rows):
+        application_id = current_ids[index]
+        data_row = row[1:] if has_current_id_column else row
+        by_header = dict(zip(current_data_headers, data_row))
+        existing_by_id[application_id] = [
+            str(by_header.get(header, "") or "") for header in legacy_headers
+        ]
+
+    seen_ids: set[str] = set()
+    updates: list[tuple[str, dict[str, str]]] = []
+    numeric_fields = {
+        "Qty",
+        "Labour Time in Minutes",
+        "Part Cost",
+        "Rework Cost (Software, Connector, Terminal)",
+        "Labour Cost",
+    }
+    for row_index, row in enumerate(payload.rows):
+        display_row = row_index + 2
+        if len(row) != len(payload.headers):
+            raise HTTPException(
+                status_code=422,
+                detail=f"Row {display_row}: expected {len(payload.headers)} columns, received {len(row)}.",
+            )
+        values = {header: str(value or "").strip() for header, value in zip(payload.headers, row)}
+        cell_id = values.get("Application ID", "")
+        supplied_id = str(payload.row_ids[row_index] or "").strip() if payload.row_ids else ""
+        if cell_id and supplied_id and cell_id != supplied_id:
+            raise HTTPException(
+                status_code=422,
+                detail=f'Row {display_row}, column "Application ID": ID does not match the row identifier.',
+            )
+        application_id = supplied_id or cell_id
+        if not application_id or application_id.startswith("NEW-"):
+            application_id = f"IM-{uuid.uuid4().hex}"
+        if len(application_id) > 100:
+            raise HTTPException(
+                status_code=422,
+                detail=f'Row {display_row}, column "Application ID": ID must be 100 characters or fewer.',
+            )
+        if application_id in seen_ids:
+            raise HTTPException(
+                status_code=422,
+                detail=f'Row {display_row}, column "Application ID": duplicate ID "{application_id}" in this file.',
+            )
+        seen_ids.add(application_id)
+        existing = application_id in existing_by_id
+        if not existing and not values.get("Issue", "").strip():
+            raise HTTPException(
+                status_code=422,
+                detail=f'Row {display_row}, column "Issue": value is required for a new record.',
+            )
+        for field in numeric_fields.intersection(values):
+            value = values[field].replace(",", "")
+            if value:
+                try:
+                    number = float(value)
+                except ValueError as exc:
+                    raise HTTPException(
+                        status_code=422,
+                        detail=f'Row {display_row}, column "{field}": enter a non-negative number.',
+                    ) from exc
+                if number < 0 or not number < float("inf"):
+                    raise HTTPException(
+                        status_code=422,
+                        detail=f'Row {display_row}, column "{field}": enter a non-negative number.',
+                    )
+        values.pop("Application ID", None)
+        updates.append((application_id, values))
+
+    merged_by_id = {key: list(value) for key, value in existing_by_id.items()}
+    for application_id, values in updates:
+        merged = merged_by_id.get(application_id, [""] * len(legacy_headers))
+        for header, value in values.items():
+            if header in legacy_headers:
+                merged[legacy_headers.index(header)] = value
+        merged_by_id[application_id] = merged
 
     final_ids = list(merged_by_id)
-    final_rows = [merged_by_id[row_id] for row_id in final_ids]
-    stored_headers = legacy_headers
-    if include_application_id:
-        final_rows = [[row_id, *row] for row_id, row in zip(final_ids, final_rows)]
-        stored_headers = VS_ISSUE_MATRIX_HEADERS
+    final_rows = [merged_by_id[application_id] for application_id in final_ids]
     if config is None:
         config = VSIssueMatrixConfig(
             id=1,
-            headers=stored_headers,
+            headers=legacy_headers,
             rows=final_rows,
             row_ids=final_ids,
             source_filename=payload.source_filename,
         )
         db.add(config)
     else:
-        config.headers = stored_headers
+        config.headers = legacy_headers
         config.rows = final_rows
         config.row_ids = final_ids
         config.source_filename = payload.source_filename
@@ -731,6 +787,8 @@ def add_complaint_issue_matrix_items(
     new_items = []
     for row_index in dict.fromkeys(payload.row_indexes):
         row = config.rows[row_index]
+        if config.headers[0] == "Application ID":
+            row = row[1:]
         issue_code = row[issue_code_index].strip() or f"ROW-{row_index + 1}"
         if issue_code in existing_codes:
             continue

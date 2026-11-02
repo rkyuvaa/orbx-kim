@@ -1,10 +1,7 @@
-"""Add stable identifiers for Issue Matrix rows."""
-
+import json
 from typing import Sequence, Union
 
 from alembic import op
-import json
-
 import sqlalchemy as sa
 
 
@@ -20,16 +17,28 @@ def upgrade() -> None:
         sa.Column("row_ids", sa.JSON(), nullable=True),
     )
     connection = op.get_bind()
-    rows = connection.execute(sa.text("SELECT id, rows FROM vs_issue_matrix_config")).mappings()
+    matrix_table = sa.table(
+        "vs_issue_matrix_config",
+        sa.column("id", sa.Integer()),
+        sa.column("rows", sa.JSON()),
+        sa.column("row_ids", sa.JSON()),
+    )
+    rows = connection.execute(sa.select(matrix_table.c.id, matrix_table.c.rows)).mappings()
     for config in rows:
-        payload = config["rows"]
+        payload = config["rows"] or []
         if isinstance(payload, str):
             payload = json.loads(payload)
         row_ids = [f"IM-{config['id']}-{index + 1}" for index, _ in enumerate(payload or [])]
         connection.execute(
-            sa.text("UPDATE vs_issue_matrix_config SET row_ids = :row_ids WHERE id = :id"),
-            {"row_ids": json.dumps(row_ids), "id": config["id"]},
+            sa.update(matrix_table)
+            .where(matrix_table.c.id == config["id"])
+            .values(row_ids=row_ids)
         )
+    connection.execute(
+        sa.update(matrix_table)
+        .where(matrix_table.c.row_ids.is_(None))
+        .values(row_ids=[]),
+    )
     with op.batch_alter_table("vs_issue_matrix_config") as batch_op:
         batch_op.alter_column("row_ids", existing_type=sa.JSON(), nullable=False)
 

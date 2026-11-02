@@ -255,10 +255,10 @@ export default function VSConfigurationTab() {
   const [matrixImportPreview, setMatrixImportPreview] = useState<{
     headers: string[];
     rows: string[][];
+    payloadRows: string[][];
     rowIds: string[];
     errors: string[];
-    created: number;
-    updated: number;
+    actions: ('Create' | 'Update' | 'Rejected')[];
     filename: string;
   } | null>(null);
 
@@ -677,11 +677,6 @@ export default function VSConfigurationTab() {
     const file = fileInput.files?.[0];
     if (!file) return;
 
-    if (issueMatrixConfig?.rows.length && !window.confirm('Replace the currently imported Issue Matrix?')) {
-      fileInput.value = '';
-      return;
-    }
-
     setMatrixImportError(null);
     try {
       if (!/\.(xlsx|xls|csv)$/i.test(file.name)) {
@@ -699,16 +694,21 @@ export default function VSConfigurationTab() {
         blankrows: false,
       });
       const fileHeaders = (sheetRows[0] || []).map((value) => String(value ?? '').trim());
-      const legacyHeaders = LEGACY_ISSUE_MATRIX_HEADERS;
-      const hasApplicationId = fileHeaders[0] === 'Application ID';
-      const expectedHeaders = hasApplicationId ? ISSUE_MATRIX_HEADERS : legacyHeaders;
-      const extraHeaders = fileHeaders.filter((header) => !expectedHeaders.includes(header));
+      const supportedHeaders = new Set(ISSUE_MATRIX_HEADERS);
+      const extraHeaders = fileHeaders.filter((header) => !supportedHeaders.has(header));
       if (extraHeaders.length) throw new Error(`Unsupported column: "${extraHeaders[0]}".`);
-      const missingHeaders = expectedHeaders.filter((header) => !fileHeaders.includes(header));
-      if (missingHeaders.length) throw new Error(`Missing required column: "${missingHeaders[0]}".`);
-      if (fileHeaders.length !== expectedHeaders.length || fileHeaders.some((header, index) => header !== expectedHeaders[index])) {
-        throw new Error(`Columns must match the Issue Matrix template order. Check column "${fileHeaders.find((header, index) => header !== expectedHeaders[index]) || expectedHeaders[fileHeaders.length]}".`);
+      if (new Set(fileHeaders).size !== fileHeaders.length) {
+        const duplicate = fileHeaders.find((header, index) => fileHeaders.indexOf(header) !== index);
+        throw new Error(`Duplicate column: "${duplicate}".`);
       }
+      const orderedHeaders = ISSUE_MATRIX_HEADERS.filter((header) => fileHeaders.includes(header));
+      if (!fileHeaders.length || fileHeaders.some((header, index) => header !== orderedHeaders[index])) {
+        throw new Error('Columns must follow the Issue Matrix template order.');
+      }
+      const expectedHeaders = fileHeaders;
+      const hasApplicationId = expectedHeaders.includes('Application ID');
+      const dataHeaders = expectedHeaders.filter((header) => header !== 'Application ID');
+      if (!dataHeaders.length) throw new Error('Include at least one Issue Matrix data column.');
 
       const dataRows = sheetRows.slice(1).filter((row) => row.some((value) => String(value ?? '').trim() !== ''));
       if (!dataRows.length) throw new Error('The spreadsheet contains no issue rows.');
@@ -718,61 +718,66 @@ export default function VSConfigurationTab() {
       const currentHeaders = issueMatrixConfig?.headers ?? LEGACY_ISSUE_MATRIX_HEADERS;
       const currentHasApplicationId = currentHeaders[0] === 'Application ID';
       const currentDataHeaders = currentHasApplicationId ? currentHeaders.slice(1) : currentHeaders;
-      const canonicalExistingRows = currentRows.map((row) => LEGACY_ISSUE_MATRIX_HEADERS.map((_, i) => String(row[i] ?? '')));
+      const canonicalExistingRows = currentRows.map((row) =>
+        LEGACY_ISSUE_MATRIX_HEADERS.map((header) => {
+          const index = currentDataHeaders.indexOf(header);
+          return index < 0 ? '' : String(row[index + (currentHasApplicationId ? 1 : 0)] ?? '');
+        }),
+      );
       const existingById = new Map(currentIds.map((id, i) => [id, canonicalExistingRows[i]]));
       const seenIds = new Set<string>();
       const errors: string[] = [];
       const importedRows: string[][] = [];
+      const payloadRows: string[][] = [];
       const importedIds: string[] = [];
-      let created = 0;
-      let updated = 0;
+      const actions: ('Create' | 'Update' | 'Rejected')[] = [];
 
       dataRows.forEach((sourceRow, index) => {
         const rowNumber = index + 2;
+        const rowErrors: string[] = [];
         if (sourceRow.slice(expectedHeaders.length).some((value) => String(value ?? '').trim() !== '')) {
-          errors.push(`Row ${rowNumber}: data found outside the supported columns.`);
-          return;
+          rowErrors.push(`Row ${rowNumber}: data found outside the supported columns.`);
         }
-        const normalized = ISSUE_MATRIX_HEADERS.map((header) => {
-          const sourceIndex = expectedHeaders.indexOf(header);
-          return sourceIndex < 0 ? '' : String(sourceRow[sourceIndex] ?? '').trim();
-        });
-        const rawId = hasApplicationId ? normalized[0] : '';
+        const sourceValues = expectedHeaders.map((_, columnIndex) => String(sourceRow[columnIndex] ?? '').trim());
+        const suppliedId = hasApplicationId ? sourceValues[expectedHeaders.indexOf('Application ID')] : '';
+        const rawId = suppliedId || `IM-${crypto.randomUUID()}`;
         if (rawId && seenIds.has(rawId)) {
-          errors.push(`Row ${rowNumber}, column "Application ID": duplicate ID "${rawId}" in this file.`);
-          return;
+          rowErrors.push(`Row ${rowNumber}, column "Application ID": duplicate ID "${rawId}" in this file.`);
         }
-        if (rawId) seenIds.add(rawId);
-        const id = rawId || `NEW-${crypto.randomUUID()}`;
-        if (!rawId) {
-          created += 1;
+        if (suppliedId) seenIds.add(rawId);
+        if (suppliedId.length > 100) {
+          rowErrors.push(`Row ${rowNumber}, column "Application ID": ID must be 100 characters or fewer.`);
         }
-        if (rawId && !existingById.has(id)) {
-          errors.push(`Row ${rowNumber}, column "Application ID": ID "${rawId}" does not match an existing record.`);
-          return;
-        }
+        const id = rawId;
         const existing = existingById.get(id);
         const merged = existing ? [...existing] : Array(LEGACY_ISSUE_MATRIX_HEADERS.length).fill('');
         LEGACY_ISSUE_MATRIX_HEADERS.forEach((header, columnIndex) => {
           const sourceIndex = expectedHeaders.indexOf(header);
           if (sourceIndex >= 0) merged[columnIndex] = String(sourceRow[sourceIndex] ?? '').trim();
         });
-        if (!merged[0]) errors.push(`Row ${rowNumber}, column "Issue": value is required.`);
-        const qtyIndex = LEGACY_ISSUE_MATRIX_HEADERS.indexOf('Qty');
-        if (merged[qtyIndex] && (!Number.isFinite(Number(merged[qtyIndex])) || Number(merged[qtyIndex]) < 0)) {
-          errors.push(`Row ${rowNumber}, column "Qty": enter a non-negative number.`);
+        if (!existing && !merged[LEGACY_ISSUE_MATRIX_HEADERS.indexOf('Issue')]) {
+          rowErrors.push(`Row ${rowNumber}, column "Issue": value is required for a new record.`);
         }
         for (const field of ['Part Cost', 'Rework Cost (Software, Connector, Terminal)', 'Labour Cost', 'Labour Time in Minutes']) {
+          if (!dataHeaders.includes(field)) continue;
           const value = merged[LEGACY_ISSUE_MATRIX_HEADERS.indexOf(field)];
           if (value && (!Number.isFinite(Number(value.replace(/,/g, ''))) || Number(value.replace(/,/g, '')) < 0)) {
-            errors.push(`Row ${rowNumber}, column "${field}": enter a non-negative number.`);
+            rowErrors.push(`Row ${rowNumber}, column "${field}": enter a non-negative number.`);
+          }
+        }
+        if (dataHeaders.includes('Qty')) {
+          const value = merged[LEGACY_ISSUE_MATRIX_HEADERS.indexOf('Qty')];
+          if (value && (!Number.isFinite(Number(value)) || Number(value) < 0)) {
+            rowErrors.push(`Row ${rowNumber}, column "Qty": enter a non-negative number.`);
           }
         }
         importedRows.push(merged);
         importedIds.push(id);
-        if (existing) updated += 1;
+        payloadRows.push(sourceValues);
+        actions.push(rowErrors.length ? 'Rejected' : existing ? 'Update' : 'Create');
+        errors.push(...rowErrors);
       });
-      setMatrixImportPreview({ headers: ISSUE_MATRIX_HEADERS, rows: importedRows, rowIds: importedIds, errors, created, updated, filename: file.name });
+      setMatrixImportPreview({ headers: expectedHeaders, rows: importedRows, payloadRows, rowIds: importedIds, errors, actions, filename: file.name });
     } catch (err: any) {
       const message = err?.data?.detail || err?.message || 'Failed to import the Issue Matrix workbook.';
       setMatrixImportError(message);
@@ -1305,8 +1310,11 @@ export default function VSConfigurationTab() {
                   disabled={!issueMatrixConfig?.rows.length}
                   onClick={() => {
                     if (!issueMatrixConfig) return;
+                    const matrixHeaders = issueMatrixConfig.headers[0] === 'Application ID'
+                      ? ISSUE_MATRIX_HEADERS
+                      : ['Application ID', ...LEGACY_ISSUE_MATRIX_HEADERS];
                     const worksheet = XLSX.utils.aoa_to_sheet([
-                      ISSUE_MATRIX_HEADERS,
+                      matrixHeaders,
                       ...issueMatrixConfig.rows.map((row, index) => [issueMatrixConfig.row_ids?.[index] ?? `IM-1-${index + 1}`, ...(issueMatrixConfig.headers[0] === 'Application ID' ? row.slice(1) : row)]),
                     ]);
                     const workbook = XLSX.utils.book_new();
@@ -1314,9 +1322,7 @@ export default function VSConfigurationTab() {
                     XLSX.writeFile(workbook, 'issue-matrix-export.xlsx');
                   }}
                   sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
-                >
-                  Export Excel
-                </Button>
+                >Export Excel</Button>
                 <Button
                   variant="contained"
                   startIcon={
@@ -1347,7 +1353,7 @@ export default function VSConfigurationTab() {
                   <DialogTitle>Review Issue Matrix Import</DialogTitle>
                   <DialogContent dividers>
                     <Typography variant="body2" sx={{ mb: 2 }}>
-                      {matrixImportPreview.created} records to create · {matrixImportPreview.updated} records to update · {matrixImportPreview.errors.length} validation errors
+                      {matrixImportPreview.actions.filter((action) => action === 'Create').length} records to create · {matrixImportPreview.actions.filter((action) => action === 'Update').length} records to update · {matrixImportPreview.errors.length} validation errors
                     </Typography>
                     {matrixImportPreview.errors.length > 0 && (
                       <Alert severity="error" sx={{ mb: 2 }}>
@@ -1364,7 +1370,7 @@ export default function VSConfigurationTab() {
                           {matrixImportPreview.rows.map((row, index) => (
                             <TableRow key={matrixImportPreview.rowIds[index]}>
                               <TableCell>{matrixImportPreview.rowIds[index]}</TableCell>
-                              <TableCell>{issueMatrixConfig?.row_ids?.includes(matrixImportPreview.rowIds[index]) ? 'Update' : 'Create'}</TableCell>
+                              <TableCell>{matrixImportPreview.actions[index]}</TableCell>
                               <TableCell>{row[LEGACY_ISSUE_MATRIX_HEADERS.indexOf('Issue')]}</TableCell>
                               <TableCell>{row[LEGACY_ISSUE_MATRIX_HEADERS.indexOf('System')]}</TableCell>
                             </TableRow>
@@ -1382,7 +1388,7 @@ export default function VSConfigurationTab() {
                         try {
                           const imported = await importIssueMatrix({
                             headers: ISSUE_MATRIX_HEADERS,
-                            rows: matrixImportPreview.rows,
+                            rows: matrixImportPreview.payloadRows,
                             row_ids: matrixImportPreview.rowIds,
                             source_filename: matrixImportPreview.filename,
                           }).unwrap();
