@@ -2126,12 +2126,8 @@ export default function VSWorkOrdersTab() {
             </Typography>
           </Box>
           <Chip
-            label={newSeverity}
-            sx={{
-              bgcolor: `${SEVERITY_COLORS[newSeverity]}20`,
-              color: SEVERITY_COLORS[newSeverity],
-              fontWeight: 800,
-            }}
+            label="NEW"
+            sx={{ bgcolor: '#E8F5E9', color: '#1B5E20', fontWeight: 800 }}
           />
         </DialogTitle>
 
@@ -2311,14 +2307,27 @@ export default function VSWorkOrdersTab() {
                   <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" gutterBottom>
                     ASSIGN TECHNICIAN
                   </Typography>
-                  <AppDropdown
-                    label="Assigned Technician"
-                    value={newAssignedTo}
-                    emptyLabel="Leave Unassigned"
-                    allowEmpty
-                    options={users.map((u) => ({ value: u.id, label: `${u.full_name} (${u.role})` }))}
-                    onChange={(val) => setNewAssignedTo(val as number | '')}
-                  />
+                  <Box sx={{ width: { xs: '100%', sm: '50%' } }}>
+                    <AppDropdown
+                      label="Assigned Technician"
+                      value={newAssignedTo}
+                      emptyLabel="Leave Unassigned"
+                      allowEmpty
+                      options={users.map((u) => ({ value: u.id, label: u.full_name }))}
+                      onChange={(val) => setNewAssignedTo(val as number | '')}
+                    />
+                    <AppDropdown
+                      label="Severity"
+                      value={newSeverity}
+                      options={[
+                        { value: 'CRITICAL', label: 'Critical' },
+                        { value: 'HIGH', label: 'High' },
+                        { value: 'MEDIUM', label: 'Medium' },
+                        { value: 'LOW', label: 'Low' },
+                      ]}
+                      onChange={(val) => setNewSeverity(String(val))}
+                    />
+                  </Box>
                   <Box sx={{ mt: 1.25, p: 1.25, border: '1px solid #E4EBE1', borderRadius: 1.5, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 1 }}>
                     {[
                       { label: 'Start Time', value: 'Not started' },
@@ -2766,7 +2775,7 @@ export default function VSWorkOrdersTab() {
                         { value: -1, label: 'Unassigned', disabled: true },
                         ...users.map((u) => ({
                           value: u.id,
-                          label: `${u.full_name} (${u.role})`,
+                          label: u.full_name,
                         })),
                       ]}
                       onChange={(val) => {
