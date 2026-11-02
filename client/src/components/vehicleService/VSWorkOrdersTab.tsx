@@ -85,8 +85,9 @@ import { AppDropdown } from '@/components/ui/AppDropdown';
 import { LocationDisplay, formatNoteLocation, useResolvedAddress } from '@/utils/geolocation';
 import { formatDate, formatDateTime } from '@/utils/format';
 
-function formatDuration(createdAt: string): string {
-  const diffMs = Date.now() - new Date(createdAt).getTime();
+function formatDuration(createdAt: string, closedAt?: string | null): string {
+  const endMs = closedAt ? new Date(closedAt).getTime() : Date.now();
+  const diffMs = endMs - new Date(createdAt).getTime();
   if (diffMs < 0) return '—';
   const totalMins = Math.floor(diffMs / 60_000);
   const days = Math.floor(totalMins / 1440);
@@ -1963,7 +1964,10 @@ export default function VSWorkOrdersTab() {
                     </TableCell>
                     <TableCell>
                       <Typography variant="caption" sx={{ whiteSpace: 'nowrap', fontWeight: 600, color: '#023020' }}>
-                        {formatDuration(c.created_at)}
+                        {formatDuration(
+                          c.created_at,
+                          c.status === 'CLOSED' ? (c.closed_at || c.updated_at) : null,
+                        )}
                       </Typography>
                     </TableCell>
                     <TableCell align="right" sx={{ whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
