@@ -2084,7 +2084,7 @@ export default function VSWorkOrdersTab() {
       )}
 
       {/* =====================================================================
-          NEW WORK ORDER DIALOG (Same size & layout as Manage dialog)
+          NEW WORK ORDER DIALOG
       ====================================================================== */}
       <Dialog
         open={isNewDialogOpen}
@@ -2122,9 +2122,17 @@ export default function VSWorkOrdersTab() {
               Create New Work Order
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              Search vehicle from KIT Master, specify reporter & problem details, and tag affected components.
+              Register the complaint, assign a technician, and enter the initial service details.
             </Typography>
           </Box>
+          <Chip
+            label={newSeverity}
+            sx={{
+              bgcolor: `${SEVERITY_COLORS[newSeverity]}20`,
+              color: SEVERITY_COLORS[newSeverity],
+              fontWeight: 800,
+            }}
+          />
         </DialogTitle>
 
         <DialogContent
@@ -2136,14 +2144,16 @@ export default function VSWorkOrdersTab() {
             gap: 3,
             overflow: { xs: 'auto', md: 'hidden' },
             flex: 1,
+            minHeight: 0,
           }}
         >
-          {/* LEFT SIDE: Work Order Fields (~68%) */}
+          {/* LEFT SIDE: Create form using the Manage Work Order structure */}
           <Box
             sx={{
-              flex: { xs: '1 1 100%', md: '1 1 68%' },
+              flex: { xs: '1 1 100%', md: '1 1 73%' },
               minWidth: 0,
               overflowY: { xs: 'visible', md: 'auto' },
+              minHeight: 0,
               pr: { xs: 0, md: 1 },
               display: 'flex',
               flexDirection: 'column',
@@ -2156,8 +2166,14 @@ export default function VSWorkOrdersTab() {
               </Alert>
             )}
 
-            {/* Retrofitted Vehicle Search from KIT Master (Min 4 digits required) */}
-            <Box sx={{ position: 'relative' }}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, height: '100%' }}>
+                  <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" gutterBottom>
+                    VEHICLE & CUSTOMER DETAILS
+                  </Typography>
+                  {/* Retrofitted Vehicle Search from KIT Master (Min 4 digits required) */}
+                  <Box sx={{ position: 'relative' }}>
               <TextField
                 label="Retrofitted Vehicle (from KIT Master)"
                 placeholder="Type at least 4 digits to search (e.g. TN66, KIM1, 7023)..."
@@ -2276,9 +2292,49 @@ export default function VSWorkOrdersTab() {
                   )}
                 </Paper>
               )}
-            </Box>
+                  </Box>
+                  {selectedKit && (
+                    <Box sx={{ mt: 1.5, p: 1.5, bgcolor: '#F0FDF4', borderRadius: '8px', border: '1px solid #BBF7D0' }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#166534' }}>
+                        {selectedKit.vehicle_number || selectedKit.kit_name}
+                      </Typography>
+                      <Typography variant="body2"><strong>Owner:</strong> {selectedKit.customer_name || '—'}</Typography>
+                      <Typography variant="body2"><strong>Contact:</strong> {selectedVehicleObj?.owner_phone || '—'}</Typography>
+                      <Typography variant="body2"><strong>Reported By:</strong> {newReportedBy || selectedKit.customer_name || '—'} ({newReportedPhone || selectedVehicleObj?.owner_phone || '—'})</Typography>
+                      <Typography variant="body2"><strong>Kit:</strong> {selectedKit.kit_number}</Typography>
+                    </Box>
+                  )}
+                </Paper>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, height: '100%' }}>
+                  <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" gutterBottom>
+                    ASSIGN TECHNICIAN
+                  </Typography>
+                  <AppDropdown
+                    label="Assigned Technician"
+                    value={newAssignedTo}
+                    emptyLabel="Leave Unassigned"
+                    allowEmpty
+                    options={users.map((u) => ({ value: u.id, label: `${u.full_name} (${u.role})` }))}
+                    onChange={(val) => setNewAssignedTo(val as number | '')}
+                  />
+                  <Box sx={{ mt: 1.25, p: 1.25, border: '1px solid #E4EBE1', borderRadius: 1.5, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 1 }}>
+                    {[
+                      { label: 'Start Time', value: 'Not started' },
+                      { label: 'End Time', value: '—' },
+                      { label: 'Total Time', value: '—' },
+                    ].map((item) => (
+                      <Box key={item.label} sx={{ minWidth: 0 }}>
+                        <Typography variant="caption" color="text.secondary" display="block">{item.label}</Typography>
+                        <Typography variant="body2" fontWeight={700}>{item.value}</Typography>
+                      </Box>
+                    ))}
+                  </Box>
+                </Paper>
+              </Grid>
+            </Grid>
 
-            {/* Selected Kit Master Info Card */}
             {selectedKit && (
               <Box sx={{ p: 1.5, bgcolor: '#F0FDF4', borderRadius: '8px', border: '1px solid #BBF7D0' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5, flexWrap: 'wrap', gap: 1 }}>
@@ -2315,29 +2371,33 @@ export default function VSWorkOrdersTab() {
               </Box>
             )}
 
-            {/* Complainant Details */}
-            <Grid container spacing={2}>
-              <Grid item xs={6}>
-                <TextField
-                  label="Reporter Name"
-                  size="small"
-                  fullWidth
-                  value={newReportedBy}
-                  onChange={(e) => setNewReportedBy(e.target.value)}
-                  placeholder="Owner / Driver name"
-                />
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+              <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" gutterBottom>
+                REPORTED BY
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField label="Reporter Name" size="small" fullWidth value={newReportedBy} onChange={(e) => setNewReportedBy(e.target.value)} placeholder="Owner / Driver name" />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField label="Reporter Phone" size="small" fullWidth value={newReportedPhone} onChange={(e) => setNewReportedPhone(e.target.value)} placeholder="Contact phone" />
+                </Grid>
               </Grid>
-              <Grid item xs={6}>
-                <TextField
-                  label="Reporter Phone"
-                  size="small"
-                  fullWidth
-                  value={newReportedPhone}
-                  onChange={(e) => setNewReportedPhone(e.target.value)}
-                  placeholder="Contact phone"
-                />
-              </Grid>
-            </Grid>
+            </Paper>
+
+            <Tabs
+              value={0}
+              aria-label="New work order sections"
+              sx={{ minHeight: 40, borderBottom: '1px solid #E4EBE1', '& .MuiTab-root': { minHeight: 40, textTransform: 'none', fontWeight: 700 } }}
+            >
+              <Tab label="Service Workflow" />
+              <Tab label="Issue Matrix" disabled />
+              <Tab label="Technician Advice" disabled />
+            </Tabs>
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+              <Typography variant="subtitle2" fontWeight={800} color="#023020" sx={{ mb: 1.5 }}>
+                SERVICE WORKFLOW
+              </Typography>
 
             {/* Category & Severity */}
             <Grid container spacing={2}>
@@ -2377,18 +2437,7 @@ export default function VSWorkOrdersTab() {
               </Alert>
             ) : null}
 
-            {/* Assignee */}
-            <AppDropdown
-              label="Assign Technician / Service Officer"
-              value={newAssignedTo}
-              emptyLabel="Leave Unassigned"
-              allowEmpty
-              options={users.map((u) => ({
-                value: u.id,
-                label: `${u.full_name} (${u.role})`,
-              }))}
-              onChange={(val) => setNewAssignedTo(val as number | '')}
-            />
+            {/* Technician assignment is in the summary card above, matching Manage Work Order. */}
 
             {/* Description */}
             <TextField
@@ -2400,16 +2449,32 @@ export default function VSWorkOrdersTab() {
               value={newDescription}
               onChange={(e) => setNewDescription(e.target.value)}
             />
+            </Paper>
+            {selectedKit && (
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" gutterBottom>
+                  AFFECTED KIT COMPONENT
+                </Typography>
+                <AppDropdown
+                  label="Component"
+                  value={newComponentId || ''}
+                  emptyLabel="No component selected"
+                  allowEmpty
+                  options={availableComponents.map((component) => ({ value: component.id, label: `${component.label}${component.serial_number ? ` (SN: ${component.serial_number})` : ''}` }))}
+                  onChange={(value) => setNewComponentId(value ? Number(value) : '')}
+                />
+              </Paper>
+            )}
           </Box>
 
-          {/* RIGHT SIDE: Kit Components & Intake Log (~32%) */}
+          {/* RIGHT SIDE: Intake changelog panel matching Manage Work Order */}
           <Paper
             variant="outlined"
             sx={{
-              flex: { xs: '1 1 100%', md: '0 0 32%' },
-              width: { xs: '100%', md: '32%' },
+              flex: { xs: '1 1 100%', md: '0 0 27%' },
+              width: { xs: '100%', md: '27%' },
               minWidth: { xs: '100%', md: 280 },
-              maxWidth: { md: 360 },
+              maxWidth: { md: 420 },
               display: 'flex',
               flexDirection: 'column',
               borderRadius: '12px',
@@ -2419,140 +2484,40 @@ export default function VSWorkOrdersTab() {
               overflow: 'hidden',
             }}
           >
-            {/* Header */}
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
-                <Box
-                  sx={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: '7px',
-                    backgroundColor: '#E8F5E9',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#023020',
-                  }}
-                >
-                  <Cpu size={15} />
+                <Box sx={{ width: 28, height: 28, borderRadius: '7px', backgroundColor: '#E8F5E9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#023020' }}>
+                  <History size={15} />
                 </Box>
                 <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#023020', fontSize: 13 }}>
-                  Kit Components
+                  Initial Changelog
                 </Typography>
               </Box>
-              <Chip
-                label={`${availableComponents.length} items`}
-                size="small"
-                sx={{
-                  fontWeight: 700,
-                  fontSize: 10.5,
-                  backgroundColor: '#E8F5E9',
-                  color: '#1B5E20',
-                  border: '1px solid #C8E6C9',
-                  height: 20,
-                }}
-              />
             </Box>
-
-            <Typography variant="caption" sx={{ color: '#64748B', display: 'block', mb: 1 }}>
-              Click any component below to tag it as the affected part for this work order:
-            </Typography>
-
-            {/* Scrollable Components List */}
-            <Box
-              sx={{
-                flex: 1,
-                overflowY: 'auto',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 1,
-                pr: 0.5,
-                maxHeight: 280,
-                mb: 2,
-              }}
-            >
-              {availableComponents.length > 0 ? (
-                availableComponents.map((comp) => {
-                  const isSelected = newComponentId === comp.id;
-                  return (
-                    <Box
-                      key={comp.id}
-                      onClick={() => setNewComponentId(isSelected ? '' : comp.id)}
-                      sx={{
-                        p: 1.2,
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        backgroundColor: isSelected ? '#F0FDF4' : '#FFFFFF',
-                        border: isSelected ? '1.5px solid #16A34A' : '1px solid #E2E8E2',
-                        borderLeft: isSelected ? '3.5px solid #16A34A' : '1px solid #E2E8E2',
-                        boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-                        transition: 'all 0.12s ease',
-                        '&:hover': {
-                          backgroundColor: isSelected ? '#DCFCE7' : '#F8FAF8',
-                        },
-                      }}
-                    >
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.3 }}>
-                        <Typography sx={{ fontWeight: isSelected ? 800 : 600, color: isSelected ? '#166534' : '#0F172A', fontSize: 12 }}>
-                          {comp.label}
-                        </Typography>
-                        {isSelected && <Check size={14} color="#16A34A" />}
-                      </Box>
-                      {comp.serial_number && (
-                        <Typography variant="caption" sx={{ fontFamily: 'monospace', color: '#1D4ED8', fontSize: 11 }}>
-                          SN: {comp.serial_number}
-                        </Typography>
-                      )}
-                    </Box>
-                  );
-                })
-              ) : (
-                <Box sx={{ textAlign: 'center', py: 4, color: '#667A6D' }}>
-                  <Cpu size={24} color="#94A3B8" style={{ margin: '0 auto 6px' }} />
-                  <Typography variant="caption" sx={{ fontSize: 11.5, fontWeight: 600, display: 'block' }}>
-                    Select a Kit above to view components
-                  </Typography>
-                  <Typography variant="caption" sx={{ color: '#94A3B8', fontSize: 10.5 }}>
-                    Tracked serial numbers will appear here
-                  </Typography>
-                </Box>
-              )}
-            </Box>
-
-            <Divider sx={{ mb: 1.5, borderColor: '#E4EBE1' }} />
-
-            {/* Intake Remark / Initial Log */}
-            <Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mb: 1 }}>
-                <History size={14} color="#023020" />
-                <Typography variant="caption" sx={{ fontWeight: 700, color: '#023020', fontSize: 12 }}>
-                  Intake Note & Log
-                </Typography>
-              </Box>
+            <Box sx={{ p: 1.25, border: '1px solid #E4EBE1', borderRadius: 1.5, backgroundColor: '#FFFFFF' }}>
               <TextField
-                placeholder="Add arrival observation, intake note, or initial remark..."
+                placeholder="Add intake observation or initial note..."
                 size="small"
                 multiline
-                rows={2}
+                rows={3}
                 fullWidth
                 value={newInitialNote}
                 onChange={(e) => setNewInitialNote(e.target.value)}
                 disabled={!newAssignedTo}
-                sx={{
-                  backgroundColor: '#FFFFFF',
-                  borderRadius: '6px',
-                  '& .MuiOutlinedInput-root': { fontSize: 11.5 },
-                }}
               />
               {!newAssignedTo && (
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                  Assign a technician before entering intake notes or custom field values.
+                  Assign a technician before entering notes or custom field values.
                 </Typography>
               )}
-              <Typography variant="caption" sx={{ color: '#64748B', fontSize: 10.5, display: 'block', mt: 0.5 }}>
-                Will be captured in the work order changelog upon creation.
+              <Typography variant="caption" sx={{ color: '#64748B', fontSize: 10.5, display: 'block', mt: 0.75 }}>
+                This note will appear in the work order changelog after creation.
               </Typography>
             </Box>
+            <Divider sx={{ my: 1.5, borderColor: '#E4EBE1' }} />
+            <Typography variant="caption" sx={{ color: '#64748B', display: 'block' }}>
+              The work order changelog will be available after the order is created.
+            </Typography>
 
                         {/* Custom Fields for Create Dialog */}
                                     {newCustomFields.length > 0 ? (
@@ -2589,7 +2554,9 @@ export default function VSWorkOrdersTab() {
                       </Paper>
         </DialogContent>
 
-        <DialogActions sx={{ p: 2, px: 3, borderTop: '1px solid #E4EBE1' }}>
+        <DialogActions sx={{ p: 2, px: 3, borderTop: '1px solid #E4EBE1', justifyContent: 'space-between' }}>
+          <Typography variant="caption" color="text.secondary">Create the work order to begin tracking workflow and changelog updates.</Typography>
+          <Box sx={{ display: 'flex', gap: 1 }}>
           <Button onClick={() => setIsNewDialogOpen(false)} sx={{ textTransform: 'none', color: '#64748B' }}>
             Cancel
           </Button>
@@ -2613,6 +2580,7 @@ export default function VSWorkOrdersTab() {
           >
             {isCreating ? 'Creating...' : 'Create Work Order'}
           </Button>
+          </Box>
         </DialogActions>
       </Dialog>
 
