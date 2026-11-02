@@ -20,6 +20,7 @@ class VSIssueMatrixConfig(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     headers: Mapped[List[str]] = mapped_column(JSON, nullable=False)
     rows: Mapped[List[List[str]]] = mapped_column(JSON, nullable=False)
+    row_ids: Mapped[List[str]] = mapped_column(JSON, nullable=False, default=list, server_default="[]")
     source_filename: Mapped[str] = mapped_column(String(255), nullable=False)
     imported_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

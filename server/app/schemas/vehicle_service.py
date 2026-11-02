@@ -101,12 +101,14 @@ class VSTechnicianAdviceOut(BaseModel):
 class VSIssueMatrixImport(BaseModel):
     headers: List[str] = Field(..., min_length=1, max_length=100)
     rows: List[List[str]] = Field(..., max_length=10000)
+    row_ids: List[str] = Field(default_factory=list)
     source_filename: str = Field(..., min_length=1, max_length=255)
 
 
 class VSIssueMatrixConfigOut(BaseModel):
     headers: List[str]
     rows: List[List[str]]
+    row_ids: List[str] = Field(default_factory=list)
     source_filename: str
     imported_at: datetime
 

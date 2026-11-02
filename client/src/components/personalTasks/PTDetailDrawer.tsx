@@ -638,7 +638,7 @@ export default function PTDetailDrawer({
                       loading={isLoadingUsers}
                       value={selectedAssignee}
                       onChange={(_, val) => handleAssigneeChange(val)}
-                      getOptionLabel={(option) => `${option.full_name} (${option.role_name || option.role || 'Member'})`}
+                      getOptionLabel={(option) => option.full_name}
                       isOptionEqualToValue={(option, val) => option.id === val.id}
                       renderOption={(props, option) => (
                         <Box component="li" {...props} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 0.8 }}>
@@ -653,14 +653,9 @@ export default function PTDetailDrawer({
                           >
                             {option.full_name.charAt(0).toUpperCase()}
                           </Avatar>
-                          <Box sx={{ minWidth: 0 }}>
-                            <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.82rem', lineHeight: 1.2 }}>
-                              {option.full_name}
-                            </Typography>
-                            <Typography variant="caption" sx={{ color: '#64748B', fontSize: '0.72rem', display: 'block' }}>
-                              {option.role_name || option.role} {option.email ? `• ${option.email}` : ''}
-                            </Typography>
-                          </Box>
+                          <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.82rem' }}>
+                            {option.full_name}
+                          </Typography>
                         </Box>
                       )}
                       renderInput={(params) => (

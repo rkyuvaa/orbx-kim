@@ -202,7 +202,7 @@ export default function PTAssignTaskModal({ open, onClose, onSuccess }: PTAssign
           <Autocomplete
             options={assignableUsers}
             loading={isLoadingUsers}
-            getOptionLabel={(option) => `${option.full_name} (${option.role_name || option.role || 'Member'})`}
+            getOptionLabel={(option) => option.full_name}
             value={selectedUser}
             onChange={(_, val) => setAssigneeId(val ? val.id : null)}
             isOptionEqualToValue={(option, val) => option.id === val.id}
@@ -219,14 +219,9 @@ export default function PTAssignTaskModal({ open, onClose, onSuccess }: PTAssign
                 >
                   {option.full_name.charAt(0).toUpperCase()}
                 </Avatar>
-                <Box>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    {option.full_name}
-                  </Typography>
-                  <Typography variant="caption" sx={{ color: '#64748B' }}>
-                    {option.role_name || option.role} {option.email ? `• ${option.email}` : ''}
-                  </Typography>
-                </Box>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  {option.full_name}
+                </Typography>
               </Box>
             )}
             renderInput={(params) => (

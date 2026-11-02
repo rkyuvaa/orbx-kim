@@ -84,6 +84,7 @@ export interface VSTechnicianAdvice {
 export interface VSIssueMatrixConfig {
   headers: string[];
   rows: string[][];
+  row_ids: string[];
   source_filename: string;
   imported_at: string;
 }

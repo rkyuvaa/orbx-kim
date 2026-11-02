@@ -84,6 +84,7 @@ def test_issue_matrix_import_persists_exact_headers_and_replaces_rows(client, db
     assert response.status_code == 200, response.text
     assert response.json()["headers"] == ISSUE_MATRIX_HEADERS
     assert response.json()["rows"] == [first_row]
+    assert response.json()["row_ids"] == ["IM-1-1"]
 
     selected = client.post(selected_url, json={"row_indexes": [0]}, headers=headers)
     assert selected.status_code == 201, selected.text

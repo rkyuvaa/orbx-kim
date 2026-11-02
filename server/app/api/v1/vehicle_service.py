@@ -107,6 +107,7 @@ from app.schemas.vehicle_service import (
 router = APIRouter(prefix="/vehicle-service", tags=["vehicle-service"])
 VS_UPLOADS_DIR = Path(__file__).resolve().parents[3] / "uploads" / "vehicle_service"
 VS_ISSUE_MATRIX_HEADERS = [
+    "Application ID",
     "Issue",
     "System",
     "Subsystem",
@@ -602,31 +603,70 @@ def import_issue_matrix_config(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if payload.headers != VS_ISSUE_MATRIX_HEADERS:
+    legacy_headers = VS_ISSUE_MATRIX_HEADERS[1:]
+    if payload.headers not in (VS_ISSUE_MATRIX_HEADERS, legacy_headers):
         raise HTTPException(
             status_code=422,
             detail="Spreadsheet headers must exactly match the Issue Matrix template, in the same order.",
         )
-    if any(len(row) != len(VS_ISSUE_MATRIX_HEADERS) for row in payload.rows):
+    data_column_count = len(VS_ISSUE_MATRIX_HEADERS) - (1 if payload.headers == VS_ISSUE_MATRIX_HEADERS else 0)
+    if any(len(row) != data_column_count for row in payload.rows):
         raise HTTPException(
             status_code=422,
-            detail=f"Every row must contain exactly {len(VS_ISSUE_MATRIX_HEADERS)} columns.",
+            detail=f"Every row must contain exactly {data_column_count} columns.",
         )
     if not payload.rows:
         raise HTTPException(status_code=422, detail="Spreadsheet must contain at least one data row.")
 
     config = db.get(VSIssueMatrixConfig, 1)
+    if config and not config.row_ids:
+        config.row_ids = [f'IM-{config.id}-{index + 1}' for index, _ in enumerate(config.rows)]
+    existing_ids = dict(zip(config.row_ids or [], config.rows or [])) if config else {}
+    row_ids = list(payload.row_ids or [])
+    if len(row_ids) != len(payload.rows):
+        raise HTTPException(status_code=422, detail='Every imported row must have one Application ID.')
+    if len(set(row_ids)) != len(row_ids):
+        raise HTTPException(status_code=422, detail='Duplicate Application IDs are not allowed in an import.')
+    if not any(row[0].strip() for row in payload.rows):
+        # Allocate identifiers only at commit time; preview placeholders are never persisted.
+        row_ids = [f'NEW-{uuid.uuid4().hex}' if row_id.startswith('NEW-') else row_id for row_id in row_ids]
+    merged_by_id = dict(existing_ids)
+    for row_id, row in zip(row_ids, payload.rows):
+        expected_row_columns = len(VS_ISSUE_MATRIX_HEADERS) - 1
+        if len(row) != expected_row_columns:
+            raise HTTPException(status_code=422, detail=f'Application ID "{row_id}": row has an invalid number of columns.')
+        if not row_id:
+            raise HTTPException(status_code=422, detail='Application IDs cannot be empty after import preview.')
+        normalized_id = row_id
+        if normalized_id.startswith('NEW-'):
+            normalized_id = f'IM-{uuid.uuid4().hex}'
+        stored_row = row[1:] if len(row) == len(VS_ISSUE_MATRIX_HEADERS) else row
+        existing = existing_ids.get(normalized_id)
+        if existing is None:
+            merged_by_id[normalized_id] = stored_row
+        else:
+            merged = list(existing)
+            for index in range(len(stored_row)):
+                merged[index] = stored_row[index]
+            merged_by_id[normalized_id] = merged
+        if normalized_id != row_id:
+            row_ids[row_ids.index(row_id)] = normalized_id
+
+    final_ids = list(merged_by_id)
+    final_rows = [merged_by_id[row_id] for row_id in final_ids]
     if config is None:
         config = VSIssueMatrixConfig(
             id=1,
             headers=payload.headers,
-            rows=payload.rows,
+            rows=final_rows,
+            row_ids=final_ids,
             source_filename=payload.source_filename,
         )
         db.add(config)
     else:
         config.headers = payload.headers
-        config.rows = payload.rows
+        config.rows = final_rows
+        config.row_ids = final_ids
         config.source_filename = payload.source_filename
         config.imported_at = datetime.now(UTC)
 

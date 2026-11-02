@@ -50,7 +50,7 @@ export const vehicleServiceApi = baseApi.injectEndpoints({
     }),
     importVSIssueMatrixConfig: build.mutation<
       VSIssueMatrixConfig,
-      { headers: string[]; rows: string[][]; source_filename: string }
+      { headers: string[]; rows: string[][]; row_ids: string[]; source_filename: string }
     >({
       query: (body) => ({ url: '/vehicle-service/issue-matrix/config', method: 'PUT', body }),
       invalidatesTags: ['VSIssueMatrixConfig'],
