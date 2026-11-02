@@ -716,8 +716,9 @@ export default function VSConfigurationTab() {
       const currentRows = issueMatrixConfig?.rows ?? [];
       const currentIds = issueMatrixConfig?.row_ids ?? currentRows.map((_, i) => `IM-1-${i + 1}`);
       const currentHeaders = issueMatrixConfig?.headers ?? LEGACY_ISSUE_MATRIX_HEADERS;
-      const currentToCanonical = ISSUE_MATRIX_HEADERS.slice(1).map((header) => currentHeaders.indexOf(header));
-      const canonicalExistingRows = currentRows.map((row) => ['', ...currentToCanonical.map((columnIndex) => columnIndex < 0 ? '' : String(row[columnIndex] ?? ''))]);
+      const currentHasApplicationId = currentHeaders[0] === 'Application ID';
+      const currentDataHeaders = currentHasApplicationId ? currentHeaders.slice(1) : currentHeaders;
+      const canonicalExistingRows = currentRows.map((row) => LEGACY_ISSUE_MATRIX_HEADERS.map((_, i) => String(row[i] ?? '')));
       const existingById = new Map(currentIds.map((id, i) => [id, canonicalExistingRows[i]]));
       const seenIds = new Set<string>();
       const errors: string[] = [];
@@ -736,32 +737,33 @@ export default function VSConfigurationTab() {
           const sourceIndex = expectedHeaders.indexOf(header);
           return sourceIndex < 0 ? '' : String(sourceRow[sourceIndex] ?? '').trim();
         });
-        const rawId = normalized[0];
+        const rawId = hasApplicationId ? normalized[0] : '';
         if (rawId && seenIds.has(rawId)) {
           errors.push(`Row ${rowNumber}, column "Application ID": duplicate ID "${rawId}" in this file.`);
           return;
         }
         if (rawId) seenIds.add(rawId);
         const id = rawId || `NEW-${crypto.randomUUID()}`;
+        if (!rawId) {
+          created += 1;
+        }
         if (rawId && !existingById.has(id)) {
           errors.push(`Row ${rowNumber}, column "Application ID": ID "${rawId}" does not match an existing record.`);
           return;
         }
         const existing = existingById.get(id);
-        const merged = existing ? [...existing] : Array(ISSUE_MATRIX_HEADERS.length).fill('');
-        ISSUE_MATRIX_HEADERS.forEach((header, columnIndex) => {
-          if (header === 'Application ID') return;
+        const merged = existing ? [...existing] : Array(LEGACY_ISSUE_MATRIX_HEADERS.length).fill('');
+        LEGACY_ISSUE_MATRIX_HEADERS.forEach((header, columnIndex) => {
           const sourceIndex = expectedHeaders.indexOf(header);
           if (sourceIndex >= 0) merged[columnIndex] = String(sourceRow[sourceIndex] ?? '').trim();
         });
-        merged[0] = id;
-        if (!merged[1]) errors.push(`Row ${rowNumber}, column "Issue": value is required.`);
-        const qtyIndex = ISSUE_MATRIX_HEADERS.indexOf('Qty');
+        if (!merged[0]) errors.push(`Row ${rowNumber}, column "Issue": value is required.`);
+        const qtyIndex = LEGACY_ISSUE_MATRIX_HEADERS.indexOf('Qty');
         if (merged[qtyIndex] && (!Number.isFinite(Number(merged[qtyIndex])) || Number(merged[qtyIndex]) < 0)) {
           errors.push(`Row ${rowNumber}, column "Qty": enter a non-negative number.`);
         }
         for (const field of ['Part Cost', 'Rework Cost (Software, Connector, Terminal)', 'Labour Cost', 'Labour Time in Minutes']) {
-          const value = merged[ISSUE_MATRIX_HEADERS.indexOf(field)];
+          const value = merged[LEGACY_ISSUE_MATRIX_HEADERS.indexOf(field)];
           if (value && (!Number.isFinite(Number(value.replace(/,/g, ''))) || Number(value.replace(/,/g, '')) < 0)) {
             errors.push(`Row ${rowNumber}, column "${field}": enter a non-negative number.`);
           }
@@ -769,7 +771,6 @@ export default function VSConfigurationTab() {
         importedRows.push(merged);
         importedIds.push(id);
         if (existing) updated += 1;
-        else created += 1;
       });
       setMatrixImportPreview({ headers: ISSUE_MATRIX_HEADERS, rows: importedRows, rowIds: importedIds, errors, created, updated, filename: file.name });
     } catch (err: any) {
@@ -1306,7 +1307,7 @@ export default function VSConfigurationTab() {
                     if (!issueMatrixConfig) return;
                     const worksheet = XLSX.utils.aoa_to_sheet([
                       ISSUE_MATRIX_HEADERS,
-                      ...issueMatrixConfig.rows.map((row, index) => [issueMatrixConfig.row_ids?.[index] ?? '', ...row]),
+                      ...issueMatrixConfig.rows.map((row, index) => [issueMatrixConfig.row_ids?.[index] ?? `IM-1-${index + 1}`, ...(issueMatrixConfig.headers[0] === 'Application ID' ? row.slice(1) : row)]),
                     ]);
                     const workbook = XLSX.utils.book_new();
                     XLSX.utils.book_append_sheet(workbook, worksheet, 'Issue Matrix');
@@ -1364,8 +1365,8 @@ export default function VSConfigurationTab() {
                             <TableRow key={matrixImportPreview.rowIds[index]}>
                               <TableCell>{matrixImportPreview.rowIds[index]}</TableCell>
                               <TableCell>{issueMatrixConfig?.row_ids?.includes(matrixImportPreview.rowIds[index]) ? 'Update' : 'Create'}</TableCell>
-                              <TableCell>{row[ISSUE_MATRIX_HEADERS.indexOf('Issue')]}</TableCell>
-                              <TableCell>{row[ISSUE_MATRIX_HEADERS.indexOf('System')]}</TableCell>
+                              <TableCell>{row[LEGACY_ISSUE_MATRIX_HEADERS.indexOf('Issue')]}</TableCell>
+                              <TableCell>{row[LEGACY_ISSUE_MATRIX_HEADERS.indexOf('System')]}</TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
@@ -1381,7 +1382,7 @@ export default function VSConfigurationTab() {
                         try {
                           const imported = await importIssueMatrix({
                             headers: ISSUE_MATRIX_HEADERS,
-                            rows: matrixImportPreview.rows.map((row) => row.slice(1)),
+                            rows: matrixImportPreview.rows,
                             row_ids: matrixImportPreview.rowIds,
                             source_filename: matrixImportPreview.filename,
                           }).unwrap();
@@ -1408,7 +1409,7 @@ export default function VSConfigurationTab() {
                   <Table size="small" stickyHeader sx={{ minWidth: 2400 }}>
                     <TableHead>
                       <TableRow>
-                        {['Application ID', ...issueMatrixConfig.headers.filter((header) => header !== 'Application ID')].map((header) => (
+                        {['Application ID', ...(issueMatrixConfig.headers.includes('Application ID') ? issueMatrixConfig.headers.filter((header) => header !== 'Application ID') : issueMatrixConfig.headers)].map((header) => (
                           <TableCell
                             key={header}
                             sx={{
@@ -1427,15 +1428,18 @@ export default function VSConfigurationTab() {
                     <TableBody>
                       {issueMatrixConfig.rows.map((row, rowIndex) => (
                         <TableRow key={issueMatrixConfig.row_ids?.[rowIndex] ?? `${rowIndex}-${row[0]}`} hover>
-                          {['Application ID', ...issueMatrixConfig.headers.filter((header) => header !== 'Application ID')].map((header) => {
-                            const columnIndex = issueMatrixConfig.headers.indexOf(header);
+                          <TableCell sx={{ minWidth: 150, maxWidth: 260, whiteSpace: 'normal', verticalAlign: 'top' }}>
+                            {issueMatrixConfig.row_ids?.[rowIndex] ?? `IM-1-${rowIndex + 1}`}
+                          </TableCell>
+                          {(issueMatrixConfig.headers[0] === 'Application ID' ? issueMatrixConfig.headers.slice(1) : issueMatrixConfig.headers).map((header, offsetIndex) => {
+                            const columnIndex = issueMatrixConfig.headers[0] === 'Application ID' ? offsetIndex + 1 : offsetIndex;
                             return (
-                            <TableCell
-                              key={`${header}-${columnIndex}`}
-                              sx={{ minWidth: 150, maxWidth: 260, whiteSpace: 'normal', verticalAlign: 'top' }}
-                            >
-                              {header === 'Application ID' ? (issueMatrixConfig.row_ids?.[rowIndex] ?? `IM-1-${rowIndex + 1}`) : (row[columnIndex] ?? '')}
-                            </TableCell>
+                              <TableCell
+                                key={`${header}-${columnIndex}`}
+                                sx={{ minWidth: 150, maxWidth: 260, whiteSpace: 'normal', verticalAlign: 'top' }}
+                              >
+                                {row[columnIndex] ?? ''}
+                              </TableCell>
                             );
                           })}
                         </TableRow>

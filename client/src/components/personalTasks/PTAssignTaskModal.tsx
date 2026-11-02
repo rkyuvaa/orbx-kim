@@ -119,6 +119,17 @@ export default function PTAssignTaskModal({ open, onClose, onSuccess }: PTAssign
       onClose={handleClose}
       maxWidth="sm"
       fullWidth
+      sx={{
+        '& .MuiBackdrop-root': {
+          left: '0px !important',
+        },
+        '& .MuiDialog-container': {
+          paddingLeft: '16px !important',
+          paddingRight: '16px !important',
+          justifyContent: 'center',
+          alignItems: 'center',
+        },
+      }}
       PaperProps={{
         sx: {
           borderRadius: 3,
@@ -126,6 +137,9 @@ export default function PTAssignTaskModal({ open, onClose, onSuccess }: PTAssign
           backgroundImage: 'none',
           boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
           p: 0.5,
+          maxWidth: '560px !important',
+          width: '100%',
+          margin: '0 auto',
         },
       }}
     >
