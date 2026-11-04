@@ -30,7 +30,7 @@ class Settings(BaseSettings):
 
     # SMS Provider Settings (TextGuru / HTTP Gateway)
     sms_provider: str = "textguru"
-    sms_api_url: str = "https://www.textguru.in/api/v2/SendSMS.aspx"
+    sms_api_url: str = "https://www.textguru.in/api/v22.0/"
     sms_api_method: str = "GET"
     sms_username: str | None = None
     sms_password: str | None = None

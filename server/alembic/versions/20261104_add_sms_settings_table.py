@@ -28,7 +28,7 @@ def upgrade() -> None:
         'sms_settings',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('provider', sa.String(length=50), nullable=False, server_default='textguru'),
-        sa.Column('api_url', sa.String(length=255), nullable=False, server_default='https://www.textguru.in/api/v2/SendSMS.aspx'),
+        sa.Column('api_url', sa.String(length=255), nullable=False, server_default='https://www.textguru.in/api/v22.0/'),
         sa.Column('api_method', sa.String(length=10), nullable=False, server_default='GET'),
         sa.Column('username', sa.String(length=120), nullable=True),
         sa.Column('password', sa.String(length=255), nullable=True),

@@ -80,7 +80,7 @@ def test_dispatch_sms_with_textguru_mock(monkeypatch):
         template_id="1207161234567890123",
         config={
             "provider": "textguru",
-            "api_url": "https://www.textguru.in/api/v2/SendSMS.aspx",
+            "api_url": "https://www.textguru.in/api/v22.0/",
             "api_method": "GET",
             "username": "myuser",
             "password": "mypassword",
@@ -95,10 +95,10 @@ def test_dispatch_sms_with_textguru_mock(monkeypatch):
     call = recorded_calls[0]
     assert call["params"]["username"] == "myuser"
     assert call["params"]["password"] == "mypassword"
-    assert call["params"]["sendto"] == "9876543210"
-    assert call["params"]["sender"] == "KIMEV"
+    assert call["params"]["dmobile"] == "919876543210"
+    assert call["params"]["source"] == "KIMEV"
+    assert call["params"]["dlttempid"] == "1207161234567890123"
     assert call["params"]["entityid"] == "1201159123456789012"
-    assert call["params"]["templateid"] == "1207161234567890123"
 
 
 def test_sms_settings_api(client, db):

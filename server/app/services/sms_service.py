@@ -103,7 +103,7 @@ def get_effective_sms_config(
         ov = override or {}
 
         provider = ov.get("provider") or (rec.provider if rec and rec.provider else getattr(settings, "sms_provider", "textguru"))
-        api_url = ov.get("api_url") or (rec.api_url if rec and rec.api_url else getattr(settings, "sms_api_url", "https://www.textguru.in/api/v2/SendSMS.aspx"))
+        api_url = ov.get("api_url") or (rec.api_url if rec and rec.api_url else getattr(settings, "sms_api_url", "https://www.textguru.in/api/v22.0/"))
         api_method = (ov.get("api_method") or (rec.api_method if rec and rec.api_method else getattr(settings, "sms_api_method", "GET"))).upper()
         username = ov.get("username") or (rec.username if rec and rec.username else getattr(settings, "sms_username", None))
 
@@ -170,22 +170,27 @@ def dispatch_sms(
         )
         return True, f"Simulated dispatch to {clean_phone} (SMS service disabled or credentials not set)"
 
-    api_url = cfg.get("api_url") or "https://www.textguru.in/api/v2/SendSMS.aspx"
+    api_url = cfg.get("api_url") or "https://www.textguru.in/api/v22.0/"
     api_method = (cfg.get("api_method") or "GET").upper()
     entity_id = cfg.get("entity_id")
 
-    # TextGuru API parameters
+    # TextGuru v22.0 API parameters
+    dmobile_val = f"91{clean_phone}" if len(clean_phone) == 10 else clean_phone
     params: dict[str, str] = {
         "username": str(username),
         "password": str(password),
-        "sendto": clean_phone,
-        "sender": str(sender_id or "KIMEV"),
+        "source": str(sender_id or "KIMEV"),
+        "dmobile": dmobile_val,
         "message": message,
+        # Backward/generic aliases
+        "sender": str(sender_id or "KIMEV"),
+        "sendto": dmobile_val,
     }
+    if template_id:
+        params["dlttempid"] = str(template_id)
+        params["templateid"] = str(template_id)
     if entity_id:
         params["entityid"] = str(entity_id)
-    if template_id:
-        params["templateid"] = str(template_id)
 
     try:
         if httpx is not None:

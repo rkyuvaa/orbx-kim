@@ -76,7 +76,7 @@ export default function SmsGatewayConfigCard() {
     resolver: zodResolver(smsSchema),
     defaultValues: {
       provider: 'textguru',
-      api_url: 'https://www.textguru.in/api/v2/SendSMS.aspx',
+      api_url: 'https://www.textguru.in/api/v22.0/',
       api_method: 'GET',
       username: '',
       password: '',
@@ -98,7 +98,7 @@ export default function SmsGatewayConfigCard() {
     if (sms) {
       reset({
         provider: sms.provider || 'textguru',
-        api_url: sms.api_url || 'https://www.textguru.in/api/v2/SendSMS.aspx',
+        api_url: sms.api_url || 'https://www.textguru.in/api/v22.0/',
         api_method: sms.api_method || 'GET',
         username: sms.username || '',
         password: '',
@@ -200,7 +200,7 @@ export default function SmsGatewayConfigCard() {
             label="TextGuru (India DLT Gateway)"
             onClick={() => {
               setValue('provider', 'textguru');
-              setValue('api_url', 'https://www.textguru.in/api/v2/SendSMS.aspx');
+              setValue('api_url', 'https://www.textguru.in/api/v22.0/');
               setValue('api_method', 'GET');
             }}
             sx={{
@@ -245,7 +245,7 @@ export default function SmsGatewayConfigCard() {
           <TextField
             fullWidth
             label="Gateway API URL"
-            placeholder="https://www.textguru.in/api/v2/SendSMS.aspx"
+            placeholder="https://www.textguru.in/api/v22.0/"
             margin="dense"
             error={Boolean(errors.api_url)}
             helperText={errors.api_url?.message}

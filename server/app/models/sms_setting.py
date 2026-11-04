@@ -11,7 +11,7 @@ class SmsSetting(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, default=1)
     provider: Mapped[str] = mapped_column(String(50), default="textguru", nullable=False)
-    api_url: Mapped[str] = mapped_column(String(255), default="https://www.textguru.in/api/v2/SendSMS.aspx", nullable=False)
+    api_url: Mapped[str] = mapped_column(String(255), default="https://www.textguru.in/api/v22.0/", nullable=False)
     api_method: Mapped[str] = mapped_column(String(10), default="GET", nullable=False)
     username: Mapped[str | None] = mapped_column(String(120), nullable=True)
     password: Mapped[str | None] = mapped_column(String(255), nullable=True)

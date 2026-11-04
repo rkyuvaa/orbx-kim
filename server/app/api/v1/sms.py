@@ -28,7 +28,7 @@ router = APIRouter(
 
 class SmsSettingOut(BaseModel):
     provider: str = "textguru"
-    api_url: str = "https://www.textguru.in/api/v2/SendSMS.aspx"
+    api_url: str = "https://www.textguru.in/api/v22.0/"
     api_method: str = "GET"
     username: str | None = None
     has_password: bool = False
@@ -43,7 +43,7 @@ class SmsSettingOut(BaseModel):
 
 class SmsSettingInput(BaseModel):
     provider: str | None = "textguru"
-    api_url: str | None = "https://www.textguru.in/api/v2/SendSMS.aspx"
+    api_url: str | None = "https://www.textguru.in/api/v22.0/"
     api_method: str | None = "GET"
     username: str | None = None
     password: str | None = None  # None/empty string preserves existing password
@@ -86,7 +86,7 @@ def get_sms_settings(
         rec = SmsSetting(
             id=1,
             provider="textguru",
-            api_url="https://www.textguru.in/api/v2/SendSMS.aspx",
+            api_url="https://www.textguru.in/api/v22.0/",
             api_method="GET",
             sender_id="KIMEV",
             registration_message_template=DEFAULT_REGISTRATION_TEMPLATE,
@@ -126,7 +126,7 @@ def update_sms_settings(
         db.add(rec)
 
     rec.provider = payload.provider.strip() if payload.provider else "textguru"
-    rec.api_url = payload.api_url.strip() if payload.api_url else "https://www.textguru.in/api/v2/SendSMS.aspx"
+    rec.api_url = payload.api_url.strip() if payload.api_url else "https://www.textguru.in/api/v22.0/"
     rec.api_method = payload.api_method.strip().upper() if payload.api_method else "GET"
     rec.username = payload.username.strip() if payload.username else None
     rec.sender_id = payload.sender_id.strip() if payload.sender_id else "KIMEV"
