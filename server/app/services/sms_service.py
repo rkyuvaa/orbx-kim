@@ -1,8 +1,14 @@
 import logging
 import re
+import urllib.parse
+import urllib.request
 from datetime import datetime
 from typing import Any
-import httpx
+
+try:
+    import httpx
+except ImportError:
+    httpx = None  # type: ignore[assignment]
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -182,17 +188,34 @@ def dispatch_sms(
         params["templateid"] = str(template_id)
 
     try:
-        with httpx.Client(timeout=10.0) as client:
+        if httpx is not None:
+            with httpx.Client(timeout=10.0) as client:
+                if api_method == "POST":
+                    resp = client.post(api_url, data=params)
+                else:
+                    resp = client.get(api_url, params=params)
+                resp_text = resp.text.strip()
+                status_code = resp.status_code
+        else:
             if api_method == "POST":
-                resp = client.post(api_url, data=params)
+                post_data = urllib.parse.urlencode(params).encode("utf-8")
+                req = urllib.request.Request(
+                    api_url, data=post_data, headers={"User-Agent": "KIM-ERP/2.0 (SMS Gateway)"}
+                )
             else:
-                resp = client.get(api_url, params=params)
+                sep = "&" if "?" in api_url else "?"
+                query_url = f"{api_url}{sep}{urllib.parse.urlencode(params)}"
+                req = urllib.request.Request(
+                    query_url, headers={"User-Agent": "KIM-ERP/2.0 (SMS Gateway)"}
+                )
+            with urllib.request.urlopen(req, timeout=10.0) as response:
+                resp_text = response.read().decode("utf-8", errors="replace").strip()
+                status_code = response.status
 
-        resp_text = resp.text.strip()
-        logger.info(f"[SMS DISPATCH] URL: {api_url} | Status: {resp.status_code} | Response: {resp_text}")
+        logger.info(f"[SMS DISPATCH] URL: {api_url} | Status: {status_code} | Response: {resp_text}")
 
-        if resp.status_code != 200:
-            return False, f"SMS gateway returned HTTP {resp.status_code}: {resp_text}"
+        if status_code != 200:
+            return False, f"SMS gateway returned HTTP {status_code}: {resp_text}"
 
         # TextGuru error responses check
         resp_lower = resp_text.lower()
