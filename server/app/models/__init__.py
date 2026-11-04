@@ -53,6 +53,7 @@ from app.models.rbac import (
     UserRole as RbacUserRole,
 )
 from app.models.smtp_setting import SmtpSetting
+from app.models.sms_setting import SmsSetting
 from app.models.user import User
 from app.models.app_data import AppDataDocument
 from app.models.automove_rule import StageAutomoveRule
@@ -203,6 +204,7 @@ __all__ = [
     "RolePermission",
     "Sanction",
     "SmtpSetting",
+    "SmsSetting",
     "User",
     "AppDataDocument",
     "UserPermission",

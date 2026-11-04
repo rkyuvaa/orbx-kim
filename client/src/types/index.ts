@@ -390,6 +390,36 @@ export interface SmtpSettingInput {
   is_enabled: boolean;
 }
 
+export interface SmsSetting {
+  provider: string;
+  api_url: string;
+  api_method: 'GET' | 'POST';
+  username?: string | null;
+  has_password: boolean;
+  sender_id?: string | null;
+  entity_id?: string | null;
+  registration_template_id?: string | null;
+  registration_message_template?: string | null;
+  otp_template_id?: string | null;
+  otp_message_template?: string | null;
+  is_enabled: boolean;
+}
+
+export interface SmsSettingInput {
+  provider?: string;
+  api_url?: string;
+  api_method?: 'GET' | 'POST';
+  username?: string | null;
+  password?: string | null;
+  sender_id?: string | null;
+  entity_id?: string | null;
+  registration_template_id?: string | null;
+  registration_message_template?: string | null;
+  otp_template_id?: string | null;
+  otp_message_template?: string | null;
+  is_enabled?: boolean;
+}
+
 export interface CrmTabInput {
   module_id?: string;
   name: string;

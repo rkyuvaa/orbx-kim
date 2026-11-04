@@ -28,6 +28,18 @@ class Settings(BaseSettings):
 
     seed_default_password: str = "Kim@2025"
 
+    # SMS Provider Settings (TextGuru / HTTP Gateway)
+    sms_provider: str = "textguru"
+    sms_api_url: str = "https://www.textguru.in/api/v2/SendSMS.aspx"
+    sms_api_method: str = "GET"
+    sms_username: str | None = None
+    sms_password: str | None = None
+    sms_sender_id: str | None = None
+    sms_entity_id: str | None = None
+    sms_registration_template_id: str | None = None
+    sms_otp_template_id: str | None = None
+    sms_is_enabled: bool = True
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

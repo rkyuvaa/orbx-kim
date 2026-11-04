@@ -64,6 +64,7 @@ import { AppDropdown } from '@/components/ui/AppDropdown';
 import { useToast } from '@/components/ui/ToastHost';
 import { formatDate, formatDateTime } from '@/utils/format';
 import DropdownOptionsPanel from '@/features/configuration/DropdownOptionsPanel';
+import SmsGatewayConfigCard from '@/components/settings/SmsGatewayConfigCard';
 import {
   useCreateVSKitMutation,
   useCreateVSMaintenanceMutation,
@@ -813,6 +814,7 @@ export default function VSConfigurationTab() {
           <Tab value={2} label="2. QR Code Center" />
           <Tab value={4} label="3. Complaint Categories" />
           <Tab value={5} label="4. Issue Matrix config" />
+          <Tab value={6} label="5. SMS Gateway" />
         </Tabs>
       </Box>
 
@@ -1460,6 +1462,15 @@ export default function VSConfigurationTab() {
                   </Typography>
                 </Box>
               )}
+            </Box>
+          )}
+
+          {/* =================================================================
+              SUB-TAB 6: SMS GATEWAY
+          ================================================================== */}
+          {activeTab === 6 && (
+            <Box sx={{ mt: 1 }}>
+              <SmsGatewayConfigCard />
             </Box>
           )}
 

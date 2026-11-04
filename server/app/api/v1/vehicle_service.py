@@ -245,14 +245,24 @@ def _trigger_critical_notifications(
         db.flush()
 
 
-def _trigger_customer_sms(phone: str, complaint_no: str, vehicle_number: str) -> None:
-    """SMS trigger placeholder hook. Can be configured with external SMS gateway API."""
-    msg = (
-        f"KIM EV Service: Your service request {complaint_no} for vehicle {vehicle_number} "
-        f"has been registered. Our technician will contact you shortly."
-    )
-    # Log SMS dispatch for audit & tracking
-    print(f"[SMS TRIGGER] Dispatching SMS to {phone}: '{msg}'")
+def _trigger_customer_sms(
+    phone: str,
+    complaint_no: str,
+    vehicle_number: str = "",
+    db: Session | None = None,
+) -> tuple[bool, str]:
+    """Dispatch complaint registration confirmation SMS via configured 3rd-party provider (TextGuru)."""
+    try:
+        from app.services.sms_service import send_registration_sms
+        return send_registration_sms(
+            phone=phone,
+            complaint_no=complaint_no,
+            vehicle_number=vehicle_number,
+            db=db,
+        )
+    except Exception as e:
+        print("[WARNING] SMS dispatch error:", e)
+        return False, str(e)
 
 
 def _format_complaint_out(c: VSComplaint) -> VSComplaintOut:
@@ -576,7 +586,7 @@ def submit_universal_complaint(
         print("[WARNING] Critical notification error:", e)
 
     try:
-        _trigger_customer_sms(payload.reported_phone, complaint.complaint_no, vehicle.vehicle_number)
+        _trigger_customer_sms(payload.reported_phone, complaint.complaint_no, vehicle.vehicle_number, db=db)
     except Exception as e:
         print("[WARNING] SMS dispatch error:", e)
 
@@ -1533,6 +1543,16 @@ def create_complaint(
 
     _trigger_critical_notifications(db, complaint, vehicle)
 
+    try:
+        _trigger_customer_sms(
+            complaint.reported_phone,
+            complaint.complaint_no,
+            vehicle.vehicle_number,
+            db=db,
+        )
+    except Exception as e:
+        print("[WARNING] SMS dispatch error:", e)
+
     db.commit()
     db.refresh(complaint)
     return _format_complaint_out(complaint)
@@ -1761,10 +1781,24 @@ def close_complaint(
     return _format_complaint_out(complaint)
 
 
-def _send_sms_otp(phone: str, otp_code: str) -> None:
-    """SMS service placeholder - logs OTP for now. Replace with actual SMS gateway integration."""
-    message = f"Your OTP for vehicle service complaint is: {otp_code}. Valid for 5 minutes."
-    print(f"[SMS OTP] Sending to {phone}: {message}")
+def _send_sms_otp(
+    phone: str,
+    otp_code: str,
+    complaint_no: str = "",
+    db: Session | None = None,
+) -> tuple[bool, str]:
+    """Dispatch complaint closure verification OTP via configured 3rd-party provider (TextGuru)."""
+    try:
+        from app.services.sms_service import send_closure_otp_sms
+        return send_closure_otp_sms(
+            phone=phone,
+            complaint_no=complaint_no,
+            otp_code=otp_code,
+            db=db,
+        )
+    except Exception as e:
+        print("[WARNING] SMS OTP dispatch error:", e)
+        return False, str(e)
 
 
 @router.post("/complaints/{complaint_id}/send-otp", response_model=VSSendOTPResponse)
@@ -1791,8 +1825,13 @@ def send_otp(
 
     db.flush()
 
-    # Send OTP via SMS (placeholder)
-    _send_sms_otp(complaint.reported_phone, otp_code)
+    # Send OTP via 3rd-party SMS gateway
+    _send_sms_otp(
+        phone=complaint.reported_phone,
+        otp_code=otp_code,
+        complaint_no=complaint.complaint_no,
+        db=db,
+    )
 
     db.commit()
 

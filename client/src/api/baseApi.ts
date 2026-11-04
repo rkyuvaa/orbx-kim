@@ -95,6 +95,7 @@ export const baseApi = createApi({
     'PlannedActivities',
     'Stages',
     'SmtpSettings',
+    'SmsSettings',
     'Tabs',
     'Users',
     'VehicleModels',

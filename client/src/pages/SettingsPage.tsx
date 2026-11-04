@@ -11,11 +11,13 @@ import {
   MapPin,
   Hash,
   Settings2,
+  MessageSquare,
 } from 'lucide-react';
 
 import { useAppSelector } from '@/app/hooks';
 import { usePermission } from '@/context/AuthPermissionContext';
 import MailServerConfigCard from '@/components/settings/MailServerConfigCard';
+import SmsGatewayConfigCard from '@/components/settings/SmsGatewayConfigCard';
 import SystemBackupCard from '@/components/settings/SystemBackupCard';
 import DocumentNumberingTab from '@/components/settings/DocumentNumberingTab';
 import CustomFieldsAdminCard from '@/components/settings/CustomFieldsAdminCard';
@@ -75,6 +77,7 @@ export default function SettingsPage() {
     tabs.push({ key: 'custom_fields', label: 'Custom Fields', icon: <Settings2 size={16} /> });
   }
   tabs.push({ key: 'mail', label: 'Mail Server (SMTP)', icon: <Mail size={16} /> });
+  tabs.push({ key: 'sms', label: 'SMS Gateway (TextGuru)', icon: <MessageSquare size={16} /> });
   if (canBackup) {
     tabs.push({ key: 'backup', label: 'System Data Backup', icon: <Database size={16} /> });
   }
@@ -188,6 +191,8 @@ export default function SettingsPage() {
                     {t.key === 'custom_fields' && <CustomFieldsAdminCard />}
 
                     {t.key === 'mail' && <MailServerConfigCard />}
+
+                    {t.key === 'sms' && <SmsGatewayConfigCard />}
 
                     {t.key === 'backup' && <SystemBackupCard />}
         </CustomTabPanel>
