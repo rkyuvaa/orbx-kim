@@ -52,6 +52,7 @@ import {
 import { useApplicationsQuery } from '@/api/applicationsApi';
 import { useUsersQuery } from '@/api/mastersApi';
 import { useToast } from '@/components/ui/ToastHost';
+import { usePermission } from '@/context/AuthPermissionContext';
 import { time24To12, time12To24 } from '@/utils/format';
 import { useDatabaseStoredState } from '@/hooks/useDatabaseStoredState';
 
@@ -64,6 +65,7 @@ export default function ProjectsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const { showToast } = useToast();
+  const { can } = usePermission();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
 
@@ -181,34 +183,38 @@ export default function ProjectsPage() {
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', mb: 2.5 }}>
 
         <Box sx={{ display: 'flex', gap: 1.5 }}>
-          <Button
-            variant="outlined"
-            startIcon={<Upload size={18} />}
-            onClick={() => setImportDialogOpen(true)}
-            sx={{
-              borderColor: '#cbd5e1',
-              color: '#334155',
-              borderRadius: '8px',
-              textTransform: 'none',
-              fontWeight: 600,
-            }}
-          >
-            Import
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<Plus size={18} />}
-            onClick={() => setCreateOpen(true)}
-            sx={{
-              backgroundColor: '#203020',
-              '&:hover': { backgroundColor: '#2A402A' },
-              borderRadius: '8px',
-              textTransform: 'none',
-              fontWeight: 600,
-            }}
-          >
-            New Project
-          </Button>
+          {can('import', 'projects') && (
+            <Button
+              variant="outlined"
+              startIcon={<Upload size={18} />}
+              onClick={() => setImportDialogOpen(true)}
+              sx={{
+                borderColor: '#cbd5e1',
+                color: '#334155',
+                borderRadius: '8px',
+                textTransform: 'none',
+                fontWeight: 600,
+              }}
+            >
+              Import
+            </Button>
+          )}
+          {can('create', 'projects') && (
+            <Button
+              variant="contained"
+              startIcon={<Plus size={18} />}
+              onClick={() => setCreateOpen(true)}
+              sx={{
+                backgroundColor: '#203020',
+                '&:hover': { backgroundColor: '#2A402A' },
+                borderRadius: '8px',
+                textTransform: 'none',
+                fontWeight: 600,
+              }}
+            >
+              New Project
+            </Button>
+          )}
         </Box>
       </Box>
 
@@ -368,9 +374,11 @@ export default function ProjectsPage() {
                               />
                             );
                           })()}
-                          <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleDelete(project.id); }} sx={{ color: '#EF4444' }}>
-                            <Trash2 size={16} />
-                          </IconButton>
+                          {can('delete', 'projects') && (
+                            <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleDelete(project.id); }} sx={{ color: '#EF4444' }}>
+                              <Trash2 size={16} />
+                            </IconButton>
+                          )}
                         </Box>
                       </Box>
 

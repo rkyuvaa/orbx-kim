@@ -1,6 +1,7 @@
 import json
 from typing import Any
 from fastapi import Request
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.models.rbac import (
@@ -225,34 +226,59 @@ def can_user(
 
     # Parse inputs to resolve module, resource, and action
     module_code = None
-    resolved_resource = resource_code
-    resolved_action = action_code
+    resolved_resource = (resource_code or "").lower().strip()
+    resolved_action = (action_code or "").lower().strip()
+
+    RESOURCE_ALIASES: dict[str, str] = {
+        "complaints": "vs_work_orders",
+        "work_orders": "vs_work_orders",
+        "kits": "vs_configuration",
+        "vehicle_service": "vs_dashboard",
+        "vehicle_service_module": "vs_dashboard",
+        "onboarding": "hr_onboarding",
+        "recruitment": "hr_recruitment",
+        "attendance": "hr_attendance",
+        "leave": "hr_leave",
+        "payroll": "hr_payroll",
+        "self_service": "hr_self_service",
+    }
 
     if ":" in resource_code:
         parts = resource_code.split(":")
         if len(parts) == 3:
-            module_code, resolved_resource, resolved_action = parts[0], parts[1], parts[2]
+            module_code, resolved_resource, resolved_action = parts[0].lower().strip(), parts[1].lower().strip(), parts[2].lower().strip()
         elif len(parts) == 2:
-            if parts[1] in ["view", "create", "edit", "delete", "export", "import", "approve"]:
-                resolved_resource, resolved_action = parts[0], parts[1]
+            if parts[1].lower().strip() in ["view", "create", "edit", "delete", "export", "import", "approve"]:
+                resolved_resource, resolved_action = parts[0].lower().strip(), parts[1].lower().strip()
             else:
-                module_code, resolved_resource = parts[0], parts[1]
+                module_code, resolved_resource = parts[0].lower().strip(), parts[1].lower().strip()
+
+    if resolved_resource in RESOURCE_ALIASES:
+        resolved_resource = RESOURCE_ALIASES[resolved_resource]
 
     # Find matching permission in DB
     perm_query = db.query(Permission).join(Permission.resource).join(Permission.action)
     if module_code:
-        perm_query = perm_query.join(Permission.module).filter(Module.code == module_code)
+        perm_query = perm_query.join(Permission.module).filter(func.lower(Module.code) == module_code)
 
     perm = perm_query.filter(
-        Resource.code == resolved_resource,
-        Action.code == resolved_action
+        func.lower(Resource.code) == resolved_resource,
+        func.lower(Action.code) == resolved_action
     ).first()
 
     if not perm:
         # Secondary fallback: search by code ending with :resource_code:action_code
-        perm = db.query(Permission).filter(Permission.code.endswith(f":{resolved_resource}:{resolved_action}")).first()
+        perm = db.query(Permission).filter(Permission.code.ilike(f"%:{resolved_resource}:{resolved_action}")).first()
 
     if not perm:
+        # Module-level view check: if resolved_resource is a module code and action is view,
+        # grant if user has view permission on any resource in that module
+        if resolved_action == "view":
+            mod = db.query(Module).filter(or_(func.lower(Module.code) == resolved_resource, func.lower(Module.name) == resolved_resource)).first()
+            if mod:
+                for res in mod.resources:
+                    if can_user(db, user, "view", res.code, record):
+                        return True
         # Permission not registered or resource unmapped -> Default Deny
         return False
 

@@ -38,7 +38,7 @@ from app.schemas.hr import (
     DepartmentAttendanceReport,
 )
 
-router = APIRouter(prefix="/hr", tags=["hr"], dependencies=[Depends(require_permission("view", "hr_master"))])
+router = APIRouter(prefix="/hr", tags=["hr"])
 
 
 def _log_activity(
@@ -140,7 +140,7 @@ def list_attendance(
     limit: int = Query(200, ge=1, le=1000),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("view", "hr_attendance")),
 ):
     """List attendance records with filters and eager-loaded user profiles"""
     query = db.query(Attendance).options(joinedload(Attendance.user))
@@ -163,7 +163,7 @@ def list_attendance(
 def get_attendance(
     id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("view", "hr_attendance")),
 ):
     """Get single attendance record"""
     record = db.query(Attendance).filter(Attendance.id == id).first()
@@ -178,7 +178,7 @@ def update_attendance(
     id: int,
     payload: AttendanceUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("edit", "hr_attendance")),
 ):
     """Update attendance record"""
     record = db.query(Attendance).filter(Attendance.id == id).first()
@@ -208,7 +208,7 @@ def update_attendance(
 def delete_attendance(
     id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("delete", "hr_attendance")),
 ):
     """Delete attendance record"""
     record = db.query(Attendance).filter(Attendance.id == id).first()
@@ -334,7 +334,7 @@ def reject_leave_request(
     id: int,
     payload: LeaveRequestReject,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("approve", "hr_leave")),
 ):
     """Reject leave request (HR/Manager only)"""
     leave_request = db.query(LeaveRequest).filter(LeaveRequest.id == id).first()
@@ -371,7 +371,7 @@ def reject_leave_request(
 def create_payroll_record(
     payload: PayrollRecordCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("create", "hr_payroll")),
 ):
     """Create payroll record"""
     # Verify user exists
@@ -410,7 +410,7 @@ def list_payroll_records(
     limit: int = Query(200, ge=1, le=1000),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("view", "hr_payroll")),
 ):
     """List payroll records with filters and eager loaded user"""
     query = db.query(PayrollRecord).options(joinedload(PayrollRecord.user))
@@ -434,7 +434,7 @@ def update_payroll_record(
     id: int,
     payload: PayrollRecordUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("edit", "hr_payroll")),
 ):
     """Update payroll record"""
     record = db.query(PayrollRecord).filter(PayrollRecord.id == id).first()

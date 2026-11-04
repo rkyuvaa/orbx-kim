@@ -9,8 +9,10 @@ import {
   useGetPermissionsRegistryQuery,
 } from '../../api/rbacApi';
 import type { PermissionStatus, Role } from '../../types/rbac';
+import { usePermission } from '../../context/AuthPermissionContext';
 
 export default function RoleManagementPage() {
+  const { can } = usePermission();
   const { data: rolesList, isLoading, refetch } = useGetRolesQuery();
   const { data: registry } = useGetPermissionsRegistryQuery();
 
@@ -114,28 +116,30 @@ export default function RoleManagementPage() {
             Configure dynamic system roles, action matrices, and data scopes without code changes.
           </p>
         </div>
-        <button
-          onClick={() => {
-            setIsCreateOpen(true);
-            setSelectedPermIds([]);
-          }}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '10px 18px',
-            background: '#16C47F',
-            color: '#FFFFFF',
-            borderRadius: 10,
-            fontWeight: 700,
-            fontSize: 13.5,
-            border: 'none',
-            cursor: 'pointer',
-            boxShadow: '0 4px 12px rgba(8, 122, 61, 0.25)',
-          }}
-        >
-          <Plus size={18} /> Create New Role
-        </button>
+        {can('create', 'roles') && (
+          <button
+            onClick={() => {
+              setIsCreateOpen(true);
+              setSelectedPermIds([]);
+            }}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '10px 18px',
+              background: '#16C47F',
+              color: '#FFFFFF',
+              borderRadius: 10,
+              fontWeight: 700,
+              fontSize: 13.5,
+              border: 'none',
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(8, 122, 61, 0.25)',
+            }}
+          >
+            <Plus size={18} /> Create New Role
+          </button>
+        )}
       </div>
 
       {/* Roles Grid / Table */}
@@ -197,28 +201,32 @@ export default function RoleManagementPage() {
                   </td>
                   <td style={{ padding: '12px 16px', textAlign: 'right' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
-                      <button
-                        title="Duplicate Role"
-                        onClick={() => {
-                          setDuplicateRoleId(r.id);
-                          setDupForm({ new_name: `${r.name} (Copy)`, new_code: `${r.code}_copy`, description: r.description || '' });
-                        }}
-                        style={{ padding: 6, borderRadius: 6, border: '1px solid #D8E2D5', background: '#FFF', cursor: 'pointer', color: '#16C47F' }}
-                      >
-                        <Copy size={15} />
-                      </button>
-                      <button
-                        title="Edit Matrix"
-                        onClick={() => {
-                          setEditingRole(r);
-                          setForm({ name: r.name, code: r.code, description: r.description || '', status: r.status });
-                          setSelectedPermIds(r.permission_ids || []);
-                        }}
-                        style={{ padding: 6, borderRadius: 6, border: '1px solid #D8E2D5', background: '#FFF', cursor: 'pointer', color: '#0369A1' }}
-                      >
-                        <Edit2 size={15} />
-                      </button>
-                      {!r.is_system && (
+                      {can('create', 'roles') && (
+                        <button
+                          title="Duplicate Role"
+                          onClick={() => {
+                            setDuplicateRoleId(r.id);
+                            setDupForm({ new_name: `${r.name} (Copy)`, new_code: `${r.code}_copy`, description: r.description || '' });
+                          }}
+                          style={{ padding: 6, borderRadius: 6, border: '1px solid #D8E2D5', background: '#FFF', cursor: 'pointer', color: '#16C47F' }}
+                        >
+                          <Copy size={15} />
+                        </button>
+                      )}
+                      {can('edit', 'roles') && (
+                        <button
+                          title="Edit Matrix"
+                          onClick={() => {
+                            setEditingRole(r);
+                            setForm({ name: r.name, code: r.code, description: r.description || '', status: r.status });
+                            setSelectedPermIds(r.permission_ids || []);
+                          }}
+                          style={{ padding: 6, borderRadius: 6, border: '1px solid #D8E2D5', background: '#FFF', cursor: 'pointer', color: '#0369A1' }}
+                        >
+                          <Edit2 size={15} />
+                        </button>
+                      )}
+                      {!r.is_system && can('delete', 'roles') && (
                         <button
                           title="Delete Role"
                           onClick={() => handleDelete(r.id, r.name)}

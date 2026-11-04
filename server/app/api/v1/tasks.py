@@ -929,11 +929,15 @@ def list_tasks(
         # Projects Tasks scope: Show ONLY project tasks
         query = query.filter(Task.is_personal == False)
         
-        # Mandatory security: Normal users can only see project tasks assigned to them
-        if current_user.role != UserRole.ADMIN:
+        # Mandatory security: Normal users can only see project tasks assigned to or created by them
+        from app.services.rbac_service import get_user_active_roles
+        _roles = get_user_active_roles(db, current_user)
+        _is_admin = current_user.role == UserRole.ADMIN or any(r.code in ("super_admin", "admin") for r in _roles if r and r.code)
+        if not _is_admin:
             query = query.filter(
                 or_(
                     Task.assignee_id == current_user.id,
+                    Task.created_by == current_user.id,
                     Task.id.in_(db.query(TaskAssignee.task_id).filter(TaskAssignee.user_id == current_user.id))
                 )
             )
@@ -1029,12 +1033,19 @@ def _get_task_or_404_with_auth(db: Session, task_id: int, current_user: User) ->
     if not task or task.is_deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
         
-    if current_user.role != UserRole.ADMIN:
+    from app.services.rbac_service import get_user_active_roles
+    _roles = get_user_active_roles(db, current_user)
+    _is_admin = current_user.role == UserRole.ADMIN or any(r.code in ("super_admin", "admin") for r in _roles if r and r.code)
+    if not _is_admin:
         if task.is_personal:
             if task.created_by != current_user.id:
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to access this personal task")
         else:
-            is_assigned = task.assignee_id == current_user.id or any(a.user_id == current_user.id for a in task.assignees)
+            is_assigned = (
+                task.assignee_id == current_user.id
+                or task.created_by == current_user.id
+                or any(a.user_id == current_user.id for a in task.assignees)
+            )
             if not is_assigned:
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to access this project task")
             

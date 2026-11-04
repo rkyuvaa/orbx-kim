@@ -84,7 +84,6 @@ def test_rbac_admin_full_crud(seeded_client, db):
     user_del = seeded_client.delete(f"/api/v1/admin/users/{created_user_id}", headers=headers)
     assert user_del.status_code == 204
 
-    # Confirm soft deleted status
+    # Confirm user is deleted
     user_after_del = seeded_client.get(f"/api/v1/admin/users/{created_user_id}", headers=headers)
-    assert user_after_del.status_code == 200
-    assert user_after_del.json()["status"] == "INACTIVE"
+    assert user_after_del.status_code == 404

@@ -552,6 +552,7 @@ export default function VSWorkOrdersTab() {
   const canDeleteWorkOrder =
     isSuperAdmin ||
     currentUser?.role === 'ADMIN' ||
+    can('delete', 'vs_work_orders') ||
     can('delete', 'complaints') ||
     can('delete', 'vehicle_service');
 
@@ -1751,24 +1752,26 @@ export default function VSWorkOrdersTab() {
           </Box>
         </Box>
 
-        <Button
-          variant="contained"
-          startIcon={<Plus size={16} />}
-          onClick={handleOpenNewDialog}
-          sx={{
-            borderRadius: 2,
-            textTransform: 'none',
-            fontWeight: 700,
-            bgcolor: '#2563eb',
-            '&:hover': { bgcolor: '#1d4ed8' },
-            px: 2.2,
-            py: 1,
-            boxShadow: '0 2px 6px rgba(37,99,235,0.25)',
-            flexShrink: 0,
-          }}
-        >
-          Create Work Order
-        </Button>
+        {(isSuperAdmin || can('create', 'vs_work_orders') || can('create', 'vehicle_service')) && (
+          <Button
+            variant="contained"
+            startIcon={<Plus size={16} />}
+            onClick={handleOpenNewDialog}
+            sx={{
+              borderRadius: 2,
+              textTransform: 'none',
+              fontWeight: 700,
+              bgcolor: '#2563eb',
+              '&:hover': { bgcolor: '#1d4ed8' },
+              px: 2.2,
+              py: 1,
+              boxShadow: '0 2px 6px rgba(37,99,235,0.25)',
+              flexShrink: 0,
+            }}
+          >
+            Create Work Order
+          </Button>
+        )}
       </Box>
 
       {/* Filters */}

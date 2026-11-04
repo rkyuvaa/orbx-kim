@@ -1111,7 +1111,11 @@ def update_kit(
         from app.services.rbac_service import get_user_active_roles, can_user
         roles = get_user_active_roles(db, current_user)
         is_super = any(r.code in ("super_admin", "admin") for r in roles if r and r.code)
-        can_edit = can_user(db, current_user, "edit", "vehicle_service") or can_user(db, current_user, "edit", "kits")
+        can_edit = (
+            can_user(db, current_user, "edit", "vs_configuration")
+            or can_user(db, current_user, "edit", "vehicle_service")
+            or can_user(db, current_user, "edit", "kits")
+        )
         if not is_super and not can_edit:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -2065,7 +2069,11 @@ def delete_complaint(
         from app.services.rbac_service import get_user_active_roles, can_user
         roles = get_user_active_roles(db, current_user)
         is_super = any(r.code in ("super_admin", "admin") for r in roles if r and r.code)
-        can_del = can_user(db, current_user, "delete", "complaints") or can_user(db, current_user, "delete", "vehicle_service")
+        can_del = (
+            can_user(db, current_user, "delete", "vs_work_orders")
+            or can_user(db, current_user, "delete", "complaints")
+            or can_user(db, current_user, "delete", "vehicle_service")
+        )
         if not is_super and not can_del:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,

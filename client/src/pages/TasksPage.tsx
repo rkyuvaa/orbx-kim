@@ -42,6 +42,7 @@ import {
 } from '@/api/projectsApi';
 import { useUsersQuery } from '@/api/mastersApi';
 import { useToast } from '@/components/ui/ToastHost';
+import { usePermission } from '@/context/AuthPermissionContext';
 
 import { useAppSelector } from '@/app/hooks';
 import TaskListView from '@/components/projects/TaskListView';
@@ -60,6 +61,7 @@ interface TasksPageProps {
 export default function TasksPage({ defaultView = 'list', defaultScope = 'all' }: TasksPageProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
+  const { can } = usePermission();
   const [activeView, setActiveView] = useState<ActiveView>(defaultView);
   const [taskScope, setTaskScope] = useState<TaskScope>(defaultScope);
   const currentUser = useAppSelector((state) => state.auth.user);
@@ -205,38 +207,42 @@ export default function TasksPage({ defaultView = 'list', defaultScope = 'all' }
         </Typography>
 
         <Box sx={{ display: 'flex', gap: 1.5 }}>
-          <Button
-            variant="outlined"
-            startIcon={<Upload size={18} />}
-            onClick={() => setImportDialogOpen(true)}
-            sx={{
-              borderColor: '#cbd5e1',
-              color: '#334155',
-              borderRadius: '8px',
-              textTransform: 'none',
-              fontWeight: 700,
-              px: 2,
-              py: 1,
-            }}
-          >
-            Import
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<Plus size={18} />}
-            onClick={() => setCreateOpen(true)}
-            sx={{
-              bgcolor: '#203020',
-              '&:hover': { bgcolor: '#2A402A' },
-              borderRadius: '8px',
-              textTransform: 'none',
-              fontWeight: 700,
-              px: 2.5,
-              py: 1,
-            }}
-          >
-            New Task
-          </Button>
+          {can('import', 'tasks') && (
+            <Button
+              variant="outlined"
+              startIcon={<Upload size={18} />}
+              onClick={() => setImportDialogOpen(true)}
+              sx={{
+                borderColor: '#cbd5e1',
+                color: '#334155',
+                borderRadius: '8px',
+                textTransform: 'none',
+                fontWeight: 700,
+                px: 2,
+                py: 1,
+              }}
+            >
+              Import
+            </Button>
+          )}
+          {can('create', 'tasks') && (
+            <Button
+              variant="contained"
+              startIcon={<Plus size={18} />}
+              onClick={() => setCreateOpen(true)}
+              sx={{
+                bgcolor: '#203020',
+                '&:hover': { bgcolor: '#2A402A' },
+                borderRadius: '8px',
+                textTransform: 'none',
+                fontWeight: 700,
+                px: 2.5,
+                py: 1,
+              }}
+            >
+              New Task
+            </Button>
+          )}
         </Box>
       </Box>
 
@@ -439,7 +445,7 @@ export default function TasksPage({ defaultView = 'list', defaultScope = 'all' }
               onSelectAllTasks={handleSelectAllTasks}
               onOpenTaskDetail={handleOpenDetail}
               onOpenTaskDetailWithDep={handleOpenDetailWithDep}
-              onDeleteTask={handleDeleteTask}
+              onDeleteTask={can('delete', 'tasks') ? handleDeleteTask : undefined}
             />
           )}
 
@@ -447,8 +453,8 @@ export default function TasksPage({ defaultView = 'list', defaultScope = 'all' }
             <TaskBoardView
               tasks={filteredTasks}
               onOpenTaskDetail={handleOpenDetail}
-              onDeleteTask={handleDeleteTask}
-              onQuickCreateTask={() => setCreateOpen(true)}
+              onDeleteTask={can('delete', 'tasks') ? handleDeleteTask : undefined}
+              onQuickCreateTask={can('create', 'tasks') ? () => setCreateOpen(true) : undefined}
             />
           )}
         </>

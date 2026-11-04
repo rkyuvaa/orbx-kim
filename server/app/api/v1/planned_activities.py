@@ -127,7 +127,7 @@ def update_planned_activity(
     payload: PlannedActivityUpdate,
     app: Application = Depends(require_application_access),
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_permission("edit", "activities")),
 ):
     act = db.get(PlannedActivity, act_id)
     if not act or act.application_id != app.id:

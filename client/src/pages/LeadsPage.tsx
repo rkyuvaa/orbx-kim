@@ -59,6 +59,7 @@ import Pipeline from '@/components/ui/Pipeline';
 import { LoadingRows } from '@/components/ui/PageState';
 import { formatAmount, formatDate, statusMeta } from '@/utils/format';
 import { useToast } from '@/components/ui/ToastHost';
+import { usePermission } from '@/context/AuthPermissionContext';
 import type { ApplicationItem, ApplicationStatus, PipelineStage } from '@/types';
 
 const LEAD_TABLE_COLUMNS: { field?: string; label: string; sortable?: boolean; align?: 'left' | 'center' | 'right' }[] = [
@@ -134,6 +135,8 @@ export default function LeadsPage() {
   const [bulkChangeStatus, { isLoading: changingStatus }] = useBulkChangeStatusMutation();
   const [bulkDeleteLeads, { isLoading: deletingLeads }] = useBulkDeleteLeadsMutation();
   const { showToast } = useToast();
+  const { can } = usePermission();
+  const currentResource = isOpportunityRoute ? 'opportunities' : 'leads';
 
   const isLeadStageKey = (key: string, status?: string | null) => {
     if (status === 'LEAD') return true;
@@ -463,42 +466,48 @@ export default function LeadsPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {selectedIds.size > 0 && !isOpportunityRoute && (
             <>
-              <Button
-                size="small"
-                variant="outlined"
-                startIcon={<Edit size={14} />}
-                onClick={() => {
-                  setBulkActionType('assign');
-                  setBulkActionDialogOpen(true);
-                }}
-                sx={{ textTransform: 'none', fontWeight: 600 }}
-              >
-                Assign
-              </Button>
-              <Button
-                size="small"
-                variant="outlined"
-                onClick={() => {
-                  setBulkActionType('status');
-                  setBulkActionDialogOpen(true);
-                }}
-                sx={{ textTransform: 'none', fontWeight: 600 }}
-              >
-                Change Status
-              </Button>
-              <Button
-                size="small"
-                variant="outlined"
-                color="error"
-                startIcon={<Trash2 size={14} />}
-                onClick={() => {
-                  setBulkActionType('delete');
-                  setBulkActionDialogOpen(true);
-                }}
-                sx={{ textTransform: 'none', fontWeight: 600 }}
-              >
-                Delete
-              </Button>
+              {can('edit', currentResource) && (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<Edit size={14} />}
+                  onClick={() => {
+                    setBulkActionType('assign');
+                    setBulkActionDialogOpen(true);
+                  }}
+                  sx={{ textTransform: 'none', fontWeight: 600 }}
+                >
+                  Assign
+                </Button>
+              )}
+              {can('edit', currentResource) && (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => {
+                    setBulkActionType('status');
+                    setBulkActionDialogOpen(true);
+                  }}
+                  sx={{ textTransform: 'none', fontWeight: 600 }}
+                >
+                  Change Status
+                </Button>
+              )}
+              {can('delete', currentResource) && (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="error"
+                  startIcon={<Trash2 size={14} />}
+                  onClick={() => {
+                    setBulkActionType('delete');
+                    setBulkActionDialogOpen(true);
+                  }}
+                  sx={{ textTransform: 'none', fontWeight: 600 }}
+                >
+                  Delete
+                </Button>
+              )}
             </>
           )}
 
@@ -541,43 +550,49 @@ export default function LeadsPage() {
             </ToggleButton>
           </ToggleButtonGroup>
 
-          <Button
-            variant="outlined"
-            startIcon={<Upload size={16} />}
-            onClick={() => setImportDialogOpen(true)}
-            sx={{ height: 38, borderRadius: '10px', px: 2, borderColor: '#cbd5e1', color: '#334155', textTransform: 'none', fontWeight: 600 }}
-          >
-            Import
-          </Button>
+          {can('import', currentResource) && (
+            <Button
+              variant="outlined"
+              startIcon={<Upload size={16} />}
+              onClick={() => setImportDialogOpen(true)}
+              sx={{ height: 38, borderRadius: '10px', px: 2, borderColor: '#cbd5e1', color: '#334155', textTransform: 'none', fontWeight: 600 }}
+            >
+              Import
+            </Button>
+          )}
 
-          <Button
-            variant="contained"
-            startIcon={<Plus size={16} />}
-            onClick={() => setCreateOpen(true)}
-            sx={{ height: 38, borderRadius: '10px', px: 2.5 }}
-          >
-            New Lead
-          </Button>
+          {can('create', 'leads') && (
+            <Button
+              variant="contained"
+              startIcon={<Plus size={16} />}
+              onClick={() => setCreateOpen(true)}
+              sx={{ height: 38, borderRadius: '10px', px: 2.5 }}
+            >
+              New Lead
+            </Button>
+          )}
 
-          <Button
-            variant="outlined"
-            startIcon={<Sparkles size={16} />}
-            onClick={() => setCreateOppOpen(true)}
-            sx={{
-              height: 38,
-              borderRadius: '10px',
-              px: 2,
-              borderColor: '#2563EB',
-              color: '#2563EB',
-              fontWeight: 600,
-              '&:hover': {
-                borderColor: '#1D4ED8',
-                background: 'rgba(37, 99, 235, 0.04)',
-              },
-            }}
-          >
-            + Opportunity
-          </Button>
+          {can('create', 'opportunities') && (
+            <Button
+              variant="outlined"
+              startIcon={<Sparkles size={16} />}
+              onClick={() => setCreateOppOpen(true)}
+              sx={{
+                height: 38,
+                borderRadius: '10px',
+                px: 2,
+                borderColor: '#2563EB',
+                color: '#2563EB',
+                fontWeight: 600,
+                '&:hover': {
+                  borderColor: '#1D4ED8',
+                  background: 'rgba(37, 99, 235, 0.04)',
+                },
+              }}
+            >
+              + Opportunity
+            </Button>
+          )}
         </div>
       </div>
 
@@ -985,35 +1000,38 @@ export default function LeadsPage() {
           setMenuFor(null);
         }}
       >
-
-        <MenuItem
-          onClick={async () => {
-            if (!menuFor) return;
-            try {
-              await deleteApplication(menuFor.id).unwrap();
-              showToast(`Lead ${menuFor.app_no} deleted`, 'success');
-            } catch {
-              showToast('Could not delete the lead', 'error');
-            }
-            setMenuAnchor(null);
-            setMenuFor(null);
-          }}
-          sx={{ color: '#DC2626' }}
-        >
-          <Trash2 size={15} style={{ marginRight: 9 }} /> Delete
-        </MenuItem>
-        <MenuItem
-          onClick={() => {
-            if (menuFor) {
-              navigate(`${detailPrefix}/${menuFor.id}`);
-            }
-            setMenuAnchor(null);
-            setMenuFor(null);
-          }}
-          sx={{ color: '#1976D2' }}
-        >
-          <Edit size={15} style={{ marginRight: 9 }} /> Edit
-        </MenuItem>
+        {can('delete', currentResource) && (
+          <MenuItem
+            onClick={async () => {
+              if (!menuFor) return;
+              try {
+                await deleteApplication(menuFor.id).unwrap();
+                showToast(`Lead ${menuFor.app_no} deleted`, 'success');
+              } catch {
+                showToast('Could not delete the lead', 'error');
+              }
+              setMenuAnchor(null);
+              setMenuFor(null);
+            }}
+            sx={{ color: '#DC2626' }}
+          >
+            <Trash2 size={15} style={{ marginRight: 9 }} /> Delete
+          </MenuItem>
+        )}
+        {can('edit', currentResource) && (
+          <MenuItem
+            onClick={() => {
+              if (menuFor) {
+                navigate(`${detailPrefix}/${menuFor.id}`);
+              }
+              setMenuAnchor(null);
+              setMenuFor(null);
+            }}
+            sx={{ color: '#1976D2' }}
+          >
+            <Edit size={15} style={{ marginRight: 9 }} /> Edit
+          </MenuItem>
+        )}
       </Menu>
 
       <NewApplicationDialog title="New Lead" open={createOpen} onClose={() => setCreateOpen(false)} />

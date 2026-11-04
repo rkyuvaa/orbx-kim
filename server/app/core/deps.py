@@ -111,18 +111,20 @@ def can_access_application(user: User, app: Application, db: Session | None = No
     if user.role == UserRole.ADMIN:
         return True
 
+    active_role_codes: set[str] = set()
     if db is not None:
         from app.services.rbac_service import get_user_active_roles
         active_roles = get_user_active_roles(db, user)
-        if any(r.code.lower() in ["super_admin", "admin"] for r in active_roles if r and r.code):
+        active_role_codes = {r.code.lower() for r in active_roles if r and r.code}
+        if any(c in ["super_admin", "admin", "sales_manager"] for c in active_role_codes):
             return True
 
     # Sales executives can access their assigned applications
-    if user.role == UserRole.SALES_EXECUTIVE:
+    if user.role == UserRole.SALES_EXECUTIVE or "sales_executive" in active_role_codes:
         return app.assigned_to == user.id
 
     # Finance officers can access applications in finance-related stages
-    if user.role == UserRole.FINANCE_OFFICER:
+    if user.role == UserRole.FINANCE_OFFICER or "finance_officer" in active_role_codes:
         finance_stages = {
             ApplicationStatus.FINANCE,
             ApplicationStatus.QUERY,
@@ -131,7 +133,7 @@ def can_access_application(user: User, app: Application, db: Session | None = No
         return app.status in finance_stages
 
     # Delivery team can access applications in delivery/disbursement stages
-    if user.role == UserRole.DELIVERY_TEAM:
+    if user.role == UserRole.DELIVERY_TEAM or "delivery_team" in active_role_codes:
         delivery_stages = {
             ApplicationStatus.DELIVERY,
             ApplicationStatus.DISBURSEMENT,

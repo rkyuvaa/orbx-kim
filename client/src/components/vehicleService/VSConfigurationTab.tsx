@@ -269,6 +269,7 @@ export default function VSConfigurationTab() {
   const isAdmin =
     isSuperAdmin ||
     currentUser?.role === 'ADMIN' ||
+    can('edit', 'vs_configuration') ||
     can('edit', 'kits') ||
     can('edit', 'vehicle_service');
 

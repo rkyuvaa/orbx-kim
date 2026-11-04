@@ -67,6 +67,7 @@ import { useTableSort } from '../hooks/useTableSort';
 import ErpSortHeaderCell from '../components/ui/ErpSortHeaderCell';
 import UniversalImportModal from '@/components/ui/UniversalImportModal';
 import { useToast } from '@/components/ui/ToastHost';
+import { usePermission } from '@/context/AuthPermissionContext';
 import { useDatabaseStoredState } from '@/hooks/useDatabaseStoredState';
 import {
   useListAttendanceQuery,
@@ -124,6 +125,7 @@ const HR_NAV_ITEMS = [
 
 export default function HRPage() {
   const { showToast } = useToast();
+  const { can } = usePermission();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -346,82 +348,98 @@ export default function HRPage() {
         <Stack direction="row" spacing={1.5}>
           {HR_NAV_ITEMS[tabValue]?.key === 'onboarding' && (
             <>
-              <Button
-                variant="outlined"
-                startIcon={<Upload size={18} />}
-                onClick={() => setImportDialog(true)}
-                sx={{ borderColor: '#cbd5e1', color: '#334155', textTransform: 'none', borderRadius: 2 }}
-              >
-                Import
-              </Button>
-              <Button
-                variant="contained"
-                startIcon={<Plus size={18} />}
-                onClick={() => navigate('/hr/onboarding/new')}
-                sx={{ bgcolor: '#16C47F', '&:hover': { bgcolor: '#12A66C' }, textTransform: 'none', borderRadius: 2 }}
-              >
-                New On/Offboarding
-              </Button>
+              {can('import', 'hr_onboarding') && (
+                <Button
+                  variant="outlined"
+                  startIcon={<Upload size={18} />}
+                  onClick={() => setImportDialog(true)}
+                  sx={{ borderColor: '#cbd5e1', color: '#334155', textTransform: 'none', borderRadius: 2 }}
+                >
+                  Import
+                </Button>
+              )}
+              {can('create', 'hr_onboarding') && (
+                <Button
+                  variant="contained"
+                  startIcon={<Plus size={18} />}
+                  onClick={() => navigate('/hr/onboarding/new')}
+                  sx={{ bgcolor: '#16C47F', '&:hover': { bgcolor: '#12A66C' }, textTransform: 'none', borderRadius: 2 }}
+                >
+                  New On/Offboarding
+                </Button>
+              )}
             </>
           )}
           {HR_NAV_ITEMS[tabValue]?.key === 'attendance' && (
             <>
-              <Button
-                variant="outlined"
-                startIcon={<Upload size={18} />}
-                onClick={() => setImportDialog(true)}
-                sx={{ borderColor: '#cbd5e1', color: '#334155', textTransform: 'none', borderRadius: 2 }}
-              >
-                Import
-              </Button>
-              <Button
-                variant="contained"
-                startIcon={<Plus size={18} />}
-                onClick={() => setAttendanceDialog(true)}
-                sx={{ bgcolor: '#16C47F', '&:hover': { bgcolor: '#12A66C' }, textTransform: 'none', borderRadius: 2 }}
-              >
-                Log Attendance
-              </Button>
+              {can('import', 'hr_attendance') && (
+                <Button
+                  variant="outlined"
+                  startIcon={<Upload size={18} />}
+                  onClick={() => setImportDialog(true)}
+                  sx={{ borderColor: '#cbd5e1', color: '#334155', textTransform: 'none', borderRadius: 2 }}
+                >
+                  Import
+                </Button>
+              )}
+              {can('create', 'hr_attendance') && (
+                <Button
+                  variant="contained"
+                  startIcon={<Plus size={18} />}
+                  onClick={() => setAttendanceDialog(true)}
+                  sx={{ bgcolor: '#16C47F', '&:hover': { bgcolor: '#12A66C' }, textTransform: 'none', borderRadius: 2 }}
+                >
+                  Log Attendance
+                </Button>
+              )}
             </>
           )}
           {HR_NAV_ITEMS[tabValue]?.key === 'leave' && (
             <>
-              <Button
-                variant="outlined"
-                startIcon={<Upload size={18} />}
-                onClick={() => setImportDialog(true)}
-                sx={{ borderColor: '#cbd5e1', color: '#334155', textTransform: 'none', borderRadius: 2 }}
-              >
-                Import
-              </Button>
-              <Button
-                variant="contained"
-                startIcon={<Plus size={18} />}
-                onClick={() => setLeaveDialog(true)}
-                sx={{ bgcolor: '#16C47F', '&:hover': { bgcolor: '#12A66C' }, textTransform: 'none', borderRadius: 2 }}
-              >
-                New Leave Request
-              </Button>
+              {can('import', 'hr_leave') && (
+                <Button
+                  variant="outlined"
+                  startIcon={<Upload size={18} />}
+                  onClick={() => setImportDialog(true)}
+                  sx={{ borderColor: '#cbd5e1', color: '#334155', textTransform: 'none', borderRadius: 2 }}
+                >
+                  Import
+                </Button>
+              )}
+              {can('create', 'hr_leave') && (
+                <Button
+                  variant="contained"
+                  startIcon={<Plus size={18} />}
+                  onClick={() => setLeaveDialog(true)}
+                  sx={{ bgcolor: '#16C47F', '&:hover': { bgcolor: '#12A66C' }, textTransform: 'none', borderRadius: 2 }}
+                >
+                  New Leave Request
+                </Button>
+              )}
             </>
           )}
           {HR_NAV_ITEMS[tabValue]?.key === 'payroll' && (
             <>
-              <Button
-                variant="outlined"
-                startIcon={<Upload size={18} />}
-                onClick={() => setImportDialog(true)}
-                sx={{ borderColor: '#cbd5e1', color: '#334155', textTransform: 'none', borderRadius: 2 }}
-              >
-                Import
-              </Button>
-              <Button
-                variant="contained"
-                startIcon={<Plus size={18} />}
-                onClick={() => setPayrollDialog(true)}
-                sx={{ bgcolor: '#16C47F', '&:hover': { bgcolor: '#12A66C' }, textTransform: 'none', borderRadius: 2 }}
-              >
-                Generate Payroll
-              </Button>
+              {can('import', 'hr_payroll') && (
+                <Button
+                  variant="outlined"
+                  startIcon={<Upload size={18} />}
+                  onClick={() => setImportDialog(true)}
+                  sx={{ borderColor: '#cbd5e1', color: '#334155', textTransform: 'none', borderRadius: 2 }}
+                >
+                  Import
+                </Button>
+              )}
+              {can('create', 'hr_payroll') && (
+                <Button
+                  variant="contained"
+                  startIcon={<Plus size={18} />}
+                  onClick={() => setPayrollDialog(true)}
+                  sx={{ bgcolor: '#16C47F', '&:hover': { bgcolor: '#12A66C' }, textTransform: 'none', borderRadius: 2 }}
+                >
+                  Generate Payroll
+                </Button>
+              )}
             </>
           )}
         </Stack>
@@ -656,9 +674,11 @@ export default function HRPage() {
                         />
                       </TableCell>
                       <TableCell align="right">
-                        <IconButton size="small" onClick={() => handleDeleteAttendance(record.id)}>
-                          <Trash2 size={16} style={{ color: '#dc2626' }} />
-                        </IconButton>
+                        {can('delete', 'hr_attendance') && (
+                          <IconButton size="small" onClick={() => handleDeleteAttendance(record.id)}>
+                            <Trash2 size={16} style={{ color: '#dc2626' }} />
+                          </IconButton>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -751,7 +771,7 @@ export default function HRPage() {
                         />
                       </TableCell>
                       <TableCell align="right">
-                        {leave.status === 'PENDING' && (
+                        {leave.status === 'PENDING' && can('approve', 'hr_leave') && (
                           <Stack direction="row" spacing={1} justifyContent="flex-end">
                             <IconButton size="small" onClick={() => handleApproveLeave(leave.id)} sx={{ color: '#047857' }}>
                               <Check size={18} />

@@ -8,8 +8,10 @@ import {
   useDeleteDepartmentMutation,
 } from '../../api/rbacApi';
 import type { Department, DepartmentTreeNode, PermissionStatus } from '../../types/rbac';
+import { usePermission } from '../../context/AuthPermissionContext';
 
 export default function DepartmentManagementPage() {
+  const { can } = usePermission();
   const { data: deptsList, isLoading, refetch } = useGetDepartmentsQuery();
   const { data: deptTree } = useGetDepartmentTreeQuery();
 
@@ -105,25 +107,27 @@ export default function DepartmentManagementPage() {
             Configure department hierarchy tree, manager assignments, and employee counts.
           </p>
         </div>
-        <button
-          onClick={() => setIsCreateOpen(true)}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '10px 18px',
-            background: '#16C47F',
-            color: '#FFFFFF',
-            borderRadius: 10,
-            fontWeight: 700,
-            fontSize: 13.5,
-            border: 'none',
-            cursor: 'pointer',
-            boxShadow: '0 4px 12px rgba(8, 122, 61, 0.25)',
-          }}
-        >
-          <Plus size={18} /> Create Department
-        </button>
+        {can('create', 'departments') && (
+          <button
+            onClick={() => setIsCreateOpen(true)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '10px 18px',
+              background: '#16C47F',
+              color: '#FFFFFF',
+              borderRadius: 10,
+              fontWeight: 700,
+              fontSize: 13.5,
+              border: 'none',
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(8, 122, 61, 0.25)',
+            }}
+          >
+            <Plus size={18} /> Create Department
+          </button>
+        )}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20 }}>
@@ -170,23 +174,27 @@ export default function DepartmentManagementPage() {
                   </td>
                   <td style={{ padding: '12px 16px', textAlign: 'right' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
-                      <button
-                        onClick={() => {
-                          setEditingDept(d);
-                          setForm({ name: d.name, code: d.code, description: d.description || '', parent_id: d.parent_id || undefined, status: d.status });
-                        }}
-                        title="Edit Department"
-                        style={{ padding: 6, borderRadius: 6, border: '1px solid #D8E2D5', background: '#FFF', cursor: 'pointer', color: '#0369A1' }}
-                      >
-                        <Edit2 size={15} />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteDepartment(d.id, d.name)}
-                        title="Delete Department"
-                        style={{ padding: 6, borderRadius: 6, border: '1px solid #FCA5A5', background: '#FEF2F2', cursor: 'pointer', color: '#DC2626' }}
-                      >
-                        <Trash2 size={15} />
-                      </button>
+                      {can('edit', 'departments') && (
+                        <button
+                          onClick={() => {
+                            setEditingDept(d);
+                            setForm({ name: d.name, code: d.code, description: d.description || '', parent_id: d.parent_id || undefined, status: d.status });
+                          }}
+                          title="Edit Department"
+                          style={{ padding: 6, borderRadius: 6, border: '1px solid #D8E2D5', background: '#FFF', cursor: 'pointer', color: '#0369A1' }}
+                        >
+                          <Edit2 size={15} />
+                        </button>
+                      )}
+                      {can('delete', 'departments') && (
+                        <button
+                          onClick={() => handleDeleteDepartment(d.id, d.name)}
+                          title="Delete Department"
+                          style={{ padding: 6, borderRadius: 6, border: '1px solid #FCA5A5', background: '#FEF2F2', cursor: 'pointer', color: '#DC2626' }}
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

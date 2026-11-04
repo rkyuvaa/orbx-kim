@@ -62,29 +62,57 @@ export const AuthPermissionProvider: React.FC<{ children: React.ReactNode }> = (
     if (!user) return false;
     if (isSuperAdmin) return true;
 
+    const act = (action || '').toLowerCase().trim();
+    const rawRes = (resource || '').toLowerCase().trim();
+
+    const RESOURCE_ALIASES: Record<string, string> = {
+      complaints: 'vs_work_orders',
+      work_orders: 'vs_work_orders',
+      kits: 'vs_configuration',
+      vehicle_service: 'vs_dashboard',
+      vehicle_service_module: 'vs_dashboard',
+      onboarding: 'hr_onboarding',
+      recruitment: 'hr_recruitment',
+      attendance: 'hr_attendance',
+      leave: 'hr_leave',
+      payroll: 'hr_payroll',
+      self_service: 'hr_self_service',
+    };
+
+    const targetRes = RESOURCE_ALIASES[rawRes] || rawRes;
+
     // Handle full canonical string passed into action or resource parameter
-    if (resource.includes(':')) {
-      const parts = resource.split(':');
+    if (rawRes.includes(':')) {
+      const parts = rawRes.split(':');
       if (parts.length === 3) {
         const canonicalKey = `${parts[0]}:${parts[1]}:${parts[2]}`;
         if (canonicalKey in effectivePermissionsMap) return effectivePermissionsMap[canonicalKey];
       }
     }
 
-    const key = `${resource}:${action}`;
+    // Try targeted resolved key
+    const key = `${targetRes}:${act}`;
     if (key in effectivePermissionsMap) {
       return effectivePermissionsMap[key];
     }
-    const altKey = `${action}:${resource}`;
+    // Try raw key if different
+    if (targetRes !== rawRes) {
+      const rawKey = `${rawRes}:${act}`;
+      if (rawKey in effectivePermissionsMap) {
+        return effectivePermissionsMap[rawKey];
+      }
+    }
+
+    const altKey = `${act}:${targetRes}`;
     if (altKey in effectivePermissionsMap) {
       return effectivePermissionsMap[altKey];
     }
-    if (resource in effectivePermissionsMap) {
-      return effectivePermissionsMap[resource];
+    if (targetRes in effectivePermissionsMap) {
+      return effectivePermissionsMap[targetRes];
     }
     // Module-level access check
-    if (action === 'view' && resource in modulePermissionsMap) {
-      return modulePermissionsMap[resource];
+    if (act === 'view' && (targetRes in modulePermissionsMap || rawRes in modulePermissionsMap)) {
+      return modulePermissionsMap[targetRes] || modulePermissionsMap[rawRes];
     }
     return false;
   };
@@ -99,7 +127,7 @@ export const AuthPermissionProvider: React.FC<{ children: React.ReactNode }> = (
     if (path.startsWith('/customers')) return can('view', 'customers');
     if (path.startsWith('/opportunities')) return can('view', 'opportunities');
     if (path.startsWith('/activities')) return can('view', 'activities');
-    if (path === '/configuration') return can('view', 'crm_configuration');
+    if (path === '/configuration') return can('view', 'crm_configuration') || can('view', 'masters');
     
     if (path.startsWith('/projects/configuration')) return can('view', 'project_configuration');
     if (path.startsWith('/projects')) return can('view', 'projects');
@@ -107,17 +135,17 @@ export const AuthPermissionProvider: React.FC<{ children: React.ReactNode }> = (
     if (path.startsWith('/tasks')) return can('view', 'tasks');
 
     if (path.startsWith('/vehicle-service')) {
-      if (path === '/vehicle-service') return can('view', 'vs_dashboard') || can('view', 'vehicle_service');
+      if (path === '/vehicle-service') return can('view', 'vs_dashboard') || can('view', 'vs_work_orders') || can('view', 'vehicle_service');
       if (path === '/vehicle-service/work-orders') return can('view', 'vs_work_orders') || can('view', 'vehicle_service');
       if (path === '/vehicle-service/service-history') return can('view', 'vs_service_history') || can('view', 'vehicle_service');
       if (path === '/vehicle-service/reports') return can('view', 'vs_reports') || can('view', 'vehicle_service');
       if (path === '/vehicle-service/configuration') return can('view', 'vs_configuration') || can('view', 'vehicle_service');
-      return can('view', 'vs_dashboard') || can('view', 'vehicle_service');
+      return can('view', 'vs_dashboard') || can('view', 'vs_work_orders') || can('view', 'vehicle_service');
     }
 
     if (path.startsWith('/hr')) {
       if (path === '/hr/recruitment') return can('view', 'hr_recruitment');
-      if (path === '/hr/onboarding') return can('view', 'hr_onboarding');
+      if (path.startsWith('/hr/onboarding')) return can('view', 'hr_onboarding');
       if (path === '/hr/master') return can('view', 'hr_master');
       if (path === '/hr/attendance') return can('view', 'hr_attendance');
       if (path === '/hr/leave') return can('view', 'hr_leave');
@@ -125,7 +153,17 @@ export const AuthPermissionProvider: React.FC<{ children: React.ReactNode }> = (
       if (path === '/hr/self-service') return can('view', 'hr_self_service');
       if (path === '/hr/reports') return can('view', 'hr_reports');
       if (path === '/hr/configuration') return can('view', 'hr_configuration');
-      return can('view', 'hr_master') || can('view', 'hr_recruitment') || can('view', 'hr_onboarding');
+      return (
+        can('view', 'hr_master') ||
+        can('view', 'hr_recruitment') ||
+        can('view', 'hr_onboarding') ||
+        can('view', 'hr_attendance') ||
+        can('view', 'hr_leave') ||
+        can('view', 'hr_payroll') ||
+        can('view', 'hr_self_service') ||
+        can('view', 'hr_reports') ||
+        can('view', 'hr_configuration')
+      );
     }
 
     if (path.startsWith('/renewal')) {
@@ -156,7 +194,13 @@ export const AuthPermissionProvider: React.FC<{ children: React.ReactNode }> = (
       if (path.startsWith('/admin/departments')) return can('view', 'departments');
       if (path.startsWith('/admin/audit-logs')) return can('view', 'audit_logs');
       if (path.startsWith('/admin/permissions')) return can('view', 'permissions');
-      return can('view', 'users') || can('view', 'roles');
+      return (
+        can('view', 'users') ||
+        can('view', 'roles') ||
+        can('view', 'departments') ||
+        can('view', 'permissions') ||
+        can('view', 'audit_logs')
+      );
     }
 
     if (path.startsWith('/reports')) return can('view', 'summary_reports') || can('view', 'crm_reports');

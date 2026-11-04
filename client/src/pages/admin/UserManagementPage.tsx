@@ -25,6 +25,7 @@ import {
 import type { UserDetail } from '../../types/rbac';
 import EffectiveAccessModal from './EffectiveAccessModal';
 import { formatDateTime, initialsOf } from '../../utils/format';
+import { usePermission } from '../../context/AuthPermissionContext';
 
 function getErrorMessage(err: any): string {
   if (!err) return 'An unexpected error occurred';
@@ -40,6 +41,7 @@ function getErrorMessage(err: any): string {
 }
 
 export default function UserManagementPage() {
+  const { can } = usePermission();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [search, setSearch] = useState('');
@@ -228,25 +230,27 @@ export default function UserManagementPage() {
             Manage organization users, credentials, role assignments, and department mappings.
           </p>
         </div>
-        <button
-          onClick={() => setIsCreateOpen(true)}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '10px 18px',
-            background: '#16C47F',
-            color: '#FFFFFF',
-            borderRadius: 10,
-            fontWeight: 700,
-            fontSize: 13.5,
-            border: 'none',
-            cursor: 'pointer',
-            boxShadow: '0 4px 12px rgba(8, 122, 61, 0.25)',
-          }}
-        >
-          <Plus size={18} /> Create New User
-        </button>
+        {can('create', 'users') && (
+          <button
+            onClick={() => setIsCreateOpen(true)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '10px 18px',
+              background: '#16C47F',
+              color: '#FFFFFF',
+              borderRadius: 10,
+              fontWeight: 700,
+              fontSize: 13.5,
+              border: 'none',
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(8, 122, 61, 0.25)',
+            }}
+          >
+            <Plus size={18} /> Create New User
+          </button>
+        )}
       </div>
 
       {/* Filter Toolbar */}
@@ -585,16 +589,18 @@ export default function UserManagementPage() {
           },
         }}
       >
-        <MenuItem
-          onClick={() => {
-            if (menuAnchor) handleOpenEdit(menuAnchor.user);
-            handleCloseMenu();
-          }}
-          sx={{ fontSize: 13, gap: 1.5, py: 1 }}
-        >
-          <Edit2 size={15} color="#0369A1" />
-          <span>Edit</span>
-        </MenuItem>
+        {can('edit', 'users') && (
+          <MenuItem
+            onClick={() => {
+              if (menuAnchor) handleOpenEdit(menuAnchor.user);
+              handleCloseMenu();
+            }}
+            sx={{ fontSize: 13, gap: 1.5, py: 1 }}
+          >
+            <Edit2 size={15} color="#0369A1" />
+            <span>Edit</span>
+          </MenuItem>
+        )}
 
         <MenuItem
           onClick={() => {
@@ -607,38 +613,43 @@ export default function UserManagementPage() {
           <span>Effective Access Inspection</span>
         </MenuItem>
 
-        <MenuItem
-          onClick={() => {
-            if (menuAnchor) handleToggleStatus(menuAnchor.user);
-            handleCloseMenu();
-          }}
-          sx={{ fontSize: 13, gap: 1.5, py: 1 }}
-        >
-          {menuAnchor?.user.status === 'ACTIVE' ? (
-            <>
-              <UserX size={15} color="#D97706" />
-              <span>Inactive</span>
-            </>
-          ) : (
-            <>
-              <UserCheck size={15} color="#059669" />
-              <span>Active</span>
-            </>
-          )}
-        </MenuItem>
+        {can('edit', 'users') && (
+          <MenuItem
+            onClick={() => {
+              if (menuAnchor) handleToggleStatus(menuAnchor.user);
+              handleCloseMenu();
+            }}
+            sx={{ fontSize: 13, gap: 1.5, py: 1 }}
+          >
+            {menuAnchor?.user.status === 'ACTIVE' ? (
+              <>
+                <UserX size={15} color="#D97706" />
+                <span>Inactive</span>
+              </>
+            ) : (
+              <>
+                <UserCheck size={15} color="#059669" />
+                <span>Active</span>
+              </>
+            )}
+          </MenuItem>
+        )}
 
-        <Divider sx={{ my: 0.5 }} />
-
-        <MenuItem
-          onClick={() => {
-            if (menuAnchor) handleDelete(menuAnchor.user.id, menuAnchor.user.full_name);
-            handleCloseMenu();
-          }}
-          sx={{ fontSize: 13, gap: 1.5, py: 1, color: '#DC2626' }}
-        >
-          <Trash2 size={15} color="#DC2626" />
-          <span>Delete</span>
-        </MenuItem>
+        {can('delete', 'users') && (
+          <>
+            <Divider sx={{ my: 0.5 }} />
+            <MenuItem
+              onClick={() => {
+                if (menuAnchor) handleDelete(menuAnchor.user.id, menuAnchor.user.full_name);
+                handleCloseMenu();
+              }}
+              sx={{ fontSize: 13, gap: 1.5, py: 1, color: '#DC2626' }}
+            >
+              <Trash2 size={15} color="#DC2626" />
+              <span>Delete</span>
+            </MenuItem>
+          </>
+        )}
       </Menu>
 
       {/* Effective Access Inspector Modal */}
