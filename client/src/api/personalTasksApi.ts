@@ -123,6 +123,7 @@ export interface PersonalSettings {
   default_reminder_presets: string;
   max_timer_hours: number;
   auto_stop_timer_at_eod: boolean;
+  email_notifications_enabled?: boolean;
   holidays_json?: Array<{ date: string; name: string }>;
 }
 

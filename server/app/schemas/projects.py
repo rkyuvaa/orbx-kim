@@ -852,6 +852,7 @@ class PersonalSettingsOut(BaseModel):
     default_reminder_presets: str = "1d,1h,due"
     max_timer_hours: float = 8.0
     auto_stop_timer_at_eod: bool = True
+    email_notifications_enabled: bool = True
     holidays_json: Optional[Any] = None
 
     model_config = ConfigDict(from_attributes=True)
@@ -867,6 +868,7 @@ class PersonalSettingsUpdate(BaseModel):
     default_reminder_presets: Optional[str] = None
     max_timer_hours: Optional[float] = None
     auto_stop_timer_at_eod: Optional[bool] = None
+    email_notifications_enabled: Optional[bool] = None
     holidays_json: Optional[Any] = None
 
 

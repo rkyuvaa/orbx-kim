@@ -42,6 +42,7 @@ export default function PTSettingsDrawer({
   const [maxTimerHours, setMaxTimerHours] = useState(8.0);
   const [autoStopTimer, setAutoStopTimer] = useState(true);
   const [reminderPresets, setReminderPresets] = useState('1d,1h,due');
+  const [emailNotificationsEnabled, setEmailNotificationsEnabled] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -59,6 +60,7 @@ export default function PTSettingsDrawer({
       setMaxTimerHours(settings.max_timer_hours || 8.0);
       setAutoStopTimer(settings.auto_stop_timer_at_eod ?? true);
       setReminderPresets(settings.default_reminder_presets || '1d,1h,due');
+      setEmailNotificationsEnabled(settings.email_notifications_enabled ?? true);
     }
   }, [settings]);
 
@@ -83,6 +85,7 @@ export default function PTSettingsDrawer({
         max_timer_hours: maxTimerHours,
         auto_stop_timer_at_eod: autoStopTimer,
         default_reminder_presets: reminderPresets,
+        email_notifications_enabled: emailNotificationsEnabled,
       });
       onClose();
     } finally {
@@ -265,6 +268,37 @@ export default function PTSettingsDrawer({
               onChange={(e) => setDigestTime(e.target.value)}
               helperText="Morning summary time for scheduled tasks"
             />
+
+            <Box
+              sx={{
+                p: 1.5,
+                borderRadius: 1.5,
+                bgcolor: isDark ? 'rgba(255,255,255,0.03)' : '#F8FAFC',
+                border: '1px solid',
+                borderColor: isDark ? 'rgba(255,255,255,0.08)' : '#E2E8F0',
+              }}
+            >
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={emailNotificationsEnabled}
+                    onChange={(e) => setEmailNotificationsEnabled(e.target.checked)}
+                    color="success"
+                  />
+                }
+                label={
+                  <Box>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      Task Assignment Email Alerts
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.25 }}>
+                      Receive an instant email notification whenever someone assigns or delegates a task to you.
+                    </Typography>
+                  </Box>
+                }
+                sx={{ m: 0, alignItems: 'flex-start', gap: 1 }}
+              />
+            </Box>
           </Box>
         </Box>
       </Box>

@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timezone, date, timedelta
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile, File, Form, status, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile, File, Form, status, Response, BackgroundTasks
 from sqlalchemy.orm import Session, joinedload, selectinload
 from sqlalchemy import func, or_, and_, case
 
@@ -68,6 +68,7 @@ from app.schemas.projects import (
     ProjectPmSettingsUpdate,
 )
 from app.core.deps import get_current_user, require_permission
+from app.services.email_service import schedule_task_assignment_notification, resolve_client_app_url
 
 router = APIRouter(prefix="/tasks", tags=["tasks"], dependencies=[Depends(require_permission("view", "tasks"))])
 
@@ -1126,6 +1127,8 @@ def create_task(
     data: TaskCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("create", "tasks")),
+    background_tasks: BackgroundTasks = None,
+    request: Request = None,
 ):
     """Create a new task / subtask entity"""
     if not data.title or not data.title.strip():
@@ -1282,10 +1285,19 @@ def create_task(
     if task.assignee_id and task.assignee_id not in assignee_ids:
         assignee_ids.append(task.assignee_id)
     
+    client_base_url = resolve_client_app_url(request)
     for uid in set(assignee_ids):
         db.add(TaskAssignee(task_id=task.id, user_id=uid, assigned_by=current_user.id))
         if uid != current_user.id:
             db.add(Notification(user_id=uid, message=f"You were assigned to task {task.task_number}: {task.title}"))
+            schedule_task_assignment_notification(
+                task_id=task.id,
+                assignee_id=uid,
+                assignor_id=current_user.id,
+                background_tasks=background_tasks,
+                client_base_url=client_base_url,
+                is_subtask=bool(task.parent_task_id),
+            )
         db.add(TaskFollower(task_id=task.id, user_id=uid))
 
     # Followers handling
@@ -1583,9 +1595,14 @@ def update_task(
     data: TaskUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("edit", "tasks")),
+    background_tasks: BackgroundTasks = None,
+    request: Request = None,
 ):
     """Update task details / status transition"""
     task = _get_task_or_404_with_auth(db, task_id, current_user)
+
+    old_assignee_id = task.assignee_id
+    old_assignee_ids = {a.user_id for a in task.assignees}
 
     update_dict = data.model_dump(exclude_unset=True)
 
@@ -1942,10 +1959,32 @@ def update_task(
     # Multi assignees update
     if "assignee_ids" in update_dict and update_dict["assignee_ids"] is not None:
         db.query(TaskAssignee).filter(TaskAssignee.task_id == task.id).delete()
-        for uid in set(update_dict["assignee_ids"]):
+        new_uids = set(update_dict["assignee_ids"])
+        client_base_url = resolve_client_app_url(request)
+        for uid in new_uids:
             db.add(TaskAssignee(task_id=task.id, user_id=uid, assigned_by=current_user.id))
             if not db.query(TaskFollower).filter(TaskFollower.task_id == task.id, TaskFollower.user_id == uid).first():
                 db.add(TaskFollower(task_id=task.id, user_id=uid))
+            if uid not in old_assignee_ids and uid != current_user.id:
+                schedule_task_assignment_notification(
+                    task_id=task.id,
+                    assignee_id=uid,
+                    assignor_id=current_user.id,
+                    background_tasks=background_tasks,
+                    client_base_url=client_base_url,
+                    is_subtask=bool(task.parent_task_id),
+                )
+    elif "assignee_id" in update_dict and task.assignee_id != old_assignee_id:
+        if task.assignee_id and task.assignee_id != current_user.id and task.assignee_id not in old_assignee_ids:
+            client_base_url = resolve_client_app_url(request)
+            schedule_task_assignment_notification(
+                task_id=task.id,
+                assignee_id=task.assignee_id,
+                assignor_id=current_user.id,
+                background_tasks=background_tasks,
+                client_base_url=client_base_url,
+                is_subtask=bool(task.parent_task_id),
+            )
 
     # Followers update
     if "follower_ids" in update_dict and update_dict["follower_ids"] is not None:
@@ -2219,6 +2258,8 @@ def create_checklist(
     data: TaskChecklistCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    background_tasks: BackgroundTasks = None,
+    request: Request = None,
 ):
     task = _get_task_or_404_with_auth(db, task_id, current_user)
 
@@ -2227,6 +2268,7 @@ def create_checklist(
     db.commit()
     db.refresh(checklist)
 
+    client_base_url = resolve_client_app_url(request)
     for item_data in data.items:
         ci = TaskChecklistItem(
             checklist_id=checklist.id,
@@ -2236,6 +2278,16 @@ def create_checklist(
             display_order=item_data.display_order,
         )
         db.add(ci)
+        if item_data.assignee_id and item_data.assignee_id != current_user.id:
+            schedule_task_assignment_notification(
+                task_id=task.id,
+                assignee_id=item_data.assignee_id,
+                assignor_id=current_user.id,
+                background_tasks=background_tasks,
+                client_base_url=client_base_url,
+                item_text=ci.title,
+                is_checklist_item=True,
+            )
 
     db.commit()
     db.refresh(checklist)
@@ -2278,6 +2330,8 @@ def add_checklist_item(
     data: TaskChecklistItemCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    background_tasks: BackgroundTasks = None,
+    request: Request = None,
 ):
     checklist = db.get(TaskChecklist, checklist_id)
     if not checklist:
@@ -2293,6 +2347,18 @@ def add_checklist_item(
     db.add(ci)
     db.commit()
     db.refresh(ci)
+
+    if data.assignee_id and data.assignee_id != current_user.id:
+        client_base_url = resolve_client_app_url(request)
+        schedule_task_assignment_notification(
+            task_id=checklist.task_id,
+            assignee_id=data.assignee_id,
+            assignor_id=current_user.id,
+            background_tasks=background_tasks,
+            client_base_url=client_base_url,
+            item_text=ci.title,
+            is_checklist_item=True,
+        )
 
     return TaskChecklistItemOut(
         id=ci.id,
@@ -2941,6 +3007,8 @@ def bulk_task_action(
     req: BulkTaskActionRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    background_tasks: BackgroundTasks = None,
+    request: Request = None,
 ):
     tasks = []
     for tid in req.task_ids:
@@ -2950,6 +3018,7 @@ def bulk_task_action(
         return BulkTaskActionResponse(success=False, affected_count=0, message="No matching tasks found")
 
     affected = 0
+    client_base_url = resolve_client_app_url(request)
     for t in tasks:
         if req.action == "change_status" and req.status_id:
             t.status_id = req.status_id
@@ -2962,6 +3031,15 @@ def bulk_task_action(
         elif req.action == "assign" and req.assignee_id:
             t.assignee_id = req.assignee_id
             db.add(TaskAssignee(task_id=t.id, user_id=req.assignee_id, assigned_by=current_user.id))
+            if req.assignee_id != current_user.id:
+                schedule_task_assignment_notification(
+                    task_id=t.id,
+                    assignee_id=req.assignee_id,
+                    assignor_id=current_user.id,
+                    background_tasks=background_tasks,
+                    client_base_url=client_base_url,
+                    is_subtask=bool(t.parent_task_id),
+                )
             affected += 1
         elif req.action == "set_dates":
             if req.start_date:

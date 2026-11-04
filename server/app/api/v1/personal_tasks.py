@@ -4,12 +4,13 @@ import json
 from datetime import datetime, timezone, date, timedelta
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Response, Request, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_, desc
 
 from app.db.session import get_db
+from app.services.email_service import schedule_task_assignment_notification, resolve_client_app_url
 from app.models.projects import (
     Task, TaskStatusDef, TaskPriority, TaskStatusCategory,
     TaskAssignee, TaskTag, TaskTagMap, TaskTimeEntry, TaskActivity, TaskLogNote
@@ -61,6 +62,7 @@ def _get_or_create_personal_settings(db: Session, user_id: int) -> PersonalSetti
             default_reminder_presets="1d,1h,due",
             max_timer_hours=8.0,
             auto_stop_timer_at_eod=True,
+            email_notifications_enabled=True,
             holidays_json=[]
         )
         db.add(ps)
@@ -293,6 +295,8 @@ def create_personal_task(
 @router.post("/assign", response_model=TaskOut, status_code=status.HTTP_201_CREATED)
 def assign_personal_task(
     data: PersonalTaskAssignCreate,
+    background_tasks: BackgroundTasks = None,
+    request: Request = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -384,6 +388,17 @@ def assign_personal_task(
 
     db.commit()
     db.refresh(task)
+
+    if data.assignee_id != current_user.id:
+        client_base_url = resolve_client_app_url(request)
+        schedule_task_assignment_notification(
+            task_id=task.id,
+            assignee_id=data.assignee_id,
+            assignor_id=current_user.id,
+            background_tasks=background_tasks,
+            client_base_url=client_base_url,
+        )
+
     return _format_task_out(task, db)
 
 
@@ -392,6 +407,8 @@ def assign_personal_task(
 def update_personal_task(
     task_id: int,
     data: TaskUpdate,
+    background_tasks: BackgroundTasks = None,
+    request: Request = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -465,6 +482,15 @@ def update_personal_task(
         now_local = get_local_now()
         if task.assignee_id:
             db.add(TaskAssignee(task_id=task.id, user_id=task.assignee_id, assigned_by=current_user.id, assigned_at=now_local))
+            if task.assignee_id != current_user.id:
+                client_base_url = resolve_client_app_url(request)
+                schedule_task_assignment_notification(
+                    task_id=task.id,
+                    assignee_id=task.assignee_id,
+                    assignor_id=current_user.id,
+                    background_tasks=background_tasks,
+                    client_base_url=client_base_url,
+                )
         _log_pt_activity(db, task.id, current_user.id, "ASSIGNMENT_CHANGED", field_name="assignee_id", old_val=str(old_assignee_id), new_val=str(task.assignee_id), source="user")
         timestamp_str = now_local.strftime("%d/%m/%Y, %I:%M %p")
         db.add(TaskLogNote(

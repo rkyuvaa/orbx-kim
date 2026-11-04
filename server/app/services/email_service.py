@@ -1,8 +1,9 @@
+import html
 import logging
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from typing import Any
+from typing import Any, Optional
 
 from sqlalchemy.orm import Session
 
@@ -195,3 +196,346 @@ Regards,
 
     ok, err_msg = dispatch_email_smtp(to_email, subject, plain_text, html_content, db=db)
     return ok, err_msg
+
+
+def resolve_client_app_url(request: Any = None) -> str:
+    """
+    Resolves client frontend base URL for deep links.
+    """
+    if request:
+        origin = request.headers.get("origin")
+        if origin:
+            return origin.rstrip("/")
+        referer = request.headers.get("referer")
+        if referer:
+            try:
+                from urllib.parse import urlparse
+                p = urlparse(referer)
+                if p.scheme and p.netloc:
+                    return f"{p.scheme}://{p.netloc}".rstrip("/")
+            except Exception:
+                pass
+        host_header = request.headers.get("host")
+        if host_header:
+            scheme = request.url.scheme or "http"
+            return f"{scheme}://{host_header}".rstrip("/")
+    # Config / fallback
+    origins = getattr(settings, "cors_origins", "")
+    for o in origins.split(","):
+        o = o.strip()
+        if o:
+            return o.rstrip("/")
+    return "http://localhost:5173"
+
+
+def send_task_assignment_email(
+    to_email: str,
+    assignee_name: str,
+    assignor_name: str,
+    task_number: str,
+    task_title: str,
+    task_type_label: str = "Task",
+    project_name: Optional[str] = None,
+    priority: str = "NORMAL",
+    due_date_str: Optional[str] = None,
+    description: Optional[str] = None,
+    task_url: str = "",
+    checklist_item_text: Optional[str] = None,
+    company_name: str = "KIM Work Management",
+    db: Optional[Session] = None,
+) -> tuple[bool, Optional[str]]:
+    """
+    Sends an immediate HTML + Plaintext email notification when a task is assigned.
+    """
+    subject = f"[{company_name}] Task Assigned: {task_number} - {task_title}"
+
+    # Priority badge colors
+    p_upper = (priority or "NORMAL").upper()
+    priority_colors = {
+        "URGENT": {"bg": "#fee2e2", "color": "#dc2626", "border": "#fca5a5"},
+        "HIGH": {"bg": "#ffedd5", "color": "#ea580c", "border": "#fdba74"},
+        "NORMAL": {"bg": "#ecfdf5", "color": "#059669", "border": "#a7f3d0"},
+        "LOW": {"bg": "#f1f5f9", "color": "#64748b", "border": "#cbd5e1"},
+    }
+    badge = priority_colors.get(p_upper, priority_colors["NORMAL"])
+
+    safe_title = html.escape(task_title or "Untitled Task")
+    safe_assignee = html.escape(assignee_name or "Team Member")
+    safe_assignor = html.escape(assignor_name or "A colleague")
+    safe_number = html.escape(task_number or "")
+    safe_project = html.escape(project_name) if project_name else None
+    safe_due = html.escape(due_date_str) if due_date_str else "No due date specified"
+    safe_item = html.escape(checklist_item_text) if checklist_item_text else None
+
+    # Snippet for description (max 350 chars)
+    desc_html = ""
+    desc_text = ""
+    if description and description.strip():
+        clean_desc = description.strip()
+        if len(clean_desc) > 350:
+            clean_desc = clean_desc[:347] + "..."
+        desc_text = f"\nDescription / Details:\n{clean_desc}\n"
+        desc_html = f"""
+        <div style="margin-top: 16px; padding: 12px 16px; background-color: #f8faf8; border-left: 3px solid #087a3d; border-radius: 4px; font-size: 13.5px; color: #374151; line-height: 1.5;">
+            <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #6b7280; margin-bottom: 4px; letter-spacing: 0.5px;">Task Details</div>
+            {html.escape(clean_desc)}
+        </div>
+        """
+
+    checklist_html = ""
+    checklist_text = ""
+    if safe_item:
+        checklist_text = f"\nChecklist Item: {checklist_item_text}\n"
+        checklist_html = f"""
+        <tr>
+            <td style="padding: 6px 0; color: #6b7280; font-size: 13px; width: 120px;">Checklist Item:</td>
+            <td style="padding: 6px 0; color: #111827; font-size: 13.5px; font-weight: 600;">{safe_item}</td>
+        </tr>
+        """
+
+    project_row_html = ""
+    project_row_text = ""
+    if safe_project:
+        project_row_text = f"Project: {project_name}\n"
+        project_row_html = f"""
+        <tr>
+            <td style="padding: 6px 0; color: #6b7280; font-size: 13px; width: 120px;">Project:</td>
+            <td style="padding: 6px 0; color: #111827; font-size: 13.5px; font-weight: 600;">{safe_project}</td>
+        </tr>
+        """
+
+    plain_text = f"""Hello {safe_assignee},
+
+{safe_assignor} has assigned a {task_type_label.lower()} to you in {company_name}:
+
+Task: [{task_number}] {task_title}
+{project_row_text}Priority: {p_upper}
+Due Date: {safe_due}
+{checklist_text}{desc_text}
+You can view and update this task directly using the link below:
+{task_url}
+
+Regards,
+{company_name} Notification Service
+"""
+
+    html_content = f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Task Assigned</title>
+</head>
+<body style="margin: 0; padding: 24px 12px; background-color: #f4f6f4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1f2937;">
+  <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; border: 1px solid #e5e7eb; overflow: hidden; box-shadow: 0 4px 14px rgba(0,0,0,0.05);">
+    
+    <!-- Header Banner -->
+    <div style="background-color: #023020; padding: 22px 28px; border-bottom: 3px solid #087a3d;">
+      <div style="font-size: 18px; font-weight: 800; color: #ffffff; letter-spacing: 0.5px;">{company_name}</div>
+      <div style="font-size: 12px; color: #a7f3d0; margin-top: 3px;">Work Management &amp; Collaboration</div>
+    </div>
+
+    <div style="padding: 28px;">
+      <p style="font-size: 15px; margin: 0 0 16px 0; color: #111827;">
+        Hello <strong>{safe_assignee}</strong>,
+      </p>
+      
+      <!-- Notice Alert -->
+      <div style="background-color: #ecfdf5; border-left: 4px solid #087a3d; padding: 12px 16px; border-radius: 4px; margin-bottom: 22px;">
+        <span style="font-size: 14px; color: #065f46; font-weight: 600;">
+          <strong>{safe_assignor}</strong> assigned a {task_type_label.lower()} to you.
+        </span>
+      </div>
+
+      <!-- Task Card -->
+      <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 18px 20px; background-color: #fafafa;">
+        <div style="display: flex; align-items: center; margin-bottom: 12px;">
+          <span style="background-color: #023020; color: #ffffff; font-family: monospace; font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 4px; margin-right: 8px;">
+            {safe_number}
+          </span>
+          <span style="background-color: {badge['bg']}; color: {badge['color']}; border: 1px solid {badge['border']}; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; text-transform: uppercase;">
+            {p_upper} PRIORITY
+          </span>
+        </div>
+
+        <h3 style="margin: 0 0 14px 0; font-size: 16px; font-weight: 700; color: #111827; line-height: 1.4;">
+          {safe_title}
+        </h3>
+
+        <table style="width: 100%; border-collapse: collapse;">
+          {project_row_html}
+          {checklist_html}
+          <tr>
+            <td style="padding: 6px 0; color: #6b7280; font-size: 13px; width: 120px;">Due Date:</td>
+            <td style="padding: 6px 0; color: #111827; font-size: 13.5px; font-weight: 600;">{safe_due}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #6b7280; font-size: 13px; width: 120px;">Assigned By:</td>
+            <td style="padding: 6px 0; color: #111827; font-size: 13.5px; font-weight: 600;">{safe_assignor}</td>
+          </tr>
+        </table>
+
+        {desc_html}
+      </div>
+
+      <!-- Action Button -->
+      <div style="text-align: center; margin-top: 26px; margin-bottom: 24px;">
+        <a href="{task_url}" target="_blank" style="background-color: #087a3d; color: #ffffff !important; text-decoration: none; padding: 12px 30px; border-radius: 8px; font-weight: 700; font-size: 14.5px; display: inline-block; box-shadow: 0 2px 6px rgba(8,122,61,0.25);">
+          View Task in KIM &rarr;
+        </a>
+      </div>
+
+      <p style="font-size: 12px; color: #6b7280; text-align: center; margin: 0 0 4px 0;">
+        Or open directly: <a href="{task_url}" style="color: #087a3d; word-break: break-all;">{task_url}</a>
+      </p>
+
+      <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0 16px 0;" />
+
+      <p style="font-size: 11.5px; color: #9ca3af; margin: 0; line-height: 1.5; text-align: center;">
+        You received this automated notification because a task was assigned to you and notifications are enabled in your personal settings.<br>
+        To manage your task alerts, visit My Tasks &gt; Settings in KIM.
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+"""
+    return dispatch_email_smtp(to_email, subject, plain_text, html_content, db=db)
+
+
+def notify_task_assignment_background(
+    task_id: int,
+    assignee_id: int,
+    assignor_id: int,
+    client_base_url: str = "",
+    item_text: Optional[str] = None,
+    is_checklist_item: bool = False,
+    is_subtask: bool = False,
+):
+    """
+    Background worker executed after DB commit to dispatch assignment email safely.
+    Uses its own SessionLocal to query models, verify preferences, and dispatch email.
+    """
+    if not assignee_id or assignee_id == assignor_id:
+        return
+
+    from app.db.session import SessionLocal
+    from app.models.projects import Task
+    from app.models.user import User
+    from app.models.personal_settings import PersonalSettings
+
+    db = SessionLocal()
+    try:
+        # Check personal settings for assignee
+        ps = db.query(PersonalSettings).filter(PersonalSettings.user_id == assignee_id).first()
+        if ps and not ps.email_notifications_enabled:
+            logger.info(f"Task assignment email skipped: user {assignee_id} has disabled assignment email notifications.")
+            return
+
+        assignee = db.get(User, assignee_id)
+        if not assignee or not assignee.email or "@" not in assignee.email:
+            logger.info(f"Task assignment email skipped: user {assignee_id} has no valid email.")
+            return
+
+        assignor = db.get(User, assignor_id) if assignor_id else None
+        assignor_name = assignor.full_name if (assignor and assignor.full_name) else (assignor.username if assignor else "A colleague")
+
+        task = db.get(Task, task_id)
+        if not task or task.is_deleted:
+            return
+
+        # Format due date
+        due_str = None
+        if task.due_date:
+            try:
+                due_str = task.due_date.strftime("%d %b %Y")
+                if task.due_time:
+                    due_str += f" at {task.due_time}"
+            except Exception:
+                due_str = str(task.due_date)
+
+        # Task type label
+        if is_checklist_item:
+            task_type_label = "Checklist Item"
+        elif is_subtask or task.parent_task_id:
+            task_type_label = "Subtask"
+        elif task.is_personal:
+            task_type_label = "Personal Task"
+        else:
+            task_type_label = "Project Task"
+
+        # Project name
+        project_name = task.project.name if (task.project and hasattr(task.project, "name")) else None
+
+        # Build deep link
+        base = (client_base_url or "").rstrip("/")
+        if not base:
+            base = resolve_client_app_url()
+
+        if task.is_personal:
+            task_url = f"{base}/my-tasks?taskId={task.id}"
+        elif task.project_id:
+            task_url = f"{base}/projects/{task.project_id}?taskId={task.id}"
+        else:
+            task_url = f"{base}/tasks?taskId={task.id}"
+
+        ok, err = send_task_assignment_email(
+            to_email=assignee.email.strip(),
+            assignee_name=assignee.full_name or assignee.username or "Colleague",
+            assignor_name=assignor_name,
+            task_number=task.task_number or f"#{task.id}",
+            task_title=task.title,
+            task_type_label=task_type_label,
+            project_name=project_name,
+            priority=getattr(task.priority, "value", str(task.priority or "NORMAL")),
+            due_date_str=due_str,
+            description=task.description,
+            task_url=task_url,
+            checklist_item_text=item_text,
+            db=db,
+        )
+        if not ok:
+            logger.warning(f"Could not dispatch task assignment email to {assignee.email}: {err}")
+    except Exception as e:
+        logger.error(f"Error in notify_task_assignment_background for task {task_id}, assignee {assignee_id}: {e}", exc_info=True)
+    finally:
+        db.close()
+
+
+def schedule_task_assignment_notification(
+    task_id: int,
+    assignee_id: int,
+    assignor_id: int,
+    background_tasks: Any = None,
+    client_base_url: str = "",
+    item_text: Optional[str] = None,
+    is_checklist_item: bool = False,
+    is_subtask: bool = False,
+):
+    """
+    Schedules task assignment notification using FastAPI BackgroundTasks if provided,
+    or falls back to an asynchronous daemon thread.
+    """
+    if not assignee_id or assignee_id == assignor_id:
+        return
+
+    if background_tasks is not None and hasattr(background_tasks, "add_task"):
+        background_tasks.add_task(
+            notify_task_assignment_background,
+            task_id=task_id,
+            assignee_id=assignee_id,
+            assignor_id=assignor_id,
+            client_base_url=client_base_url,
+            item_text=item_text,
+            is_checklist_item=is_checklist_item,
+            is_subtask=is_subtask,
+        )
+    else:
+        import threading
+        t = threading.Thread(
+            target=notify_task_assignment_background,
+            args=(task_id, assignee_id, assignor_id, client_base_url, item_text, is_checklist_item, is_subtask),
+            daemon=True,
+        )
+        t.start()
+
