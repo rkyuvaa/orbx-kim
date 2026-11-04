@@ -1286,10 +1286,16 @@ def create_task(
         assignee_ids.append(task.assignee_id)
     
     client_base_url = resolve_client_app_url(request)
+    creator_name = current_user.full_name or current_user.username or "A colleague"
+    task_link = f"/projects/{task.project_id}?taskId={task.id}" if task.project_id else f"/tasks?taskId={task.id}"
     for uid in set(assignee_ids):
         db.add(TaskAssignee(task_id=task.id, user_id=uid, assigned_by=current_user.id))
         if uid != current_user.id:
-            db.add(Notification(user_id=uid, message=f"You were assigned to task {task.task_number}: {task.title}"))
+            db.add(Notification(
+                user_id=uid,
+                message=f"{creator_name} assigned task {task.task_number}: {task.title} to you",
+                link=task_link,
+            ))
             schedule_task_assignment_notification(
                 task_id=task.id,
                 assignee_id=uid,
@@ -1961,11 +1967,18 @@ def update_task(
         db.query(TaskAssignee).filter(TaskAssignee.task_id == task.id).delete()
         new_uids = set(update_dict["assignee_ids"])
         client_base_url = resolve_client_app_url(request)
+        updater_name = current_user.full_name or current_user.username or "A colleague"
+        task_link = f"/projects/{task.project_id}?taskId={task.id}" if task.project_id else f"/tasks?taskId={task.id}"
         for uid in new_uids:
             db.add(TaskAssignee(task_id=task.id, user_id=uid, assigned_by=current_user.id))
             if not db.query(TaskFollower).filter(TaskFollower.task_id == task.id, TaskFollower.user_id == uid).first():
                 db.add(TaskFollower(task_id=task.id, user_id=uid))
             if uid not in old_assignee_ids and uid != current_user.id:
+                db.add(Notification(
+                    user_id=uid,
+                    message=f"{updater_name} assigned task {task.task_number}: {task.title} to you",
+                    link=task_link,
+                ))
                 schedule_task_assignment_notification(
                     task_id=task.id,
                     assignee_id=uid,
@@ -1976,6 +1989,13 @@ def update_task(
                 )
     elif "assignee_id" in update_dict and task.assignee_id != old_assignee_id:
         if task.assignee_id and task.assignee_id != current_user.id and task.assignee_id not in old_assignee_ids:
+            updater_name = current_user.full_name or current_user.username or "A colleague"
+            task_link = f"/projects/{task.project_id}?taskId={task.id}" if task.project_id else f"/tasks?taskId={task.id}"
+            db.add(Notification(
+                user_id=task.assignee_id,
+                message=f"{updater_name} assigned task {task.task_number}: {task.title} to you",
+                link=task_link,
+            ))
             client_base_url = resolve_client_app_url(request)
             schedule_task_assignment_notification(
                 task_id=task.id,
@@ -2279,6 +2299,13 @@ def create_checklist(
         )
         db.add(ci)
         if item_data.assignee_id and item_data.assignee_id != current_user.id:
+            assignor_name = current_user.full_name or current_user.username or "A colleague"
+            task_link = f"/projects/{task.project_id}?taskId={task.id}" if task.project_id else f"/tasks?taskId={task.id}"
+            db.add(Notification(
+                user_id=item_data.assignee_id,
+                message=f"{assignor_name} assigned checklist item '{ci.title}' in task {task.task_number} to you",
+                link=task_link,
+            ))
             schedule_task_assignment_notification(
                 task_id=task.id,
                 assignee_id=item_data.assignee_id,
@@ -2349,6 +2376,18 @@ def add_checklist_item(
     db.refresh(ci)
 
     if data.assignee_id and data.assignee_id != current_user.id:
+        parent_task = checklist.task if checklist else None
+        t_num = parent_task.task_number if parent_task else f"#{checklist.task_id}"
+        proj_id = parent_task.project_id if parent_task else None
+        task_link = f"/projects/{proj_id}?taskId={checklist.task_id}" if proj_id else f"/tasks?taskId={checklist.task_id}"
+        assignor_name = current_user.full_name or current_user.username or "A colleague"
+        db.add(Notification(
+            user_id=data.assignee_id,
+            message=f"{assignor_name} assigned checklist item '{ci.title}' in task {t_num} to you",
+            link=task_link,
+        ))
+        db.commit()
+
         client_base_url = resolve_client_app_url(request)
         schedule_task_assignment_notification(
             task_id=checklist.task_id,
@@ -3032,6 +3071,13 @@ def bulk_task_action(
             t.assignee_id = req.assignee_id
             db.add(TaskAssignee(task_id=t.id, user_id=req.assignee_id, assigned_by=current_user.id))
             if req.assignee_id != current_user.id:
+                assignor_name = current_user.full_name or current_user.username or "A colleague"
+                task_link = f"/projects/{t.project_id}?taskId={t.id}" if t.project_id else f"/tasks?taskId={t.id}"
+                db.add(Notification(
+                    user_id=req.assignee_id,
+                    message=f"{assignor_name} assigned task {t.task_number}: {t.title} to you",
+                    link=task_link,
+                ))
                 schedule_task_assignment_notification(
                     task_id=t.id,
                     assignee_id=req.assignee_id,

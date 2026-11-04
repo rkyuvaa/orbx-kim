@@ -16,6 +16,7 @@ from app.models.projects import (
     TaskAssignee, TaskTag, TaskTagMap, TaskTimeEntry, TaskActivity, TaskLogNote
 )
 from app.models.personal_settings import PersonalSettings, PersonalReminder, PersonalTemplate
+from app.models.notification import Notification
 from app.models.user import User, UserStatus
 from app.schemas.projects import (
     TaskCreate, TaskOut, TaskUpdate, TaskTimeEntryOut, TaskTimeEntryCreate,
@@ -390,6 +391,14 @@ def assign_personal_task(
     db.refresh(task)
 
     if data.assignee_id != current_user.id:
+        creator_name = current_user.full_name or current_user.username or "A colleague"
+        db.add(Notification(
+            user_id=data.assignee_id,
+            message=f"{creator_name} assigned task {task.task_number}: {task.title} to you",
+            link=f"/my-tasks?taskId={task.id}",
+        ))
+        db.commit()
+
         client_base_url = resolve_client_app_url(request)
         schedule_task_assignment_notification(
             task_id=task.id,
@@ -483,6 +492,12 @@ def update_personal_task(
         if task.assignee_id:
             db.add(TaskAssignee(task_id=task.id, user_id=task.assignee_id, assigned_by=current_user.id, assigned_at=now_local))
             if task.assignee_id != current_user.id:
+                updater_name = current_user.full_name or current_user.username or "A colleague"
+                db.add(Notification(
+                    user_id=task.assignee_id,
+                    message=f"{updater_name} reassigned task {task.task_number}: {task.title} to you",
+                    link=f"/my-tasks?taskId={task.id}",
+                ))
                 client_base_url = resolve_client_app_url(request)
                 schedule_task_assignment_notification(
                     task_id=task.id,

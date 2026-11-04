@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -93,6 +94,19 @@ export default function TasksPage({ defaultView = 'list', defaultScope = 'all' }
     q: searchQ || undefined,
     my_tasks_only: taskScope === 'my',
   });
+
+  const [searchParams] = useSearchParams();
+  const urlTaskId = searchParams.get('taskId');
+
+  useEffect(() => {
+    if (urlTaskId && tasks.length > 0) {
+      const targetId = Number(urlTaskId);
+      const found = tasks.find((t) => t.id === targetId);
+      if (found) {
+        setSelectedTask(found);
+      }
+    }
+  }, [urlTaskId, tasks]);
 
   const { data: projects = [] } = useGetProjectsQuery();
   const { data: statuses = [] } = useGetStatusDefinitionsQuery();

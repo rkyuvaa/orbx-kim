@@ -9,6 +9,7 @@ class NotificationOut(BaseModel):
     message: str
     is_read: bool
     created_at: datetime
+    link: Optional[str] = None
     # Optional fields for planned activity notifications
     planned_activity_id: Optional[int] = None
     due_date: Optional[datetime] = None

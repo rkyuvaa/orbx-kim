@@ -49,6 +49,7 @@ def list_notifications(
             "created_at": act.due_date,
             "planned_activity_id": act.id,
             "due_date": act.due_date,
+            "link": f"/leads/{act.application_id}" if act.application_id else None,
         })
 
     # Combine and sort by created_at descending

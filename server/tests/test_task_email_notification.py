@@ -174,3 +174,39 @@ def test_notify_task_assignment_success():
             assert "taskId=" in kwargs["task_url"]
     finally:
         db.close()
+
+
+def test_assign_personal_task_creates_in_app_notification():
+    """Verify assign_personal_task creates an in-app Notification with deep link"""
+    from app.api.v1.personal_tasks import assign_personal_task
+    from app.schemas.projects import PersonalTaskAssignCreate
+    from app.models.notification import Notification
+
+    db = SessionLocal()
+    try:
+        assignor = db.query(User).filter(User.email == "assignor_boss@example.com").first()
+        assignee = db.query(User).filter(User.email == "assignee_active@example.com").first()
+
+        data = PersonalTaskAssignCreate(
+            title="Deploy New Server Instance",
+            description="Setup production server on cloud",
+            assignee_id=assignee.id,
+            priority=TaskPriority.HIGH,
+        )
+
+        with patch("app.services.email_service.schedule_task_assignment_notification"):
+            res = assign_personal_task(data=data, db=db, current_user=assignor)
+
+            # Check in-app notification in DB
+            notif = db.query(Notification).filter(
+                Notification.user_id == assignee.id,
+                Notification.message.like("%Deploy New Server Instance%"),
+            ).order_by(Notification.id.desc()).first()
+
+            assert notif is not None
+            assert "Boss Lead assigned task" in notif.message
+            assert f"/my-tasks?taskId={res.id}" == notif.link
+            assert notif.read_at is None
+    finally:
+        db.close()
+

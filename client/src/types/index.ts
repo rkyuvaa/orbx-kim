@@ -550,6 +550,7 @@ export interface NotificationItem {
   message: string;
   is_read: boolean;
   created_at: string;
+  link?: string;
   // Optional fields for planned activity notifications
   planned_activity_id?: number;
   due_date?: string;

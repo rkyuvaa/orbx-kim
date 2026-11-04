@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { Button, Paper } from '@mui/material';
 import { Bell, CheckCheck } from 'lucide-react';
 
@@ -11,6 +12,7 @@ import { LoadingRows } from '@/components/ui/PageState';
 import { formatDateTime } from '@/utils/format';
 
 export default function NotificationsPage() {
+  const navigate = useNavigate();
   const { data, isFetching, isError, refetch } = useNotificationsQuery();
   const [markRead] = useMarkReadMutation();
   const [markAllRead, { isLoading: markingAll }] = useMarkAllReadMutation();
@@ -70,8 +72,11 @@ export default function NotificationsPage() {
                 key={n.id}
                 type="button"
                 onClick={() => {
-                  if (!n.is_read && plannedActivityId) {
+                  if (!n.is_read && n.id > 0) {
                     markRead(n.id);
+                  }
+                  if (n.link) {
+                    navigate(n.link);
                   }
                 }}
                 style={{

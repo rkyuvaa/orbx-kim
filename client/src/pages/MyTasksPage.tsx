@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -133,6 +134,21 @@ export default function MyTasksPage() {
   });
   const { data: settings } = useGetPersonalSettingsQuery();
   const { data: auditTimeline = [], isLoading: isTimelineLoading } = useGetPersonalAuditTimelineQuery();
+
+  const [searchParams] = useSearchParams();
+  const urlTaskId = searchParams.get('taskId');
+
+  // Auto-open task if ?taskId=... in query parameters
+  useEffect(() => {
+    if (urlTaskId && tasks.length > 0) {
+      const targetId = Number(urlTaskId);
+      const found = tasks.find((t) => t.id === targetId);
+      if (found) {
+        setSelectedTask(found);
+        setDrawerOpen(true);
+      }
+    }
+  }, [urlTaskId, tasks]);
 
   // Detail Drawer queries
   const selectedTaskId = selectedTask?.id;
