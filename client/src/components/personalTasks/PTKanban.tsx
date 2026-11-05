@@ -18,6 +18,7 @@ import {
   Plus,
   Clock,
   Sparkles,
+  Repeat,
 } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { PTTask } from '@/api/personalTasksApi';
@@ -486,21 +487,37 @@ export default function PTKanban({
                         </Box>
 
                         {/* Title */}
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            fontWeight: 600,
-                            fontSize: '0.85rem',
-                            textDecoration: task.is_completed ? 'line-through' : 'none',
-                            color: task.is_completed
-                              ? isDark
-                                ? '#94A3B8'
-                                : '#64748B'
-                              : 'inherit',
-                          }}
-                        >
-                          {task.title}
-                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.75 }}>
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              flex: 1,
+                              fontWeight: 600,
+                              fontSize: '0.85rem',
+                              textDecoration: task.is_completed ? 'line-through' : 'none',
+                              color: task.is_completed
+                                ? isDark
+                                  ? '#94A3B8'
+                                  : '#64748B'
+                                : 'inherit',
+                            }}
+                          >
+                            {task.title}
+                          </Typography>
+                          {task.recurrence_rule && (
+                            <Tooltip
+                              title={`Recurring: ${
+                                typeof task.recurrence_rule === 'object'
+                                  ? (task.recurrence_rule.pattern || task.recurrence_rule.type || 'Recurring')
+                                  : 'Recurring'
+                              }`}
+                            >
+                              <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', color: '#16C47F', mt: 0.25 }}>
+                                <Repeat size={13} />
+                              </Box>
+                            </Tooltip>
+                          )}
+                        </Box>
 
                         {/* Blocked Reason */}
                         {task.blocked_reason && (

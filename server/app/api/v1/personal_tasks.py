@@ -452,9 +452,12 @@ def update_personal_task(
     old_assignee_id = task.assignee_id
     old_progress = task.progress_percentage
     old_status_id = task.status_id
+    old_is_completed = task.is_completed
 
     # Apply changes and log audit
     for key, val in update_dict.items():
+        if key == "is_completed":
+            continue
         if hasattr(task, key):
             old_val = getattr(task, key)
             if old_val != val:
@@ -543,8 +546,9 @@ def update_personal_task(
             elif task.is_completed:
                 is_reopen_requested = True
 
-    if is_completion_requested and not task.is_completed:
-        now_local = get_local_now()
+    now_local = get_local_now()
+
+    if is_completion_requested and not old_is_completed:
         task.is_completed = True
         task.completed_at = now_local
         task.completion_date = now_local.date()
@@ -584,7 +588,7 @@ def update_personal_task(
         ).update({"status": "cancelled"})
         spawn_next_recurring_task(db, task, current_user.id)
 
-    elif is_reopen_requested and task.is_completed:
+    elif is_reopen_requested and old_is_completed:
         task.is_completed = False
         task.completed_at = None
         task.completion_date = None

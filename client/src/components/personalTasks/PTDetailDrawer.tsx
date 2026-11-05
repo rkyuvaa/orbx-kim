@@ -188,6 +188,7 @@ export default function PTDetailDrawer({
   const [estimatedHours, setEstimatedHours] = useState<number | ''>('');
   const [tags, setTags] = useState<string[]>([]);
   const [recurrencePattern, setRecurrencePattern] = useState<string>('none');
+  const [recurrenceEndDate, setRecurrenceEndDate] = useState<string>('');
 
   // Cancel dialog
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
@@ -202,6 +203,7 @@ export default function PTDetailDrawer({
           start_date: task.start_date ? task.start_date.split('T')[0] : null,
           due_date: task.due_date ? task.due_date.split('T')[0] : null,
           planned_date: task.planned_date ? task.planned_date.split('T')[0] : null,
+          recurrence_end_date: task.recurrence_end_date ? task.recurrence_end_date.split('T')[0] : null,
           estimated_hours: task.estimated_hours || 0,
           tag_names: task.tags_list?.map((t) => t.name) || [],
         }
@@ -210,7 +212,7 @@ export default function PTDetailDrawer({
       if (!task) return;
       const sanitized: Record<string, any> = {};
       for (const [k, v] of Object.entries(patch)) {
-        if (v === '' && ['start_date', 'due_date', 'planned_date', 'estimated_hours'].includes(k)) {
+        if (v === '' && ['start_date', 'due_date', 'planned_date', 'recurrence_end_date', 'estimated_hours'].includes(k)) {
           sanitized[k] = null;
         } else {
           sanitized[k] = v;
@@ -231,8 +233,10 @@ export default function PTDetailDrawer({
       setPlannedDate(task.planned_date ? task.planned_date.split('T')[0] : '');
       setEstimatedHours(task.estimated_hours || '');
       setTags(task.tags_list ? task.tags_list.map((t) => t.name) : []);
+      setRecurrenceEndDate(task.recurrence_end_date ? task.recurrence_end_date.split('T')[0] : '');
       if (task.recurrence_rule && typeof task.recurrence_rule === 'object') {
-        setRecurrencePattern(task.recurrence_rule.pattern || 'none');
+        const rawPat = (task.recurrence_rule.pattern || task.recurrence_rule.type || 'none').toLowerCase();
+        setRecurrencePattern(rawPat);
       } else {
         setRecurrencePattern('none');
       }
@@ -244,6 +248,7 @@ export default function PTDetailDrawer({
         start_date: task.start_date ? task.start_date.split('T')[0] : null,
         due_date: task.due_date ? task.due_date.split('T')[0] : null,
         planned_date: task.planned_date ? task.planned_date.split('T')[0] : null,
+        recurrence_end_date: task.recurrence_end_date ? task.recurrence_end_date.split('T')[0] : null,
         estimated_hours: task.estimated_hours || 0,
         tag_names: task.tags_list?.map((t) => t.name) || [],
       });
@@ -691,9 +696,12 @@ export default function PTDetailDrawer({
                     onChange={(e) => {
                       const pat = e.target.value;
                       setRecurrencePattern(pat);
+                      const capitalized = pat.charAt(0).toUpperCase() + pat.slice(1);
                       autoSave.saveField(
                         'recurrence_rule',
-                        pat === 'none' ? null : { pattern: pat, interval: 1, mode: 'after-completion' }
+                        pat === 'none'
+                          ? null
+                          : { pattern: pat, type: capitalized, interval: 1, mode: 'after-completion' }
                       );
                     }}
                   >
@@ -701,8 +709,29 @@ export default function PTDetailDrawer({
                     <MenuItem value="daily">Daily</MenuItem>
                     <MenuItem value="weekly">Weekly</MenuItem>
                     <MenuItem value="monthly">Monthly</MenuItem>
+                    <MenuItem value="yearly">Yearly</MenuItem>
                   </Select>
                 </Box>
+
+                {/* Recurrence End Date (shown only when recurrence is active) */}
+                {recurrencePattern !== 'none' && (
+                  <Box>
+                    <TextField
+                      label="Recurrence End Date (Optional)"
+                      type="date"
+                      fullWidth
+                      size="small"
+                      value={recurrenceEndDate}
+                      onChange={(e) => {
+                        setRecurrenceEndDate(e.target.value);
+                        autoSave.setPendingField('recurrence_end_date', e.target.value || null);
+                      }}
+                      onBlur={() => autoSave.saveField('recurrence_end_date', recurrenceEndDate || null)}
+                      InputLabelProps={{ shrink: true }}
+                      helperText="Leave empty to recur indefinitely until cancelled"
+                    />
+                  </Box>
+                )}
 
                 {/* Description */}
                 <TextField

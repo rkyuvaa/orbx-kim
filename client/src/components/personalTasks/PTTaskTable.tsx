@@ -47,6 +47,7 @@ import {
   ChevronDown,
   Play,
   Square,
+  Repeat,
 } from 'lucide-react';
 import { PTTask, TaskPriority, PTTaskUpdate } from '@/api/personalTasksApi';
 import EmptyState from '@/components/ui/EmptyState';
@@ -453,6 +454,20 @@ export default function PTTaskTable({
                         >
                           {task.title}
                         </Typography>
+
+                        {task.recurrence_rule && (
+                          <Tooltip
+                            title={`Recurring task: ${
+                              typeof task.recurrence_rule === 'object'
+                                ? (task.recurrence_rule.pattern || task.recurrence_rule.type || 'Recurring')
+                                : 'Recurring'
+                            }`}
+                          >
+                            <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', color: '#16C47F' }}>
+                              <Repeat size={13} />
+                            </Box>
+                          </Tooltip>
+                        )}
 
                         {/* Inline quick title edit pencil */}
                         {onUpdateTask && (

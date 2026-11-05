@@ -1053,44 +1053,81 @@ def _get_task_or_404_with_auth(db: Session, task_id: int, current_user: User) ->
 
 def spawn_next_recurring_task(db: Session, task: Task, current_user_id: int):
     """Spawn the next occurrence of a recurring task if within end date"""
-    if not task.recurrence_rule or task.recurrence_rule.get("type") == "None":
+    rule = task.recurrence_rule
+    if not rule or not isinstance(rule, dict):
         return
-    
-    # Simple logic to determine next start/due date based on recurrence_rule
-    # e.g., {'type': 'Daily'}, {'type': 'Weekly', 'days': [...]}, {'type': 'Monthly'}, {'type': 'Yearly'}
+
+    # Normalize pattern and type
+    raw_pat = rule.get("pattern") or rule.get("type") or ""
+    if not raw_pat or str(raw_pat).lower() in ["none", ""]:
+        return
+
+    rtype = str(raw_pat).capitalize()
+    interval = max(int(rule.get("interval", 1) or 1), 1)
+
+    series_id = task.recurring_task_id or task.id
+
+    # Prevent duplicate spawning: check if an uncompleted task in this series already exists
+    existing_uncompleted = db.query(Task).filter(
+        (Task.recurring_task_id == series_id) | (Task.id == series_id),
+        Task.id != task.id,
+        Task.is_completed.is_(False),
+        Task.is_deleted.is_(False),
+    ).first()
+    if existing_uncompleted:
+        return
+
     from datetime import timedelta
-    from dateutil.relativedelta import relativedelta
-    
-    rtype = task.recurrence_rule.get("type")
-    
-    next_start = task.start_date
-    next_due = task.due_date
-    
-    if rtype == "Daily":
-        if next_start: next_start += timedelta(days=1)
-        if next_due: next_due += timedelta(days=1)
-    elif rtype == "Weekly":
-        if next_start: next_start += timedelta(weeks=1)
-        if next_due: next_due += timedelta(weeks=1)
-    elif rtype == "Monthly":
-        if next_start: next_start += relativedelta(months=1)
-        if next_due: next_due += relativedelta(months=1)
-    elif rtype == "Yearly":
-        if next_start: next_start += relativedelta(years=1)
-        if next_due: next_due += relativedelta(years=1)
-    elif rtype == "Custom":
-        # Simplified handling for Custom
-        pass
-        
+    import calendar
+
+    def _add_months(sourcedate, months):
+        month = sourcedate.month - 1 + months
+        year = sourcedate.year + month // 12
+        month = month % 12 + 1
+        day = min(sourcedate.day, calendar.monthrange(year, month)[1])
+        return sourcedate.replace(year=year, month=month, day=day)
+
+    today = get_local_now().date()
+    mode = rule.get("mode", "after-completion")
+
+    # Base date determination
+    base_date = task.planned_date or task.due_date or task.start_date or today
+    if mode == "after-completion" or base_date < today:
+        advance_base = today
+    else:
+        advance_base = base_date
+
+    def _advance(d):
+        if not d:
+            return None
+        if rtype == "Daily":
+            return d + timedelta(days=interval)
+        elif rtype == "Weekly":
+            return d + timedelta(weeks=interval)
+        elif rtype == "Monthly":
+            return _add_months(d, interval)
+        elif rtype == "Yearly":
+            return _add_months(d, interval * 12)
+        else:
+            return d + timedelta(days=interval)
+
+    # Next dates
+    next_planned = _advance(advance_base) if (task.planned_date or not task.due_date) else None
+    next_due = _advance(task.due_date) if (task.due_date and mode != "after-completion" and task.due_date >= today) else _advance(advance_base)
+    next_start = _advance(task.start_date) if (task.start_date and mode != "after-completion" and task.start_date >= today) else (next_due if task.start_date else None)
+
+    # Check recurrence_end_date boundary
     if task.recurrence_end_date:
-        if (next_start and next_start > task.recurrence_end_date) or (next_due and next_due > task.recurrence_end_date):
-            return # Reached end of recurrence
-            
-    # Create the duplicate
+        ref_check = next_due or next_planned or next_start
+        if ref_check and ref_check > task.recurrence_end_date:
+            return  # Reached end of recurrence
+
+    # Generate task number
     if task.is_personal:
         task_num = _generate_personal_task_number(db, task.created_by or current_user_id)
     else:
         task_num = _generate_task_number(db, task.project_id)
+
     new_task = Task(
         task_number=task_num,
         project_id=task.project_id,
@@ -1101,7 +1138,7 @@ def spawn_next_recurring_task(db: Session, task: Task, current_user_id: int):
         title=task.title,
         description=task.description,
         type_id=task.type_id,
-        status_id=None, # Will get default
+        status_id=None,
         priority=task.priority,
         assignee_id=task.assignee_id,
         created_by=task.created_by,
@@ -1110,27 +1147,41 @@ def spawn_next_recurring_task(db: Session, task: Task, current_user_id: int):
         start_time=task.start_time,
         due_date=next_due,
         due_time=task.due_time,
+        planned_date=next_planned,
         estimated_minutes=task.estimated_minutes,
         estimated_hours=task.estimated_hours,
         recurrence_rule=task.recurrence_rule,
         recurrence_end_date=task.recurrence_end_date,
-        recurring_task_id=task.recurring_task_id or task.id, # Link to original series
-        reminder_at=None, # Reset reminder for new occurrence
+        recurring_task_id=series_id,
+        is_completed=False,
+        completed_at=None,
+        completion_date=None,
+        completion_time=None,
+        completed_by=None,
+        progress_percentage=0.0,
+        reminder_at=None,
         company_id=task.company_id,
         branch_id=task.branch_id,
         department_id=task.department_id,
         cost_center_id=task.cost_center_id,
     )
-    
-    first_status = db.query(TaskStatusDef).filter(TaskStatusDef.is_active.is_(True)).order_by(TaskStatusDef.display_order).first()
+
+    first_status = db.query(TaskStatusDef).filter(
+        TaskStatusDef.is_active.is_(True),
+        or_(
+            TaskStatusDef.category.notin_([TaskStatusCategory.DONE, TaskStatusCategory.CLOSED]),
+            TaskStatusDef.name.ilike("To Do"),
+            TaskStatusDef.name.ilike("Pending")
+        )
+    ).order_by(TaskStatusDef.display_order).first()
     if first_status:
         new_task.status_id = first_status.id
-        
+
     db.add(new_task)
     db.flush()
-    
+
     # Copy tags
-    for tm in task.tag_mappings:
+    for tm in getattr(task, 'tag_mappings', []):
         db.add(TaskTagMap(task_id=new_task.id, tag_id=tm.tag_id))
 
 @router.post("", response_model=TaskOut, status_code=status.HTTP_201_CREATED)
@@ -1488,7 +1539,11 @@ def update_personal_task(
         if bf in update_dict:
             del update_dict[bf]
 
+    old_is_completed = task.is_completed
+
     for key, val in update_dict.items():
+        if key == "is_completed":
+            continue
         if hasattr(task, key):
             setattr(task, key, val)
             _log_activity(db, task.id, current_user.id, "UPDATED", field_name=key, new_val=str(val))
@@ -1509,7 +1564,7 @@ def update_personal_task(
                     setattr(ft, field, val)
 
     if data.is_completed is not None:
-        if data.is_completed and not task.is_completed:
+        if data.is_completed and not old_is_completed:
             task.is_completed = True
             task.completed_at = get_local_now()
             task.completed_by = current_user.id
