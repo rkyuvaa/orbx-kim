@@ -581,7 +581,7 @@ export default function Sidebar({
       </div>
 
       {/* Navigation */}
-      <nav style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '4px 12px 12px', WebkitOverflowScrolling: 'touch' }}>
+      <nav style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '4px 12px 12px', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}>
         {isLoading ? (
           <div style={{ padding: '24px 8px', textAlign: 'center', color: 'rgba(255, 255, 255, 0.40)', fontSize: 12 }}>
             Loading navigation...

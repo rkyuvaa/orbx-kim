@@ -113,7 +113,7 @@ export default function GenericStagePage({ section }: { section: Section }) {
       </Alert>
 
       <Paper sx={{ border: '1px solid #E4EBE1', borderRadius: '14px', overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
+        <div className="table-scroll-wrap scroll-touch" style={{ overflowX: 'auto', width: '100%' }}>
           {isFetching && !data ? (
             <LoadingRows rows={6} />
           ) : isError ? (

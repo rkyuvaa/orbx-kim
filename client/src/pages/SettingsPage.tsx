@@ -118,6 +118,7 @@ export default function SettingsPage() {
           onChange={(_, newValue) => setActiveTab(newValue)}
           variant="scrollable"
           scrollButtons="auto"
+          allowScrollButtonsMobile
           sx={{
             minHeight: 44,
             '& .MuiTab-root': {
@@ -155,6 +156,9 @@ export default function SettingsPage() {
                 <Tabs
                   value={userRoleSubTab < subtabs.length ? userRoleSubTab : 0}
                   onChange={(_, val) => setUserRoleSubTab(val)}
+                  variant="scrollable"
+                  scrollButtons="auto"
+                  allowScrollButtonsMobile
                   sx={{
                     borderBottom: 1,
                     borderColor: '#E4EBE1',

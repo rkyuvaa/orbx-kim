@@ -84,7 +84,7 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2.25 }}>
         <Paper sx={{ border: '1px solid #E4EBE1', borderRadius: '14px', p: 2 }}>
           <Typography sx={{ fontWeight: 700, mb: 2 }}>Applications by stage</Typography>
           <ResponsiveContainer width="100%" height={280}>
@@ -144,7 +144,7 @@ export default function ReportsPage() {
             </LineChart>
           </ResponsiveContainer>
         </Paper>
-      </div>
+      </Box>
 
       <Box sx={{ mt: 2 }}>
         <Typography sx={{ fontSize: 12, color: '#9BA99F' }}>

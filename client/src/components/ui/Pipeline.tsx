@@ -52,7 +52,7 @@ export default function Pipeline({
   onStageClick?: (stage: PipelineStage) => void;
 }) {
   return (
-    <div className="scroll-touch" style={{ overflowX: 'auto', paddingBottom: 4 }}>
+    <div className="table-scroll-wrap scroll-touch" style={{ overflowX: 'auto', width: '100%', paddingBottom: 4, WebkitOverflowScrolling: 'touch' }}>
       <div style={{ display: 'flex', alignItems: 'stretch', padding: '12px 14px', minWidth: 860 }}>
         {stages.map((stage, i) => {
           const theme = getStageTheme(stage.key, stage.color, i);

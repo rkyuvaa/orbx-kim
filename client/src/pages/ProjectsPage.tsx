@@ -180,9 +180,9 @@ export default function ProjectsPage() {
   return (
     <Box sx={{ width: '100%', maxWidth: 'none', minWidth: 0, px: 0, py: 0.5, boxSizing: 'border-box' }}>
       {/* Header Action Button */}
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', mb: 2.5 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', mb: 2.5, width: '100%' }}>
 
-        <Box sx={{ display: 'flex', gap: 1.5 }}>
+        <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
           {can('import', 'projects') && (
             <Button
               variant="outlined"
@@ -286,9 +286,16 @@ export default function ProjectsPage() {
       </Grid>
 
       {/* Filter Tabs & Search */}
-      <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: '12px', mb: 3, bgcolor: 'background.paper' }}>
-        <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Tabs value={tabValue} onChange={(_e, v) => setTabValue(v)}>
+      <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: '12px', mb: 3, bgcolor: 'background.paper', width: '100%', overflow: 'hidden' }}>
+        <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
+          <Tabs
+            value={tabValue}
+            onChange={(_e, v) => setTabValue(v)}
+            variant="scrollable"
+            scrollButtons="auto"
+            allowScrollButtonsMobile
+            sx={{ maxWidth: '100%' }}
+          >
             <Tab label={`All (${projects.length})`} />
             <Tab label="In Progress" />
             <Tab label="Planning" />
@@ -304,7 +311,7 @@ export default function ProjectsPage() {
             InputProps={{
               startAdornment: <Search size={16} style={{ marginRight: 8, opacity: 0.7 }} />,
             }}
-            sx={{ width: 260, my: 1 }}
+            sx={{ width: { xs: '100%', sm: 260 }, my: 1 }}
           />
         </Box>
 

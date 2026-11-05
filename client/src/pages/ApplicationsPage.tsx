@@ -202,7 +202,7 @@ export default function ApplicationsPage() {
           </div>
         ) : (
           <>
-            <div style={{ overflowX: 'auto' }}>
+            <div className="table-scroll-wrap scroll-touch" style={{ overflowX: 'auto', width: '100%' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr>

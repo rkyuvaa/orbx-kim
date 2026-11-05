@@ -57,11 +57,13 @@ export default function AppLayout() {
     <div
       style={{
         minHeight: '100vh',
-        height: 'auto',
+        height: isMobile ? '100dvh' : 'auto',
+        maxHeight: isMobile ? '100dvh' : undefined,
         display: 'flex',
         flexDirection: 'column',
         width: '100%',
         boxSizing: 'border-box',
+        overflow: isMobile ? 'hidden' : undefined,
       }}
       className="app-shell"
     >
@@ -95,6 +97,8 @@ export default function AppLayout() {
               flexDirection: 'column',
               minWidth: 0,
               width: '100%',
+              minHeight: 0,
+              overflow: 'hidden',
             }}
           >
             <Topbar
@@ -113,6 +117,10 @@ export default function AppLayout() {
                 minHeight: 0,
                 width: '100%',
                 boxSizing: 'border-box',
+                overflowY: 'auto',
+                overflowX: 'hidden',
+                WebkitOverflowScrolling: 'touch',
+                overscrollBehaviorY: 'contain',
               }}
             >
               <Outlet />

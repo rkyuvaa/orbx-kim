@@ -344,8 +344,8 @@ export default function HRPage() {
   return (
     <Box sx={{ width: '100%' }}>
       {/* Top Action Buttons */}
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', mb: 2 }}>
-        <Stack direction="row" spacing={1.5}>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1.5, width: '100%' }}>
+        <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
           {HR_NAV_ITEMS[tabValue]?.key === 'onboarding' && (
             <>
               {can('import', 'hr_onboarding') && (

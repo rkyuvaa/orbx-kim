@@ -79,7 +79,7 @@ export default function AccessAuditLogPage() {
       </div>
 
       {/* Audit Log Table */}
-      <div style={{ background: '#FFFFFF', borderRadius: 14, border: '1px solid #E4EBE1', overflow: 'hidden' }}>
+      <div className="table-scroll-wrap scroll-touch" style={{ background: '#FFFFFF', borderRadius: 14, border: '1px solid #E4EBE1', overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, textAlign: 'left' }}>
           <thead>
             <tr style={{ background: '#F8FAF8', borderBottom: '1px solid #E4EBE1', color: '#44584C', fontWeight: 700 }}>

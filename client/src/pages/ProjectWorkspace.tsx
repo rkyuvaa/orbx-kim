@@ -293,6 +293,8 @@ export default function ProjectWorkspace() {
           value={tab}
           onChange={handleTabChange}
           variant="scrollable"
+          scrollButtons="auto"
+          allowScrollButtonsMobile
           sx={{
             '& .MuiTab-root': {
               textTransform: 'none',

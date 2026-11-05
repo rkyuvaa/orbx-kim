@@ -19,6 +19,7 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   Tooltip,
+  useMediaQuery,
 } from '@mui/material';
 import {
   Plus,
@@ -101,6 +102,7 @@ export default function LeadsPage() {
     setSearchInput(searchQ);
   }, [searchQ]);
 
+  const isSmallMobile = useMediaQuery('(max-width:640px)');
   const [selectedStageKey, setSelectedStageKey] = useState<string | undefined>(undefined);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(20);
@@ -390,8 +392,8 @@ export default function LeadsPage() {
       </div>
 
       {/* 2. Action row below stage pills */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 260, maxWidth: 440 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10, width: '100%' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: isSmallMobile ? '100%' : 260, maxWidth: isSmallMobile ? '100%' : 440, width: isSmallMobile ? '100%' : undefined }}>
           <TextField
             size="small"
             fullWidth
@@ -550,7 +552,7 @@ export default function LeadsPage() {
             </ToggleButton>
           </ToggleButtonGroup>
 
-          {can('import', currentResource) && (
+          {!isSmallMobile && can('import', currentResource) && (
             <Button
               variant="outlined"
               startIcon={<Upload size={16} />}
@@ -626,7 +628,7 @@ export default function LeadsPage() {
               </IconButton>
             </div>
           </div>
-          <div className="scroll-touch" style={{ overflowX: 'auto' }}>
+          <div className="table-scroll-wrap scroll-touch" style={{ overflowX: 'auto', width: '100%' }}>
             {isFetching && !data ? (
               <LoadingRows rows={8} />
             ) : isError ? (
@@ -771,7 +773,7 @@ export default function LeadsPage() {
         </Paper>
       ) : (
         /* KANBAN VIEW */
-        <div style={{ overflowX: 'auto', paddingBottom: 16 }}>
+        <div className="table-scroll-wrap scroll-touch" style={{ overflowX: 'auto', width: '100%', paddingBottom: 16 }}>
           {isFetching && !data ? (
             <LoadingRows rows={4} />
           ) : isError ? (

@@ -191,12 +191,6 @@ body.dark-mode ::-webkit-scrollbar-thumb:hover {
   background: rgba(22, 196, 127, 0.6);
 }
 
-/* Touch Momentum Scrolling for Mobile & Tablet */
-.scroll-touch {
-  -webkit-overflow-scrolling: touch;
-  overflow-x: auto;
-}
-
 /* Accessible Interactive Focus Ring */
 :focus-visible {
   outline: 2px solid var(--brand-primary);
@@ -220,6 +214,15 @@ body.dark-mode :focus-visible {
 .scroll-touch {
   -webkit-overflow-scrolling: touch;
   overflow-x: auto;
+  max-width: 100%;
+}
+
+.table-scroll-wrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
 }
 
 .scroll-y-touch {
@@ -287,6 +290,21 @@ body.dark-mode :focus-visible {
 }
 
 @media (max-width: 1024px) {
+  .app-shell {
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    overflow: hidden !important;
+  }
+
+  .app-main {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior-y: contain !important;
+    flex: 1 1 0% !important;
+    min-height: 0 !important;
+  }
+
   .right-col {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -294,15 +312,20 @@ body.dark-mode :focus-visible {
 }
 
 @media (max-width: 768px) {
+  .two-col {
+    grid-template-columns: 1fr !important;
+  }
+
   .app-main {
-    padding: 14px 12px 8px !important;
+    padding: 14px 12px max(18px, env(safe-area-inset-bottom, 0px)) !important;
   }
   .kpi-grid {
     grid-template-columns: repeat(2, 1fr) !important;
     gap: 10px !important;
   }
   .right-col {
-    grid-template-columns: 1fr;
+    display: flex !important;
+    flex-direction: column !important;
   }
   
   button, a, input, select {
@@ -312,7 +335,7 @@ body.dark-mode :focus-visible {
 
 @media (max-width: 480px) {
   .app-main {
-    padding: 10px 8px 6px !important;
+    padding: 10px 8px max(16px, env(safe-area-inset-bottom, 0px)) !important;
   }
   .kpi-grid {
     grid-template-columns: 1fr !important;

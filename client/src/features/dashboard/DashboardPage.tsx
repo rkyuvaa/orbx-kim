@@ -151,7 +151,7 @@ export default function DashboardPage() {
             {data && <Pipeline stages={data.pipeline} onStageClick={(s) => showToast(`${s.label}: ${s.count} total`, 'info')} />}
           </div>
 
-          <div className="two-col" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 330px', gap: 18, alignItems: 'start' }}>
+          <div className="two-col" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 330px', gap: 18, alignItems: 'start', width: '100%' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 18, minWidth: 0 }}>
               <RecentApplications />
               <FinancePerformance />
