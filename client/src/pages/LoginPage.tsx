@@ -129,102 +129,49 @@ export default function LoginPage() {
 
   const errorMessage = extractErrorMessage(error);
 
-  // Right side brand panel with green gradient
+  // Left side brand panel — blank green sidebar with Precision Hexagonal Micro-Pattern
   const brandPanel = (
     <Box
       sx={{
         flex: '1 1 50%',
         background: 'linear-gradient(145deg, #2A3F2A 0%, #203020 48%, #121C12 100%)',
-        color: '#FFFFFF',
         display: { xs: 'none', md: 'flex' },
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
         position: 'relative',
-        p: 6,
         overflow: 'hidden',
       }}
     >
-      {/* Decorative ambient glowing ring */}
+      {/* Precision Hexagonal Micro-Pattern */}
       <Box
         sx={{
           position: 'absolute',
-          width: 440,
-          height: 440,
-          borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(22, 196, 127, 0.14) 0%, rgba(32, 48, 32, 0) 70%)',
-          filter: 'blur(30px)',
+          inset: 0,
           pointerEvents: 'none',
+          zIndex: 0,
+          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='100'%3E%3Cpath d='M28 2 L54 18 L54 50 L28 66 L2 50 L2 18 Z' fill='none' stroke='rgba(22%2C196%2C127%2C0.18)' stroke-width='1'/%3E%3Cpath d='M28 36 L54 52 L54 84 L28 100 L2 84 L2 52 Z' fill='none' stroke='rgba(22%2C196%2C127%2C0.18)' stroke-width='1'/%3E%3C/svg%3E")`,
+          backgroundSize: '56px 100px',
+          backgroundRepeat: 'repeat',
         }}
       />
-
-      {/* Hero Visual Card with High-Contrast Logo */}
-      <Box sx={{ textAlign: 'center', zIndex: 1, maxWidth: 360, width: '100%', px: 2 }}>
-        <Box
-          sx={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            p: 3,
-            borderRadius: 4,
-            background: 'rgba(255, 255, 255, 0.95)',
-            boxShadow: '0 12px 36px rgba(0, 0, 0, 0.35)',
-            mb: 3,
-          }}
-        >
-          <Box
-            component="img"
-            src="/logo.svg"
-            alt="KIM-One"
-            sx={{
-              width: '100%',
-              maxWidth: 220,
-              height: 'auto',
-              objectFit: 'contain',
-              display: 'block',
-            }}
-          />
-        </Box>
-        <Typography
-          sx={{
-            fontSize: 22,
-            fontWeight: 800,
-            letterSpacing: '-0.02em',
-            color: '#FFFFFF',
-            mb: 1,
-          }}
-        >
-          Enterprise Resource Planning
-        </Typography>
-        <Typography
-          sx={{
-            fontSize: 14,
-            color: '#A3D9B8',
-            lineHeight: 1.5,
-          }}
-        >
-          Streamlined automotive operations, project workflows, and management.
-        </Typography>
-      </Box>
-
-      {/* Subtle bottom copyright */}
-      <Typography
+      {/* Radial vignette to add depth */}
+      <Box
         sx={{
           position: 'absolute',
-          bottom: 24,
-          fontSize: 12,
-          color: 'rgba(255, 255, 255, 0.45)',
-          letterSpacing: '0.02em',
+          inset: 0,
+          background:
+            'radial-gradient(ellipse at center, transparent 35%, rgba(10,20,10,0.6) 100%)',
+          pointerEvents: 'none',
+          zIndex: 1,
         }}
-      >
-        © 2026 KIM-One. All rights reserved.
-      </Typography>
+      />
     </Box>
   );
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100dvh', background: '#F8FAF8' }}>
-      {/* Left side: Form panel on clean white background */}
+      {/* Left side: Green brand hero panel */}
+      {brandPanel}
+
+      {/* Right side: Form panel on clean white background */}
       <Box
         sx={{
           flex: '1 1 50%',
@@ -404,9 +351,6 @@ export default function LoginPage() {
           </Box>
         </Box>
       </Box>
-
-      {/* Right side: Green brand hero panel */}
-      {brandPanel}
     </Box>
   );
 }
