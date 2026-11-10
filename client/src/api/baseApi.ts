@@ -119,6 +119,7 @@ export const baseApi = createApi({
       'VSIssueMatrixConfig',
       'VSComplaintIssueMatrixItems',
       'AppData',
-        ],
+      'PushNotifications',
+    ],
   endpoints: () => ({}),
 });

@@ -18,6 +18,7 @@ venv/
 .ruff_cache/
 dev.db
 *.log
+*vapid_keys.json
 
 
 # Editor / OS

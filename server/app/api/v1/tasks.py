@@ -23,6 +23,7 @@ from app.models.rbac import Department
 from app.models.user import User
 from app.models.enums import UserRole
 from app.models.notification import Notification
+from app.services.push_notification_service import send_push_to_user
 from app.schemas.projects import (
     TaskCreate,
     TaskOut,
@@ -321,6 +322,13 @@ def _parse_and_notify_mentions(db: Session, content: str, task: Task, actor: Use
     for uid in notify_user_ids:
         msg = f"{actor.full_name} mentioned you in task {task.task_number}: {task.title}"
         db.add(Notification(user_id=uid, message=msg))
+        send_push_to_user(
+            db=db,
+            user_id=uid,
+            title="Mention in Task",
+            body=msg,
+            url=f"/my-tasks?taskId={task.id}" if task.is_personal else f"/projects/tasks?taskId={task.id}",
+        )
 
 
 def _update_parent_progress(db: Session, parent_id: Optional[int]):

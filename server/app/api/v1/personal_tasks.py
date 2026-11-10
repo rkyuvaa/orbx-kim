@@ -11,6 +11,7 @@ from sqlalchemy import or_, and_, desc
 
 from app.db.session import get_db
 from app.services.email_service import schedule_task_assignment_notification, resolve_client_app_url
+from app.services.push_notification_service import send_push_to_user
 from app.models.projects import (
     Task, TaskStatusDef, TaskPriority, TaskStatusCategory,
     TaskAssignee, TaskTag, TaskTagMap, TaskTimeEntry, TaskActivity, TaskLogNote
@@ -392,12 +393,20 @@ def assign_personal_task(
 
     if data.assignee_id != current_user.id:
         creator_name = current_user.full_name or current_user.username or "A colleague"
+        msg = f"{creator_name} assigned task {task.task_number}: {task.title} to you"
         db.add(Notification(
             user_id=data.assignee_id,
-            message=f"{creator_name} assigned task {task.task_number}: {task.title} to you",
+            message=msg,
             link=f"/my-tasks?taskId={task.id}",
         ))
         db.commit()
+        send_push_to_user(
+            db=db,
+            user_id=data.assignee_id,
+            title="New Task Assigned",
+            body=msg,
+            url=f"/my-tasks?taskId={task.id}",
+        )
 
         client_base_url = resolve_client_app_url(request)
         schedule_task_assignment_notification(
@@ -496,11 +505,19 @@ def update_personal_task(
             db.add(TaskAssignee(task_id=task.id, user_id=task.assignee_id, assigned_by=current_user.id, assigned_at=now_local))
             if task.assignee_id != current_user.id:
                 updater_name = current_user.full_name or current_user.username or "A colleague"
+                reassign_msg = f"{updater_name} reassigned task {task.task_number}: {task.title} to you"
                 db.add(Notification(
                     user_id=task.assignee_id,
-                    message=f"{updater_name} reassigned task {task.task_number}: {task.title} to you",
+                    message=reassign_msg,
                     link=f"/my-tasks?taskId={task.id}",
                 ))
+                send_push_to_user(
+                    db=db,
+                    user_id=task.assignee_id,
+                    title="Task Reassigned",
+                    body=reassign_msg,
+                    url=f"/my-tasks?taskId={task.id}",
+                )
                 client_base_url = resolve_client_app_url(request)
                 schedule_task_assignment_notification(
                     task_id=task.id,

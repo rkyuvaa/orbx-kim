@@ -11,6 +11,7 @@ from app.api.v1 import (
     recruitment,
     masters,
     notifications,
+    push_notifications,
     planned_activities,
     projects,
     public_financier,
@@ -37,6 +38,7 @@ api_router.include_router(sms.router)
 api_router.include_router(document_numbering.router)
 api_router.include_router(planned_activities.router)
 api_router.include_router(notifications.router)
+api_router.include_router(push_notifications.router)
 api_router.include_router(masters.router)
 api_router.include_router(hr.router)
 api_router.include_router(recruitment.router)

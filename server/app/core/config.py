@@ -40,6 +40,11 @@ class Settings(BaseSettings):
     sms_otp_template_id: str | None = None
     sms_is_enabled: bool = True
 
+    # Web Push Notification Settings (VAPID)
+    vapid_public_key: str = ""
+    vapid_private_key: str = ""
+    vapid_claim_email: str = "mailto:admin@konwertindiamotors.com"
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

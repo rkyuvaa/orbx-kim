@@ -10,6 +10,7 @@ import {
 import EmptyState from '@/components/ui/EmptyState';
 import { LoadingRows } from '@/components/ui/PageState';
 import { formatDateTime } from '@/utils/format';
+import PushNotificationCard from '@/components/notifications/PushNotificationCard';
 
 export default function NotificationsPage() {
   const navigate = useNavigate();
@@ -48,6 +49,8 @@ export default function NotificationsPage() {
           Mark all as read
         </Button>
       </div>
+
+      <PushNotificationCard />
 
       <Paper sx={{ border: '1px solid #E4EBE1', borderRadius: '14px', overflow: 'hidden' }}>
         {isFetching && !data ? (

@@ -10,6 +10,7 @@ from app.models.enums import UserRole
 
 if TYPE_CHECKING:
     from app.models.notification import Notification
+    from app.models.push_subscription import PushSubscription
     from app.models.rbac import DepartmentUser, UserPermission, UserRole
 
 
@@ -48,6 +49,9 @@ class User(Base):
     )
 
     notifications: Mapped[list["Notification"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    push_subscriptions: Mapped[list["PushSubscription"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
     user_roles: Mapped[list["UserRole"]] = relationship(

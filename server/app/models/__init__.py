@@ -32,6 +32,7 @@ from app.models.financier_token import (
     FinancierDocumentSendItem,
 )
 from app.models.notification import Activity, ActivityLog, ActivityType, Notification, PlannedActivity
+from app.models.push_subscription import PushSubscription
 from app.models.pipeline_stage import PipelineStage
 from app.models.rbac import (
     Action,
