@@ -127,33 +127,49 @@ function FloatingOrb({
 }
 
 // ─── Shared input sx ─────────────────────────────────────────────────────────
-function inputSx(isMobileGlass?: boolean) {
-  return {
-    '& .MuiOutlinedInput-root': {
-      borderRadius: '12px',
-      bgcolor: isMobileGlass ? 'rgba(255,255,255,0.07)' : 'rgba(243,247,244,0.7)',
-      '& fieldset': {
-        borderColor: isMobileGlass ? 'rgba(22,196,127,0.25)' : 'rgba(0,0,0,0.15)',
-      },
-      '&:hover fieldset': {
-        borderColor: '#16C47F',
-      },
-      '&.Mui-focused fieldset': {
-        borderColor: '#16C47F',
-        boxShadow: '0 0 0 3px rgba(22,196,127,0.15)',
-      },
+const loginInputSx = {
+  '& .MuiOutlinedInput-root': {
+    borderRadius: '12px',
+    bgcolor: '#FFFFFF',
+    transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+    '& fieldset': {
+      borderColor: 'rgba(32, 48, 32, 0.2)',
     },
-    '& .MuiInputLabel-root': {
-      color: isMobileGlass ? 'rgba(255,255,255,0.65)' : '#6B7A72',
+    '&:hover fieldset': {
+      borderColor: '#16C47F',
     },
-    '& .MuiInputLabel-root.Mui-focused': {
-      color: '#16C47F',
+    '&.Mui-focused fieldset': {
+      borderColor: '#16C47F',
+      borderWidth: '1.5px',
+      boxShadow: '0 0 0 3px rgba(22, 196, 127, 0.15)',
     },
-    '& .MuiInputBase-input': {
-      color: isMobileGlass ? '#FFFFFF' : '#1A2A1A',
+  },
+  '& .MuiInputLabel-root': {
+    color: '#526356',
+    fontSize: 14,
+    fontWeight: 500,
+  },
+  '& .MuiInputLabel-root.Mui-focused': {
+    color: '#16C47F',
+    fontWeight: 600,
+  },
+  '& .MuiInputLabel-root.Mui-error': {
+    color: '#DC2626',
+  },
+  '& .MuiInputBase-input': {
+    color: '#16231B',
+    fontSize: 14,
+    fontWeight: 500,
+    '&::placeholder': {
+      color: '#7A8B80',
+      opacity: 1,
     },
-  };
-}
+  },
+  '& .MuiFormHelperText-root': {
+    mx: 0.5,
+    mt: 0.5,
+  },
+};
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function LoginPage() {
@@ -270,49 +286,15 @@ export default function LoginPage() {
   );
 
   return (
-    // Outer wrapper — on mobile this IS the full green-hex background
+    // Outer wrapper — clean off-white canvas with desktop split hero
     <Box
       sx={{
         display: 'flex',
         minHeight: '100dvh',
         position: 'relative',
-        // Mobile: dark-green hex full background
-        background: {
-          xs: 'linear-gradient(145deg, #2A3F2A 0%, #203020 48%, #121C12 100%)',
-          md: '#F3F7F4',
-        },
+        bgcolor: '#F3F7F4',
       }}
     >
-      {/* Mobile hex pattern layer (hidden on desktop — panel handles it) */}
-      <Box
-        sx={{
-          display: { xs: 'block', md: 'none' },
-          position: 'fixed',
-          inset: 0,
-          backgroundImage: HEX_PATTERN,
-          backgroundSize: '56px 100px',
-          backgroundRepeat: 'repeat',
-          zIndex: 0,
-          pointerEvents: 'none',
-        }}
-      />
-      {/* Mobile orbs */}
-      <Box sx={{ display: { xs: 'block', md: 'none' }, position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none' }}>
-        <FloatingOrb size={260} color="radial-gradient(circle, rgba(22,196,127,0.2) 0%, transparent 70%)" top="5%" left="20%" delay={0} duration={8} />
-        <FloatingOrb size={180} color="radial-gradient(circle, rgba(22,196,127,0.14) 0%, transparent 70%)" top="60%" left="50%" delay={2} duration={7} />
-      </Box>
-      {/* Mobile vignette */}
-      <Box
-        sx={{
-          display: { xs: 'block', md: 'none' },
-          position: 'fixed',
-          inset: 0,
-          background: 'radial-gradient(ellipse at center, transparent 25%, rgba(10,20,10,0.6) 100%)',
-          zIndex: 0,
-          pointerEvents: 'none',
-        }}
-      />
-
       {/* Left green panel (desktop only) */}
       {GreenPanel}
 
@@ -320,18 +302,18 @@ export default function LoginPage() {
       <Box
         sx={{
           flex: { md: '0 0 50%' },
-          width: { xs: '100%', md: 'auto' },
+          width: { xs: '100%', md: '50%' },
+          minHeight: '100dvh',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           p: { xs: 2.5, sm: 4, md: 6 },
           position: 'relative',
           zIndex: 1,
-          // Desktop: soft off-white bg
-          bgcolor: { md: '#F3F7F4' },
+          bgcolor: '#F3F7F4',
         }}
       >
-        {/* Form card — glass on mobile, plain on desktop */}
+        {/* Form card */}
         <Box
           component={motion.div}
           initial="hidden"
@@ -340,30 +322,14 @@ export default function LoginPage() {
           sx={{
             width: '100%',
             maxWidth: { xs: '100%', sm: 420 },
-            // Mobile glass card
-            background: {
-              xs: 'rgba(255,255,255,0.07)',
-              md: 'transparent',
-            },
-            backdropFilter: { xs: 'blur(24px)', md: 'none' },
-            WebkitBackdropFilter: { xs: 'blur(24px)', md: 'none' },
-            border: {
-              xs: '1px solid rgba(22,196,127,0.2)',
-              md: 'none',
-            },
-            borderRadius: { xs: '24px', md: 0 },
-            boxShadow: {
-              xs: '0 8px 48px rgba(0,0,0,0.4), 0 0 0 1px rgba(22,196,127,0.08)',
-              md: 'none',
-            },
-            p: { xs: 3.5, sm: 4, md: 0 },
+            p: { xs: 2, sm: 3, md: 0 },
           }}
         >
           {/* Logo */}
           <Box
             component={motion.div}
             variants={itemVariants}
-            sx={{ textAlign: 'center', mb: { xs: 2, md: 3.5 } }}
+            sx={{ textAlign: 'center', mb: { xs: 2.5, md: 3.5 } }}
           >
             <Box
               component="img"
@@ -371,12 +337,10 @@ export default function LoginPage() {
               alt="KIM-One"
               sx={{
                 width: '100%',
-                maxWidth: { xs: 160, md: 210 },
+                maxWidth: { xs: 180, md: 210 },
                 height: 'auto',
                 mx: 'auto',
                 display: 'block',
-                // On mobile white background panel → tint to show on dark
-                filter: { xs: 'brightness(0) invert(1)', md: 'none' },
               }}
             />
           </Box>
@@ -389,7 +353,7 @@ export default function LoginPage() {
                 fontWeight: 800,
                 fontSize: { xs: 26, md: 30 },
                 letterSpacing: '-0.03em',
-                color: { xs: '#FFFFFF', md: '#1A2A1A' },
+                color: '#16231B',
                 mb: 0.5,
               }}
             >
@@ -398,7 +362,7 @@ export default function LoginPage() {
             <Typography
               sx={{
                 fontSize: { xs: 13, md: 14 },
-                color: { xs: 'rgba(255,255,255,0.5)', md: '#7A8B80' },
+                color: '#526356',
                 mb: 2.5,
               }}
             >
@@ -421,9 +385,7 @@ export default function LoginPage() {
                   sx={{
                     mb: 2,
                     borderRadius: '12px',
-                    bgcolor: { xs: 'rgba(211,47,47,0.18)', md: undefined },
-                    color: { xs: '#FF8A80', md: undefined },
-                    '& .MuiAlert-icon': { color: { xs: '#FF8A80', md: undefined } },
+                    fontSize: 13,
                   }}
                 >
                   {errorMessage}
@@ -455,16 +417,7 @@ export default function LoginPage() {
                 }}
                 sx={{
                   mt: 0,
-                  ...inputSx(true), // glass style (also fine on desktop with its own bg)
-                  // On desktop override back to light style
-                  '@media (min-width:900px)': {
-                    '& .MuiOutlinedInput-root': {
-                      bgcolor: 'rgba(243,247,244,0.7)',
-                      '& fieldset': { borderColor: 'rgba(0,0,0,0.15)' },
-                    },
-                    '& .MuiInputLabel-root': { color: '#6B7A72' },
-                    '& .MuiInputBase-input': { color: '#1A2A1A' },
-                  },
+                  ...loginInputSx,
                 }}
                 {...register('email')}
               />
@@ -499,7 +452,7 @@ export default function LoginPage() {
                         aria-label={showPassword ? 'Hide password' : 'Show password'}
                         size="small"
                         sx={{
-                          color: showPassword ? '#16C47F' : 'rgba(155,169,159,0.8)',
+                          color: showPassword ? '#16C47F' : '#7A8B80',
                           '&:hover': { color: '#16C47F' },
                         }}
                       >
@@ -510,15 +463,7 @@ export default function LoginPage() {
                 }}
                 sx={{
                   mt: 0,
-                  ...inputSx(true),
-                  '@media (min-width:900px)': {
-                    '& .MuiOutlinedInput-root': {
-                      bgcolor: 'rgba(243,247,244,0.7)',
-                      '& fieldset': { borderColor: 'rgba(0,0,0,0.15)' },
-                    },
-                    '& .MuiInputLabel-root': { color: '#6B7A72' },
-                    '& .MuiInputBase-input': { color: '#1A2A1A' },
-                  },
+                  ...loginInputSx,
                 }}
                 {...register('password')}
               />
@@ -546,11 +491,11 @@ export default function LoginPage() {
                     letterSpacing: '0.01em',
                     background: 'linear-gradient(135deg, #16C47F 0%, #0EA05E 100%)',
                     color: '#FFFFFF',
-                    boxShadow: '0 4px 20px rgba(22,196,127,0.4), 0 1px 4px rgba(22,196,127,0.3)',
+                    boxShadow: '0 4px 20px rgba(22,196,127,0.35)',
                     transition: 'box-shadow 0.25s ease, background 0.25s ease',
                     '&:hover': {
                       background: 'linear-gradient(135deg, #18D488 0%, #12B56B 100%)',
-                      boxShadow: '0 6px 28px rgba(22,196,127,0.55), 0 2px 6px rgba(22,196,127,0.4)',
+                      boxShadow: '0 6px 28px rgba(22,196,127,0.5)',
                     },
                     '&.Mui-disabled': {
                       background: 'rgba(22,196,127,0.4)',
@@ -582,9 +527,13 @@ export default function LoginPage() {
               to="/"
               style={{
                 fontSize: 12,
-                color: 'rgba(255,255,255,0.35)',
+                color: '#7A8B80',
                 textDecoration: 'none',
+                fontWeight: 500,
+                transition: 'color 0.2s ease',
               }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = '#16C47F')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = '#7A8B80')}
             >
               © 2026 KIM-One · Privacy · Terms
             </Link>
