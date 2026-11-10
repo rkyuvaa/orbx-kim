@@ -124,6 +124,11 @@ export interface PersonalSettings {
   max_timer_hours: number;
   auto_stop_timer_at_eod: boolean;
   email_notifications_enabled?: boolean;
+  push_task_assigned?: boolean;
+  push_task_due_today?: boolean;
+  push_log_note_update?: boolean;
+  push_task_completed?: boolean;
+  push_task_comments?: boolean;
   holidays_json?: Array<{ date: string; name: string }>;
 }
 

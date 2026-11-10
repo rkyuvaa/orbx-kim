@@ -11,7 +11,7 @@ from sqlalchemy import or_, and_, desc
 
 from app.db.session import get_db
 from app.services.email_service import schedule_task_assignment_notification, resolve_client_app_url
-from app.services.push_notification_service import send_push_to_user
+from app.services.push_notification_service import send_push_to_user, is_push_category_enabled
 from app.models.projects import (
     Task, TaskStatusDef, TaskPriority, TaskStatusCategory,
     TaskAssignee, TaskTag, TaskTagMap, TaskTimeEntry, TaskActivity, TaskLogNote
@@ -65,6 +65,11 @@ def _get_or_create_personal_settings(db: Session, user_id: int) -> PersonalSetti
             max_timer_hours=8.0,
             auto_stop_timer_at_eod=True,
             email_notifications_enabled=True,
+            push_task_assigned=True,
+            push_task_due_today=True,
+            push_log_note_update=True,
+            push_task_completed=True,
+            push_task_comments=True,
             holidays_json=[]
         )
         db.add(ps)
@@ -400,13 +405,14 @@ def assign_personal_task(
             link=f"/my-tasks?taskId={task.id}",
         ))
         db.commit()
-        send_push_to_user(
-            db=db,
-            user_id=data.assignee_id,
-            title="New Task Assigned",
-            body=msg,
-            url=f"/my-tasks?taskId={task.id}",
-        )
+        if is_push_category_enabled(db, data.assignee_id, "push_task_assigned"):
+            send_push_to_user(
+                db=db,
+                user_id=data.assignee_id,
+                title="New Task Assigned",
+                body=msg,
+                url=f"/my-tasks?taskId={task.id}",
+            )
 
         client_base_url = resolve_client_app_url(request)
         schedule_task_assignment_notification(
@@ -418,6 +424,37 @@ def assign_personal_task(
         )
 
     return _format_task_out(task, db)
+
+
+# =========================================================================
+# SETTINGS
+# =========================================================================
+
+@router.get("/settings", response_model=PersonalSettingsOut)
+def get_personal_settings_api(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get personal settings"""
+    return _get_or_create_personal_settings(db, current_user.id)
+
+
+@router.put("/settings", response_model=PersonalSettingsOut)
+def update_personal_settings_api(
+    data: PersonalSettingsUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Update personal settings"""
+    ps = _get_or_create_personal_settings(db, current_user.id)
+    update_data = data.model_dump(exclude_unset=True)
+    for k, v in update_data.items():
+        if hasattr(ps, k) and v is not None:
+            setattr(ps, k, v)
+    db.add(ps)
+    db.commit()
+    db.refresh(ps)
+    return ps
 
 
 @router.put("/{task_id}", response_model=TaskOut)
@@ -511,13 +548,14 @@ def update_personal_task(
                     message=reassign_msg,
                     link=f"/my-tasks?taskId={task.id}",
                 ))
-                send_push_to_user(
-                    db=db,
-                    user_id=task.assignee_id,
-                    title="Task Reassigned",
-                    body=reassign_msg,
-                    url=f"/my-tasks?taskId={task.id}",
-                )
+                if is_push_category_enabled(db, task.assignee_id, "push_task_assigned"):
+                    send_push_to_user(
+                        db=db,
+                        user_id=task.assignee_id,
+                        title="Task Reassigned",
+                        body=reassign_msg,
+                        url=f"/my-tasks?taskId={task.id}",
+                    )
                 client_base_url = resolve_client_app_url(request)
                 schedule_task_assignment_notification(
                     task_id=task.id,
@@ -603,6 +641,25 @@ def update_personal_task(
             PersonalReminder.task_id == task.id,
             PersonalReminder.status == "pending"
         ).update({"status": "cancelled"})
+
+        # Notify task assigner / creator if completed by assignee
+        if task.created_by and task.created_by != current_user.id:
+            completer_name = current_user.full_name or current_user.username or "A colleague"
+            completed_msg = f"{completer_name} completed assigned task {task.task_number}: {task.title}"
+            db.add(Notification(
+                user_id=task.created_by,
+                message=completed_msg,
+                link=f"/my-tasks?taskId={task.id}",
+            ))
+            if is_push_category_enabled(db, task.created_by, "push_task_completed"):
+                send_push_to_user(
+                    db=db,
+                    user_id=task.created_by,
+                    title="Assigned Task Completed",
+                    body=completed_msg,
+                    url=f"/my-tasks?taskId={task.id}",
+                )
+
         spawn_next_recurring_task(db, task, current_user.id)
 
     elif is_reopen_requested and old_is_completed:
@@ -1462,6 +1519,32 @@ def create_personal_task_log_note(
     local_dt = to_local_datetime(log_note.created_at) or now_local
     emp_name = current_user.full_name or current_user.username or "Employee"
     emp_photo = getattr(current_user, "profile_photo", None)
+
+    # Push notifications for log note update
+    log_msg = f"{emp_name} updated log note on task {task.task_number}: {task.title}"
+    recipient_ids = set()
+    if task.assignee_id and task.assignee_id != current_user.id:
+        recipient_ids.add(task.assignee_id)
+    if task.created_by and task.created_by != current_user.id:
+        recipient_ids.add(task.created_by)
+
+    for rec_id in recipient_ids:
+        db.add(Notification(
+            user_id=rec_id,
+            message=log_msg,
+            link=f"/my-tasks?taskId={task.id}",
+        ))
+        if is_push_category_enabled(db, rec_id, "push_log_note_update"):
+            send_push_to_user(
+                db=db,
+                user_id=rec_id,
+                title="Log Note Updated",
+                body=log_msg,
+                url=f"/my-tasks?taskId={task.id}",
+            )
+    if recipient_ids:
+        db.commit()
+
     return TaskLogNoteOut(
         id=log_note.id,
         task_id=log_note.task_id,
@@ -1512,32 +1595,6 @@ def get_personal_task_log_notes(
 # =========================================================================
 # 6. SETTINGS
 # =========================================================================
-
-@router.get("/settings", response_model=PersonalSettingsOut)
-def get_personal_settings_api(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Get personal settings"""
-    return _get_or_create_personal_settings(db, current_user.id)
-
-
-@router.put("/settings", response_model=PersonalSettingsOut)
-def update_personal_settings_api(
-    data: PersonalSettingsUpdate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Update personal settings"""
-    ps = _get_or_create_personal_settings(db, current_user.id)
-    update_data = data.model_dump(exclude_unset=True)
-    for k, v in update_data.items():
-        if hasattr(ps, k) and v is not None:
-            setattr(ps, k, v)
-    db.add(ps)
-    db.commit()
-    db.refresh(ps)
-    return ps
 
 
 # =========================================================================

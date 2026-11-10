@@ -853,6 +853,11 @@ class PersonalSettingsOut(BaseModel):
     max_timer_hours: float = 8.0
     auto_stop_timer_at_eod: bool = True
     email_notifications_enabled: bool = True
+    push_task_assigned: bool = True
+    push_task_due_today: bool = True
+    push_log_note_update: bool = True
+    push_task_completed: bool = True
+    push_task_comments: bool = True
     holidays_json: Optional[Any] = None
 
     model_config = ConfigDict(from_attributes=True)
@@ -869,6 +874,11 @@ class PersonalSettingsUpdate(BaseModel):
     max_timer_hours: Optional[float] = None
     auto_stop_timer_at_eod: Optional[bool] = None
     email_notifications_enabled: Optional[bool] = None
+    push_task_assigned: Optional[bool] = None
+    push_task_due_today: Optional[bool] = None
+    push_log_note_update: Optional[bool] = None
+    push_task_completed: Optional[bool] = None
+    push_task_comments: Optional[bool] = None
     holidays_json: Optional[Any] = None
 
 

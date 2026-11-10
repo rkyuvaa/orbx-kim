@@ -23,7 +23,7 @@ from app.models.rbac import Department
 from app.models.user import User
 from app.models.enums import UserRole
 from app.models.notification import Notification
-from app.services.push_notification_service import send_push_to_user
+from app.services.push_notification_service import send_push_to_user, is_push_category_enabled
 from app.schemas.projects import (
     TaskCreate,
     TaskOut,
@@ -322,13 +322,14 @@ def _parse_and_notify_mentions(db: Session, content: str, task: Task, actor: Use
     for uid in notify_user_ids:
         msg = f"{actor.full_name} mentioned you in task {task.task_number}: {task.title}"
         db.add(Notification(user_id=uid, message=msg))
-        send_push_to_user(
-            db=db,
-            user_id=uid,
-            title="Mention in Task",
-            body=msg,
-            url=f"/my-tasks?taskId={task.id}" if task.is_personal else f"/projects/tasks?taskId={task.id}",
-        )
+        if is_push_category_enabled(db, uid, "push_task_comments"):
+            send_push_to_user(
+                db=db,
+                user_id=uid,
+                title="Mention in Task",
+                body=msg,
+                url=f"/my-tasks?taskId={task.id}" if task.is_personal else f"/projects/tasks?taskId={task.id}",
+            )
 
 
 def _update_parent_progress(db: Session, parent_id: Optional[int]):
@@ -2687,6 +2688,28 @@ def add_task_comment(
     _parse_and_notify_mentions(db, comment.content, task, current_user)
     _log_activity(db, task.id, current_user.id, "COMMENT_ADDED", new_val=comment.content[:50])
 
+    # Comment notification for assignee and creator (excluding author)
+    comment_recipients = set()
+    if task.assignee_id and task.assignee_id != current_user.id:
+        comment_recipients.add(task.assignee_id)
+    if task.created_by and task.created_by != current_user.id:
+        comment_recipients.add(task.created_by)
+
+    author_name = current_user.full_name or current_user.username or "A colleague"
+    comment_msg = f"{author_name} commented on task {task.task_number}: {task.title}"
+    target_link = f"/my-tasks?taskId={task.id}" if task.is_personal else f"/projects/tasks?taskId={task.id}"
+
+    for r_id in comment_recipients:
+        db.add(Notification(user_id=r_id, message=comment_msg, link=target_link))
+        if is_push_category_enabled(db, r_id, "push_task_comments"):
+            send_push_to_user(
+                db=db,
+                user_id=r_id,
+                title="New Task Comment",
+                body=comment_msg,
+                url=target_link,
+            )
+
     db.commit()
 
     out = TaskCommentOut.model_validate(comment)
@@ -2746,6 +2769,29 @@ def add_task_log_note(
     local_dt = to_local_datetime(log_note.created_at) or now_local
     emp_name = current_user.full_name or current_user.username or "Employee"
     emp_photo = getattr(current_user, "profile_photo", None)
+
+    # Push notifications for log note update
+    log_msg = f"{emp_name} updated log note on task {task.task_number}: {task.title}"
+    target_link = f"/my-tasks?taskId={task.id}" if task.is_personal else f"/projects/tasks?taskId={task.id}"
+    log_recipients = set()
+    if task.assignee_id and task.assignee_id != current_user.id:
+        log_recipients.add(task.assignee_id)
+    if task.created_by and task.created_by != current_user.id:
+        log_recipients.add(task.created_by)
+
+    for rec_id in log_recipients:
+        db.add(Notification(user_id=rec_id, message=log_msg, link=target_link))
+        if is_push_category_enabled(db, rec_id, "push_log_note_update"):
+            send_push_to_user(
+                db=db,
+                user_id=rec_id,
+                title="Log Note Updated",
+                body=log_msg,
+                url=target_link,
+            )
+    if log_recipients:
+        db.commit()
+
     return TaskLogNoteOut(
         id=log_note.id,
         task_id=log_note.task_id,

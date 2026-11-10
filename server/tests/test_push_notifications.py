@@ -49,3 +49,42 @@ def test_push_subscribe_and_status_and_unsubscribe(seeded_client, db):
     status_resp3 = seeded_client.get("/api/v1/push/status", headers=headers)
     assert status_resp3.status_code == 200
     assert status_resp3.json()["is_subscribed"] is False
+
+
+def test_push_personal_settings_toggles(seeded_client, db):
+    tokens = login(seeded_client)
+    headers = auth_headers(tokens)
+
+    # 1. Fetch current settings
+    resp = seeded_client.get("/api/v1/tasks/personal/settings", headers=headers)
+    assert resp.status_code == 200
+    settings = resp.json()
+    assert settings["push_task_assigned"] is True
+    assert settings["push_task_due_today"] is True
+    assert settings["push_log_note_update"] is True
+    assert settings["push_task_completed"] is True
+    assert settings["push_task_comments"] is True
+
+    # 2. Update push settings: disable assigned & completed
+    patch_payload = {
+        "push_task_assigned": False,
+        "push_task_completed": False,
+    }
+    update_resp = seeded_client.put("/api/v1/tasks/personal/settings", json=patch_payload, headers=headers)
+    assert update_resp.status_code == 200, update_resp.text
+    updated = update_resp.json()
+    assert updated["push_task_assigned"] is False
+    assert updated["push_task_completed"] is False
+    assert updated["push_task_due_today"] is True
+    assert updated["push_log_note_update"] is True
+    assert updated["push_task_comments"] is True
+
+    # 3. Verify helper is_push_category_enabled
+    from app.services.push_notification_service import is_push_category_enabled
+    user = db.query(User).filter_by(email="sales@kim.com").first()
+    assert is_push_category_enabled(db, user.id, "push_task_assigned") is False
+    assert is_push_category_enabled(db, user.id, "push_task_completed") is False
+    assert is_push_category_enabled(db, user.id, "push_task_due_today") is True
+    assert is_push_category_enabled(db, user.id, "push_log_note_update") is True
+    assert is_push_category_enabled(db, user.id, "push_task_comments") is True
+

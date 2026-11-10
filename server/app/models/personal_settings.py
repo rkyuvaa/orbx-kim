@@ -28,6 +28,11 @@ class PersonalSettings(Base):
     max_timer_hours: Mapped[float] = mapped_column(Float, default=8.0, nullable=False)
     auto_stop_timer_at_eod: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     email_notifications_enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true", nullable=False)
+    push_task_assigned: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true", nullable=False)
+    push_task_due_today: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true", nullable=False)
+    push_log_note_update: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true", nullable=False)
+    push_task_completed: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true", nullable=False)
+    push_task_comments: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true", nullable=False)
     holidays_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.current_timestamp())
     updated_at: Mapped[datetime] = mapped_column(

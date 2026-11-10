@@ -75,6 +75,30 @@ def get_vapid_public_key() -> str:
     return pub
 
 
+def is_push_category_enabled(db: Session, user_id: int, category: str) -> bool:
+    """
+    Checks if a user has enabled a specific push notification category in PersonalSettings.
+    Supported categories:
+      - 'push_task_assigned'
+      - 'push_task_due_today'
+      - 'push_log_note_update'
+      - 'push_task_completed'
+      - 'push_task_comments'
+    Returns True by default if settings do not exist yet.
+    """
+    try:
+        from app.models.personal_settings import PersonalSettings
+
+        settings_rec = db.query(PersonalSettings).filter(PersonalSettings.user_id == user_id).first()
+        if settings_rec is None:
+            return True
+        val = getattr(settings_rec, category, None)
+        return True if val is None else bool(val)
+    except Exception as e:
+        logger.warning(f"Error checking push category {category} for user {user_id}: {e}")
+        return True
+
+
 def send_push_to_user(
     db: Session,
     user_id: int,
