@@ -1,29 +1,30 @@
 from fastapi import APIRouter
 
 from app.api.v1 import (
-    applications,
     app_data,
+    applications,
     auth,
     backup_admin,
+    calendar,
     dashboard,
+    document_numbering,
     final_submission,
     hr,
-    recruitment,
     masters,
     notifications,
-    push_notifications,
+    omnierp_webhook,
+    personal_tasks,
     planned_activities,
     projects,
     public_financier,
+    push_notifications,
     rbac_admin,
-    smtp,
+    recruitment,
     sms,
+    smtp,
     stubs,
-    personal_tasks,
     tasks,
-    calendar,
     vehicle_service,
-    document_numbering,
 )
 
 api_router = APIRouter()
@@ -41,6 +42,7 @@ api_router.include_router(notifications.router)
 api_router.include_router(push_notifications.router)
 api_router.include_router(masters.router)
 api_router.include_router(hr.router)
+api_router.include_router(omnierp_webhook.router)
 api_router.include_router(recruitment.router)
 api_router.include_router(projects.router)
 api_router.include_router(personal_tasks.router)

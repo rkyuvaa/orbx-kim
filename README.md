@@ -113,11 +113,28 @@ ruff check app scripts tests
   waiting-on, finance company performance, nav badges, activity feed
 - `GET|POST /api/v1/applications` · `GET|PATCH|DELETE /api/v1/applications/{id}`
   (paged, filterable by status/finance/date/search and `tab=all|mine|pending`, `scope=recent`)
+- `POST /api/v1/integrations/omnierp/employees/webhook` — authenticated OmniERP employee created, updated, batch, and ping webhooks
 - `GET /api/v1/users/me/notifications` · `PATCH …/{id}/read` · `POST …/read-all`
 - Stub lists: `/documents`, `/verifications`, `/finance/submissions`, `/sanctions`,
   `/deliveries`, `/disbursements`, `/reports/summary`
 
 Interactive docs at `/docs` (Swagger) and `/redoc`.
+
+## OmniERP employee sync
+
+The receiving webhook for OmniERP App Sync is:
+
+```text
+POST https://<this-app-host>/api/v1/integrations/omnierp/employees/webhook
+Authorization: Bearer <shared-token>
+Content-Type: application/json
+```
+
+Set `OMNIERP_EMPLOYEE_WEBHOOK_TOKEN` in the API server environment (or the deployment `.env` used by Docker Compose), then restart the API. Generate a strong token locally, for example with `python -c "import secrets; print(secrets.token_urlsafe(32))"`. Keep it private: enter the same token only in OmniERP’s App Sync settings and do not commit it or send it in chat. The endpoint rejects requests with a missing or incorrect token, and is disabled until a token is configured. Use HTTPS for any non-local deployment.
+
+Configure OmniERP with the URL above and the shared token as a Bearer token. Its test ping can send `{"event":"test.ping","source":"Omni ERP"}`; a successful response is `{"ok":true,"event":"test.ping"}`. Employee create/update events and `employee.sync_batch` are accepted in the payload formats OmniERP supplied. Batch `count` is optional but, when supplied, must match the number of records; batches are limited to 1,000 employees.
+
+Employees are matched case-insensitively by `employee_id` and saved to Employee Master. Names, contact details, designation, department/branch/shift names, joining date, salary, UAN, ESI number, and active status are mapped when present. Partial updates leave omitted fields unchanged; a batch does not delete records absent from the payload. After a webhook is accepted, the Employee Master view refreshes from shared app data automatically (within about 15 seconds if it is already open).
 
 ## Environment variables
 

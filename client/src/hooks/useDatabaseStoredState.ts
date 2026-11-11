@@ -130,12 +130,48 @@ export function useDatabaseStoredState<T>(
   const { showToast } = useToast();
   const { data, isSuccess, isError } = useGetAppDataQuery(key, {
     refetchOnMountOrArgChange: true,
+    pollingInterval: key === 'crm_employee_master_data' ? 15000 : 0,
   });
   const [putAppData] = usePutAppDataMutation();
 
   useEffect(() => {
-    if (!isSuccess || hydratedRef.current) return;
+    if (!isSuccess) return;
     const storedValue = data?.value ?? initialValueRef.current;
+    const serialized = JSON.stringify(storedValue);
+    if (serialized === undefined) {
+      showToast(`Could not load saved data for "${key}".`, 'error');
+      return;
+    }
+
+    const incomingRevision = data?.revision ?? 0;
+    if (hydratedRef.current) {
+      if (incomingRevision <= revisionRef.current) return;
+      const merged = mergeConcurrentValue(
+        baseValueRef.current,
+        currentValueRef.current,
+        storedValue,
+      );
+      baseValueRef.current = storedValue;
+      revisionRef.current = incomingRevision;
+      lastSavedValueRef.current = serialized;
+      lastEnqueuedValueRef.current = serialized;
+
+      if (!('value' in merged) || merged.value === MISSING) {
+        conflictedRef.current = true;
+        showToast(
+          `Another user changed "${key}" at the same time. Your unsaved changes are still on screen; copy them, reload, and reapply.`,
+          'error',
+        );
+        return;
+      }
+
+      if (JSON.stringify(merged.value) !== JSON.stringify(currentValueRef.current)) {
+        setValue(merged.value as T);
+        showToast(`Loaded updates to "${key}" from another app or user.`, 'info');
+      }
+      return;
+    }
+
     let hydratedValue = storedValue as T;
     for (const action of pendingActionsRef.current) {
       hydratedValue =
@@ -144,18 +180,13 @@ export function useDatabaseStoredState<T>(
           : action;
     }
     pendingActionsRef.current = [];
-    const serialized = JSON.stringify(storedValue);
-    if (serialized === undefined) {
-      showToast(`Could not load saved data for "${key}".`, 'error');
-      return;
-    }
 
     hydratedRef.current = true;
     readyRef.current = true;
     lastSavedValueRef.current = serialized;
     lastEnqueuedValueRef.current = serialized;
     baseValueRef.current = storedValue;
-    revisionRef.current = data?.revision ?? 0;
+    revisionRef.current = incomingRevision;
     setValue(hydratedValue);
     setReady(true);
   }, [data, isSuccess, key, showToast]);

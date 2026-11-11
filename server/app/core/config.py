@@ -28,6 +28,9 @@ class Settings(BaseSettings):
 
     seed_default_password: str = "Kim@2025"
 
+    # OmniERP employee webhook authentication
+    omnierp_employee_webhook_token: str | None = None
+
     # SMS Provider Settings (TextGuru / HTTP Gateway)
     sms_provider: str = "textguru"
     sms_api_url: str = "https://www.textguru.in/api/v22.0/"
