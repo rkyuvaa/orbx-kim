@@ -134,7 +134,7 @@ Set `OMNIERP_EMPLOYEE_WEBHOOK_TOKEN` in the API server environment (or the deplo
 
 Configure OmniERP with the URL above and the shared token as a Bearer token. Its test ping can send `{"event":"test.ping","source":"Omni ERP"}`; a successful response is `{"ok":true,"event":"test.ping"}`. Employee create/update events and `employee.sync_batch` are accepted in the payload formats OmniERP supplied. Batch `count` is optional but, when supplied, must match the number of records; batches are limited to 1,000 employees.
 
-Employees are matched case-insensitively by `employee_id` and saved to Employee Master. Names, contact details, designation, department/branch/shift names, joining date, salary, UAN, ESI number, and active status are mapped when present. Partial updates leave omitted fields unchanged; a batch does not delete records absent from the payload. After a webhook is accepted, the Employee Master view refreshes from shared app data automatically (within about 15 seconds if it is already open).
+Employees are matched case-insensitively by `employee_id` and saved to Employee Master. Names, contact details, designation, `department_name`, `branch_name`, `shift_name`, joining date, salary, UAN, ESI number, active status, and manager name (`reporting_manager` or `manager_name`) are mapped when present. The Manager Name dropdown is populated from employee names currently in Employee Master. Partial updates leave omitted fields unchanged; a batch does not delete records absent from the payload. After a webhook is accepted, the Employee Master view refreshes from shared app data automatically (within about 15 seconds if it is already open).
 
 ## Environment variables
 

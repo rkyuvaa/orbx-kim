@@ -36,6 +36,8 @@ def test_omnierp_employee_created_and_updated_upsert_by_employee_id(
         "email": "employee@example.invalid",
         "phone": "9876543210",
         "designation": "Project Engineer",
+        "reporting_manager": "Manager One",
+        "manager_name": "Manager One",
         "department_id": 3,
         "department_name": "Operations",
         "branch_id": 1,
@@ -77,6 +79,7 @@ def test_omnierp_employee_created_and_updated_upsert_by_employee_id(
     assert records[0]["name"] == "Employee One Updated"
     assert records[0]["department"] == "Engineering"
     assert records[0]["branch"] == "Head Office"
+    assert records[0]["reporting_manager"] == "Manager One"
     assert records[0]["joining_date"] == "2024-05-01"
     assert records[0]["gross_salary"] == "45000"
     assert records[0]["status"] == "Active"

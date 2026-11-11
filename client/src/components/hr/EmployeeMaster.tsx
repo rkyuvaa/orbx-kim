@@ -140,7 +140,6 @@ export default function EmployeeMaster() {
     'crm_employee_master_data',
     [],
   );
-
   const [searchTerm, setSearchTerm] = useState('');
   
   // Multi-Selection State
@@ -153,6 +152,11 @@ export default function EmployeeMaster() {
   const [formData, setFormData] = useState<Omit<EmployeeRecord, 'id'>>(DEFAULT_FORM);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const managerOptions = useMemo(() => {
+    const names = employees.map((employee) => employee.name.trim()).filter(Boolean);
+    if (formData.reporting_manager.trim()) names.push(formData.reporting_manager.trim());
+    return [...new Set(names)].sort((left, right) => left.localeCompare(right));
+  }, [employees, formData.reporting_manager]);
 
   // Sort State
   const { sortState, handleSort, sortData } = useTableSort<EmployeeRecord>();
@@ -836,11 +840,10 @@ export default function EmployeeMaster() {
                 value={formData.reporting_manager}
                 onChange={(e) => setFormData({ ...formData, reporting_manager: e.target.value })}
               >
-                <MenuItem value="— Select Manager —">— Select Manager —</MenuItem>
-                <MenuItem value="Nickendra M">Nickendra M</MenuItem>
-                <MenuItem value="Edwin Ezhilarasu">Edwin Ezhilarasu</MenuItem>
-                <MenuItem value="Akshay Jith P P">Akshay Jith P P</MenuItem>
-                <MenuItem value="Harish A">Harish A</MenuItem>
+                <MenuItem value="">— Select Manager —</MenuItem>
+                {managerOptions.map((manager) => (
+                  <MenuItem key={manager} value={manager}>{manager}</MenuItem>
+                ))}
               </Select>
             </Grid>
 

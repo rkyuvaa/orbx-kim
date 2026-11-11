@@ -25,6 +25,8 @@ class OmniERPEmployee(BaseModel):
     email: str | None = Field(default=None, max_length=320)
     phone: str | None = Field(default=None, max_length=50)
     designation: str | None = Field(default=None, max_length=200)
+    reporting_manager: str | None = Field(default=None, max_length=200)
+    manager_name: str | None = Field(default=None, max_length=200)
     department_id: int | str | None = None
     department_name: str | None = Field(default=None, max_length=200)
     branch_id: int | str | None = None
@@ -109,6 +111,12 @@ def _employee_updates(employee: OmniERPEmployee) -> dict[str, str]:
             updates[target_field] = value.isoformat()
         else:
             updates[target_field] = "" if value is None else str(value).strip()
+
+    for manager_field in ("reporting_manager", "manager_name"):
+        manager_value = getattr(employee, manager_field)
+        if manager_field in fields_set and manager_value is not None and manager_value.strip():
+            updates["reporting_manager"] = manager_value.strip()
+            break
 
     if "is_active" in fields_set and employee.is_active is not None:
         updates["status"] = "Active" if employee.is_active else "Inactive"
