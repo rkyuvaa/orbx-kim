@@ -874,7 +874,7 @@ export default function RequirementsPage() {
         <Dialog
           open={isCreateOpen}
           onClose={() => setIsCreateOpen(false)}
-          maxWidth="md"
+          maxWidth="xl"
           fullWidth
           PaperProps={{
             sx: {
@@ -1171,92 +1171,6 @@ export default function RequirementsPage() {
                   </Typography>
                 )}
               </Box>
-
-              <Divider sx={{ my: 3 }} />
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.primary' }}>
-                  Fulfilment &amp; ownership
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Set the urgency, delivery date, and responsible department.
-                </Typography>
-              </Box>
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={4}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Priority</InputLabel>
-                    <Select value={formPriority} label="Priority" onChange={(e) => setFormPriority(e.target.value as any)}>
-                      <MenuItem value="LOW">Low</MenuItem>
-                      <MenuItem value="MEDIUM">Medium</MenuItem>
-                      <MenuItem value="HIGH">High</MenuItem>
-                      <MenuItem value="CRITICAL">Critical</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-
-                <Grid item xs={12} sm={4}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Status</InputLabel>
-                    <Select value={formStatus} label="Status" onChange={(e) => setFormStatus(e.target.value as any)}>
-                      <MenuItem value="DRAFT">Draft</MenuItem>
-                      <MenuItem value="PENDING">Pending Approval</MenuItem>
-                      <MenuItem value="APPROVED">Approved</MenuItem>
-                      <MenuItem value="IN_PROCUREMENT">In Procurement</MenuItem>
-                      <MenuItem value="FULFILLED">Fulfilled</MenuItem>
-                      <MenuItem value="REJECTED">Rejected</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    type="date"
-                    size="small"
-                    label="Required By Date"
-                    InputLabelProps={{ shrink: true }}
-                    value={formRequiredByDate}
-                    onChange={(e) => setFormRequiredByDate(e.target.value)}
-                  />
-                </Grid>
-              </Grid>
-
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="Suggested vendor (optional)"
-                  placeholder="Enter a preferred supplier, if any"
-                  value={formVendorSuggestion}
-                  onChange={(e) => setFormVendorSuggestion(e.target.value)}
-                />
-              </Grid>
-
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  multiline
-                  minRows={2}
-                  size="small"
-                  label="Business justification"
-                  placeholder="Explain why this material is needed"
-                  value={formJustification}
-                  onChange={(e) => setFormJustification(e.target.value)}
-                />
-              </Grid>
-
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  multiline
-                  minRows={2}
-                  size="small"
-                  label="Specifications"
-                  placeholder="Add size, model, material, or other relevant details"
-                  value={formSpecifications}
-                  onChange={(e) => setFormSpecifications(e.target.value)}
-                />
-              </Grid>
             </DialogContent>
             <DialogActions
               sx={{
