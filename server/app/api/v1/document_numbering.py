@@ -14,7 +14,7 @@ from app.schemas.document_sequence import (
     DocumentSequenceOut,
     DocumentSequenceUpdate,
 )
-from app.services.document_numbering import format_document_number, preview_document_number
+from app.services.document_numbering import format_document_number, generate_next_document_number, preview_document_number
 
 router = APIRouter(prefix="/document-numbering", tags=["document-numbering"])
 
@@ -175,6 +175,28 @@ def preview_sequence_format(
         suffix=payload.suffix,
     )
     return DocumentNumberPreviewResponse(preview=preview)
+
+
+@router.post("/generate/{document_type}", response_model=dict)
+def generate_document_number(
+    document_type: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(_verify_settings_access),
+):
+    """Generate and reserve the next document number for a document type (e.g. material_requisition).
+
+    Creates the sequence definition with defaults if absent, then atomically increments the counter
+    and returns the formatted number. Suitable for assigning a request number on save.
+    """
+    number = generate_next_document_number(
+        db,
+        document_type=document_type,
+        default_prefix="MR",
+        default_padding=4,
+        default_name="Material / Service Requisition",
+        default_description="Auto-generated material & service request numbers",
+    )
+    return {"document_type": document_type, "document_number": number}
 
 
 @router.delete("/{document_type}")

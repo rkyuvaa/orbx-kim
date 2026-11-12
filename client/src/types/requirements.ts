@@ -45,6 +45,20 @@ export interface ApprovalStage {
   notes?: string;
 }
 
+export interface MaterialRequisitionItem {
+  s_no: number;
+  material_service_code: string;
+  item_description: string;
+  drawing_specs_yn: 'Y' | 'N';
+  hsn_sac: string;
+  uom: string;
+  qty: number;
+  rate: number;
+  budget_amount: number;
+  amount: number;
+  remarks: string;
+}
+
 export interface RequirementItem {
   id: string; // e.g. REQ-MAT-1 or REQ-IT-1
   type: RequirementType;
@@ -63,6 +77,15 @@ export interface RequirementItem {
   specifications: string;
   vendor_suggestion?: string;
   created_at: string;
+
+  // Material Requisition header fields
+  request_no?: string;
+  request_date?: string;
+  requester_name?: string;
+  approver?: string;
+  project_code?: string;
+  project_name?: string;
+  material_items?: MaterialRequisitionItem[];
 
   // Extended IT Requirement fields
   requester_designation?: string;

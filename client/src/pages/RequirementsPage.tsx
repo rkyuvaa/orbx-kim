@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -50,10 +50,14 @@ import ErpSortHeaderCell from '../components/ui/ErpSortHeaderCell';
 import { useToast } from '@/components/ui/ToastHost';
 import { formatDate } from '@/utils/format';
 import { useAppSelector } from '../app/hooks';
-import { RequirementItem } from '@/types/requirements';
+import { RequirementItem, MaterialRequisitionItem } from '@/types/requirements';
 import ITRequirementFormModal from '@/components/requirements/ITRequirementFormModal';
 import ITRequirementDetailDrawer from '@/components/requirements/ITRequirementDetailDrawer';
 import { useDatabaseStoredState } from '@/hooks/useDatabaseStoredState';
+import {
+  useGenerateDocumentNumberMutation,
+  usePreviewDocumentNumberMutation,
+} from '@/api/documentNumberingApi';
 
 export default function RequirementsPage() {
   const location = useLocation();
@@ -69,6 +73,13 @@ export default function RequirementsPage() {
     'crm_requirements_items_data',
     [],
   );
+
+  // Employee master (auto-fetch department & approver for requester)
+  const [employees] = useDatabaseStoredState<any[]>('crm_employee_master_data', []);
+
+  // Document numbering
+  const [generateDocumentNumber] = useGenerateDocumentNumberMutation();
+  const [previewDocumentNumber] = usePreviewDocumentNumberMutation();
 
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState('');
@@ -95,6 +106,17 @@ export default function RequirementsPage() {
   const [formJustification, setFormJustification] = useState('');
   const [formSpecifications, setFormSpecifications] = useState('');
   const [formVendorSuggestion, setFormVendorSuggestion] = useState('');
+
+  // Material requisition header fields
+  const [formRequestNo, setFormRequestNo] = useState('');
+  const [formRequestDate, setFormRequestDate] = useState(new Date().toISOString().split('T')[0]);
+  const [formRequesterName, setFormRequesterName] = useState('');
+  const [formApprover, setFormApprover] = useState('');
+  const [formProjectCode, setFormProjectCode] = useState('');
+  const [formProjectName, setFormProjectName] = useState('');
+
+  // Material requisition item lines
+  const [formItems, setFormItems] = useState<MaterialRequisitionItem[]>([]);
 
   // Categories list
   const materialCategories = ['Raw Materials', 'Consumables', 'Safety Equipment', 'Tools & Machinery', 'Office Supplies', 'Packaging'];
@@ -135,6 +157,21 @@ export default function RequirementsPage() {
   const fulfilledCount = typeFiltered.filter((i) => i.status === 'FULFILLED' || i.status === 'COMPLETED').length;
   const totalCostEstimate = typeFiltered.reduce((acc, curr) => acc + (curr.total_cost || 0), 0);
 
+  // Auto-populate header fields from auth + employee master
+  const populateHeaderDefaults = useCallback(() => {
+    const requesterName = loggedUser?.full_name || '';
+    setFormRequesterName(requesterName);
+    setFormRequestedBy(requesterName || 'Admin User');
+    setFormRequestDate(new Date().toISOString().split('T')[0]);
+
+    // Look up requester in employee master to get department & approver (manager)
+    const employee = employees.find(
+      (e: any) => e.name === requesterName || e.email === loggedUser?.email || e.linked_user === loggedUser?.email,
+    );
+    setFormDepartment(employee?.department || '');
+    setFormApprover(employee?.reporting_manager || '');
+  }, [loggedUser, employees]);
+
   // Form Reset for Material
   const resetForm = () => {
     setEditingItem(null);
@@ -145,12 +182,15 @@ export default function RequirementsPage() {
     setFormUnitCost(0);
     setFormPriority('MEDIUM');
     setFormStatus('PENDING');
-    setFormDepartment('Operations');
-    setFormRequestedBy(loggedUser?.full_name || 'Admin User');
+    populateHeaderDefaults();
     setFormRequiredByDate(new Date().toISOString().split('T')[0]);
     setFormJustification('');
     setFormSpecifications('');
     setFormVendorSuggestion('');
+    setFormProjectCode('');
+    setFormProjectName('');
+    setFormRequestNo('');
+    setFormItems([]);
   };
 
   const handleOpenCreate = () => {
@@ -174,6 +214,13 @@ export default function RequirementsPage() {
       setFormJustification(item.justification);
       setFormSpecifications(item.specifications);
       setFormVendorSuggestion(item.vendor_suggestion || '');
+      setFormRequestNo(item.request_no || '');
+      setFormRequestDate(item.request_date || new Date().toISOString().split('T')[0]);
+      setFormRequesterName(item.requester_name || '');
+      setFormApprover(item.approver || '');
+      setFormProjectCode(item.project_code || '');
+      setFormProjectName(item.project_name || '');
+      setFormItems(item.material_items || []);
     }
     setIsCreateOpen(true);
   };
@@ -231,12 +278,66 @@ export default function RequirementsPage() {
     setEditingItem(null);
   };
 
+  // Material requisition item line helpers
+  const addItemRow = () => {
+    const nextSNo = formItems.length + 1;
+    const newRow: MaterialRequisitionItem = {
+      s_no: nextSNo,
+      material_service_code: '',
+      item_description: '',
+      drawing_specs_yn: 'N',
+      hsn_sac: '',
+      uom: 'Pcs',
+      qty: 1,
+      rate: 0,
+      budget_amount: 0,
+      amount: 0,
+      remarks: '',
+    };
+    setFormItems([...formItems, newRow]);
+  };
+
+  const removeItemRow = (index: number) => {
+    const next = formItems.filter((_, i) => i !== index).map((row, i) => ({ ...row, s_no: i + 1 }));
+    setFormItems(next);
+  };
+
+  const updateItemField = (index: number, field: keyof MaterialRequisitionItem, value: any) => {
+    const next = [...formItems];
+    const row = { ...next[index], [field]: value };
+    // Recalculate amount when qty/rate changes
+    if (field === 'qty' || field === 'rate') {
+      row.amount = Number(row.qty) * Number(row.rate);
+    }
+    next[index] = row;
+    setFormItems(next);
+  };
+
+  const totalItemsAmount = formItems.reduce((acc, row) => acc + (row.amount || 0), 0);
+
   // Save Material Requirement from standard dialog
-  const handleSaveMaterialRequirement = (e: React.FormEvent) => {
+  const handleSaveMaterialRequirement = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formTitle.trim()) {
       showError('Please enter a requirement title');
       return;
+    }
+    if (formItems.length === 0) {
+      showError('Please add at least one item line');
+      return;
+    }
+
+    // Generate request number via document numbering framework (create-if-missing + increment)
+    let requestNo = formRequestNo.trim();
+    if (!requestNo) {
+      try {
+        const result = await generateDocumentNumber({ document_type: 'material_requisition' }).unwrap();
+        requestNo = result.document_number;
+        setFormRequestNo(requestNo);
+      } catch {
+        showError('Failed to generate request number. Please configure document numbering for material_requisition.');
+        return;
+      }
     }
 
     const calculatedTotal = formQuantity * formUnitCost;
@@ -261,6 +362,13 @@ export default function RequirementsPage() {
                 justification: formJustification.trim(),
                 specifications: formSpecifications.trim(),
                 vendor_suggestion: formVendorSuggestion.trim(),
+                request_no: formRequestNo.trim() || undefined,
+                request_date: formRequestDate,
+                requester_name: formRequesterName,
+                approver: formApprover,
+                project_code: formProjectCode.trim() || undefined,
+                project_name: formProjectName.trim() || undefined,
+                material_items: formItems,
               }
             : r,
         ),
@@ -293,6 +401,13 @@ export default function RequirementsPage() {
         justification: formJustification.trim(),
         specifications: formSpecifications.trim(),
         vendor_suggestion: formVendorSuggestion.trim(),
+        request_no: formRequestNo.trim() || undefined,
+        request_date: formRequestDate,
+        requester_name: formRequesterName,
+        approver: formApprover,
+        project_code: formProjectCode.trim() || undefined,
+        project_name: formProjectName.trim() || undefined,
+        material_items: formItems,
         created_at: new Date().toISOString(),
       };
 
@@ -817,100 +932,87 @@ export default function RequirementsPage() {
               </IconButton>
             </DialogTitle>
             <DialogContent sx={{ px: { xs: 2.5, sm: 3.5 }, py: 3 }}>
+              {/* ── Requisition header ── */}
               <Box sx={{ mb: 2 }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.primary' }}>
-                  Item details
+                  Requisition Details
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Describe the material and how much is needed.
+                  Auto-populated fields are sourced from your profile and employee master.
                 </Typography>
               </Box>
               <Grid container spacing={2}>
-                <Grid item xs={12} sm={7}>
-                  <TextField
-                    fullWidth
-                    required
-                    size="small"
-                    label="Item name"
-                    placeholder="e.g. Safety helmets"
-                    value={formTitle}
-                    onChange={(e) => setFormTitle(e.target.value)}
-                  />
-                </Grid>
-
-                <Grid item xs={12} sm={5}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Category</InputLabel>
-                    <Select value={formCategory} label="Category" onChange={(e) => setFormCategory(e.target.value)}>
-                      {categoryOptions.map((cat) => (
-                        <MenuItem key={cat} value={cat}>
-                          {cat}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-
-                <Grid item xs={12} sm={3}>
-                  <TextField
-                    fullWidth
-                    required
-                    type="number"
-                    size="small"
-                    label="Quantity"
-                    inputProps={{ min: 1, step: 1 }}
-                    value={formQuantity}
-                    onChange={(e) => setFormQuantity(Math.max(1, parseInt(e.target.value || '1', 10)))}
-                  />
-                </Grid>
-
-                <Grid item xs={12} sm={3}>
+                <Grid item xs={12} sm={6} md={4}>
                   <TextField
                     fullWidth
                     size="small"
-                    label="Unit of Measure"
-                    placeholder="e.g. Pcs, Kg, Sets"
-                    value={formUnit}
-                    onChange={(e) => setFormUnit(e.target.value)}
-                  />
-                </Grid>
-
-                <Grid item xs={12} sm={3}>
-                  <TextField
-                    fullWidth
-                    type="number"
-                    size="small"
-                    label="Est. Unit Cost (₹)"
-                    inputProps={{ min: 0, step: '0.01' }}
-                    value={formUnitCost}
-                    onChange={(e) => setFormUnitCost(Math.max(0, parseFloat(e.target.value || '0')))}
-                  />
-                </Grid>
-
-                <Grid item xs={12} sm={3}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="Total Est. Cost (₹)"
-                    value={`₹${(formQuantity * formUnitCost).toLocaleString()}`}
+                    label="Material / Service Request No"
+                    value={formRequestNo}
                     InputProps={{ readOnly: true }}
-                    sx={{
-                      '& .MuiOutlinedInput-root': { bgcolor: 'action.hover' },
-                      '& .MuiInputBase-input': { fontWeight: 700, color: '#04552B' },
-                    }}
+                    sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'action.hover' } }}
                   />
                 </Grid>
 
-                <Grid item xs={12}>
+                <Grid item xs={12} sm={6} md={4}>
                   <TextField
                     fullWidth
-                    multiline
-                    minRows={2}
                     size="small"
-                    label="Specifications"
-                    placeholder="Add size, model, material, or other relevant details"
-                    value={formSpecifications}
-                    onChange={(e) => setFormSpecifications(e.target.value)}
+                    label="Material / Service Request Date"
+                    type="date"
+                    value={formRequestDate}
+                    InputProps={{ readOnly: true }}
+                    sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'action.hover' } }}
+                  />
+                </Grid>
+
+                <Grid item xs={12} sm={6} md={4}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Name (Requester)"
+                    value={formRequesterName}
+                    InputProps={{ readOnly: true }}
+                    sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'action.hover' } }}
+                  />
+                </Grid>
+
+                <Grid item xs={12} sm={6} md={4}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Department"
+                    value={formDepartment}
+                    onChange={(e) => setFormDepartment(e.target.value)}
+                  />
+                </Grid>
+
+                <Grid item xs={12} sm={6} md={4}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Approver (Requester's Manager)"
+                    value={formApprover}
+                    onChange={(e) => setFormApprover(e.target.value)}
+                  />
+                </Grid>
+
+                <Grid item xs={12} sm={6} md={4}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Project Code"
+                    value={formProjectCode}
+                    onChange={(e) => setFormProjectCode(e.target.value)}
+                  />
+                </Grid>
+
+                <Grid item xs={12} sm={6} md={4}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Project Name"
+                    value={formProjectName}
+                    onChange={(e) => setFormProjectName(e.target.value)}
                   />
                 </Grid>
               </Grid>
@@ -918,7 +1020,162 @@ export default function RequirementsPage() {
               <Divider sx={{ my: 3 }} />
               <Box sx={{ mb: 2 }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.primary' }}>
-                  Fulfilment & ownership
+                  Item Lines
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Add each material / service line item. Amount is calculated as Qty × Rate.
+                </Typography>
+              </Box>
+              <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: '8px', mb: 1 }}>
+                <Table size="small">
+                  <TableHead sx={{ bgcolor: 'background.default' }}>
+                    <TableRow>
+                      <TableCell sx={{ width: 40 }} />
+                      <TableCell>Material / Service Code</TableCell>
+                      <TableCell>Item &amp; Description</TableCell>
+                      <TableCell sx={{ minWidth: 80 }}>Drawing / Specs (Y/N)</TableCell>
+                      <TableCell sx={{ minWidth: 70 }}>HSN / SAC</TableCell>
+                      <TableCell sx={{ minWidth: 60 }}>UOM</TableCell>
+                      <TableCell sx={{ minWidth: 60 }}>Qty</TableCell>
+                      <TableCell sx={{ minWidth: 70 }}>Rate (₹)</TableCell>
+                      <TableCell sx={{ minWidth: 80 }}>Budget Amount (₹)</TableCell>
+                      <TableCell sx={{ minWidth: 70 }}>Amount (₹)</TableCell>
+                      <TableCell>Remarks</TableCell>
+                      <TableCell align="right" sx={{ width: 52 }} />
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {formItems.map((row, index) => (
+                      <TableRow key={index} sx={{ '&:last-child td, &:last-child th': { borderBottom: 0 } }}>
+                        <TableCell sx={{ fontWeight: 700, color: '#64748B' }}>{row.s_no}</TableCell>
+                        <TableCell>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            value={row.material_service_code}
+                            onChange={(e) => updateItemField(index, 'material_service_code', e.target.value)}
+                            sx={{ m: -1.5 }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            value={row.item_description}
+                            onChange={(e) => updateItemField(index, 'item_description', e.target.value)}
+                            sx={{ m: -1.5 }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <FormControl fullWidth size="small" sx={{ m: -1.5 }}>
+                            <Select
+                              value={row.drawing_specs_yn}
+                              onChange={(e) => updateItemField(index, 'drawing_specs_yn', e.target.value as 'Y' | 'N')}
+                              displayEmpty
+                            >
+                              <MenuItem value="Y">Yes</MenuItem>
+                              <MenuItem value="N">No</MenuItem>
+                            </Select>
+                          </FormControl>
+                        </TableCell>
+                        <TableCell>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            value={row.hsn_sac}
+                            onChange={(e) => updateItemField(index, 'hsn_sac', e.target.value)}
+                            sx={{ m: -1.5 }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            value={row.uom}
+                            onChange={(e) => updateItemField(index, 'uom', e.target.value)}
+                            sx={{ m: -1.5 }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            type="number"
+                            value={row.qty}
+                            onChange={(e) => updateItemField(index, 'qty', Number(e.target.value || 0))}
+                            sx={{ m: -1.5 }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            type="number"
+                            value={row.rate}
+                            onChange={(e) => updateItemField(index, 'rate', Number(e.target.value || 0))}
+                            sx={{ m: -1.5 }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            type="number"
+                            value={row.budget_amount}
+                            onChange={(e) => updateItemField(index, 'budget_amount', Number(e.target.value || 0))}
+                            sx={{ m: -1.5 }}
+                          />
+                        </TableCell>
+                        <TableCell
+                          sx={{ fontWeight: 700, color: '#04552B' }}
+                        >
+                          ₹{(row.amount || 0).toLocaleString()}
+                        </TableCell>
+                        <TableCell>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            value={row.remarks}
+                            onChange={(e) => updateItemField(index, 'remarks', e.target.value)}
+                            sx={{ m: -1.5 }}
+                          />
+                        </TableCell>
+                        <TableCell align="right">
+                          <IconButton
+                            size="small"
+                            onClick={() => removeItemRow(index)}
+                            sx={{ color: '#DC2626', p: 0.5 }}
+                            title="Remove row"
+                          >
+                            <Trash2 size={16} />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 0.5, mb: 1 }}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<Plus size={14} />}
+                  onClick={addItemRow}
+                  sx={{ textTransform: 'none', fontWeight: 600 }}
+                >
+                  Add Item Line
+                </Button>
+                {formItems.length > 0 && (
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.4, ml: 1 }}>
+                    Total: ₹{totalItemsAmount.toLocaleString()}
+                  </Typography>
+                )}
+              </Box>
+
+              <Divider sx={{ my: 3 }} />
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                  Fulfilment &amp; ownership
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
                   Set the urgency, delivery date, and responsible department.
@@ -933,20 +1190,6 @@ export default function RequirementsPage() {
                       <MenuItem value="MEDIUM">Medium</MenuItem>
                       <MenuItem value="HIGH">High</MenuItem>
                       <MenuItem value="CRITICAL">Critical</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-
-                <Grid item xs={12} sm={4}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Department</InputLabel>
-                    <Select value={formDepartment} label="Department" onChange={(e) => setFormDepartment(e.target.value)}>
-                      <MenuItem value="Operations">Operations</MenuItem>
-                      <MenuItem value="IT">IT & Infrastructure</MenuItem>
-                      <MenuItem value="Engineering">Engineering</MenuItem>
-                      <MenuItem value="Finance">Finance</MenuItem>
-                      <MenuItem value="HR">HR & Admin</MenuItem>
-                      <MenuItem value="Sales">Sales & Marketing</MenuItem>
                     </Select>
                   </FormControl>
                 </Grid>
@@ -976,40 +1219,43 @@ export default function RequirementsPage() {
                     onChange={(e) => setFormRequiredByDate(e.target.value)}
                   />
                 </Grid>
+              </Grid>
 
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="Requested By"
-                    value={formRequestedBy}
-                    onChange={(e) => setFormRequestedBy(e.target.value)}
-                  />
-                </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Suggested vendor (optional)"
+                  placeholder="Enter a preferred supplier, if any"
+                  value={formVendorSuggestion}
+                  onChange={(e) => setFormVendorSuggestion(e.target.value)}
+                />
+              </Grid>
 
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="Suggested vendor (optional)"
-                    placeholder="Enter a preferred supplier, if any"
-                    value={formVendorSuggestion}
-                    onChange={(e) => setFormVendorSuggestion(e.target.value)}
-                  />
-                </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  multiline
+                  minRows={2}
+                  size="small"
+                  label="Business justification"
+                  placeholder="Explain why this material is needed"
+                  value={formJustification}
+                  onChange={(e) => setFormJustification(e.target.value)}
+                />
+              </Grid>
 
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    multiline
-                    minRows={2}
-                    size="small"
-                    label="Business justification"
-                    placeholder="Explain why this material is needed"
-                    value={formJustification}
-                    onChange={(e) => setFormJustification(e.target.value)}
-                  />
-                </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  multiline
+                  minRows={2}
+                  size="small"
+                  label="Specifications"
+                  placeholder="Add size, model, material, or other relevant details"
+                  value={formSpecifications}
+                  onChange={(e) => setFormSpecifications(e.target.value)}
+                />
               </Grid>
             </DialogContent>
             <DialogActions
@@ -1086,6 +1332,16 @@ export default function RequirementsPage() {
                   </Typography>
                 </Grid>
                 <Grid item xs={6}>
+                  <Typography variant="caption" color="textSecondary">Request No</Typography>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600, fontFamily: 'monospace' }}>
+                    {selectedDetailItem.request_no || '—'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="caption" color="textSecondary">Request Date</Typography>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>{formatDate(selectedDetailItem.request_date)}</Typography>
+                </Grid>
+                <Grid item xs={6}>
                   <Typography variant="caption" color="textSecondary">Department</Typography>
                   <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>{selectedDetailItem.department}</Typography>
                 </Grid>
@@ -1093,7 +1349,40 @@ export default function RequirementsPage() {
                   <Typography variant="caption" color="textSecondary">Requested By</Typography>
                   <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>{selectedDetailItem.requested_by}</Typography>
                 </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="caption" color="textSecondary">Approver</Typography>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>{selectedDetailItem.approver || '—'}</Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="caption" color="textSecondary">Project Code / Name</Typography>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                    {selectedDetailItem.project_code || '—'}{selectedDetailItem.project_name ? ` • ${selectedDetailItem.project_name}` : ''}
+                  </Typography>
+                </Grid>
               </Grid>
+
+              {selectedDetailItem.material_items && selectedDetailItem.material_items.length > 0 && (
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="caption" color="textSecondary" sx={{ mb: 1 }}>
+                    Item Lines
+                  </Typography>
+                  <Table size="small">
+                    <TableBody>
+                      {selectedDetailItem.material_items.map((row) => (
+                        <TableRow key={row.s_no} sx={{ '&:last-child td': { borderBottom: 0 } }}>
+                          <TableCell sx={{ width: 40, fontWeight: 700, color: '#64748B' }}>{row.s_no}</TableCell>
+                          <TableCell sx={{ fontWeight: 600, minWidth: 120 }}>{row.item_description}</TableCell>
+                          <TableCell sx={{ minWidth: 70 }}>{row.qty} {row.uom}</TableCell>
+                          <TableCell sx={{ minWidth: 70 }}>₹{(row.rate || 0).toLocaleString()}</TableCell>
+                          <TableCell sx={{ minWidth: 70, fontWeight: 700, color: '#04552B' }}>
+                            ₹{(row.amount || 0).toLocaleString()}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </Box>
+              )}
 
               <Box sx={{ mt: 'auto', pt: 2, display: 'flex', gap: 1.5 }}>
                 <Button

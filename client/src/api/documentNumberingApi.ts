@@ -50,6 +50,15 @@ export const documentNumberingApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: [{ type: 'DocumentNumbering', id: 'LIST' }],
     }),
+    generateDocumentNumber: build.mutation<
+      { document_type: string; document_number: string },
+      { document_type: string }
+    >({
+      query: ({ document_type }) => ({
+        url: `/document-numbering/generate/${document_type}`,
+        method: 'POST',
+      }),
+    }),
     previewDocumentNumber: build.mutation<
       { preview: string },
       { prefix: string; padding: number; next_number: number; suffix?: string }
@@ -70,4 +79,5 @@ export const {
   useUpdateDocumentSequenceMutation,
   useDeleteDocumentSequenceMutation,
   usePreviewDocumentNumberMutation,
+  useGenerateDocumentNumberMutation,
 } = documentNumberingApi;
