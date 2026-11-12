@@ -43,6 +43,7 @@ import {
   AlertTriangle,
   XCircle,
   DollarSign,
+  X,
 } from 'lucide-react';
 import { useTableSort } from '../hooks/useTableSort';
 import ErpSortHeaderCell from '../components/ui/ErpSortHeaderCell';
@@ -755,27 +756,89 @@ export default function RequirementsPage() {
 
       {/* ── Legacy Material Requirement Modal (When active tab is Material) ── */}
       {!isIT && (
-        <Dialog open={isCreateOpen} onClose={() => setIsCreateOpen(false)} maxWidth="md" fullWidth>
+        <Dialog
+          open={isCreateOpen}
+          onClose={() => setIsCreateOpen(false)}
+          maxWidth="md"
+          fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: 3,
+              border: '1px solid',
+              borderColor: 'divider',
+              boxShadow: '0 24px 80px rgba(15, 23, 42, 0.22)',
+              overflow: 'hidden',
+            },
+          }}
+        >
           <form onSubmit={handleSaveMaterialRequirement}>
-            <DialogTitle sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Package size={20} color="#04552B" />
-              {editingItem ? `Edit Material Requisition (${editingItem.id})` : 'New Material Requirement Requisition'}
+            <DialogTitle
+              sx={{
+                px: { xs: 2.5, sm: 3.5 },
+                py: 2.5,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.75,
+                borderBottom: '1px solid',
+                borderColor: 'divider',
+              }}
+            >
+              <Box
+                sx={{
+                  width: 42,
+                  height: 42,
+                  display: 'grid',
+                  placeItems: 'center',
+                  flexShrink: 0,
+                  borderRadius: 2,
+                  bgcolor: '#E8F3EC',
+                  color: '#04552B',
+                }}
+              >
+                <Package size={21} />
+              </Box>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography variant="h6" sx={{ fontWeight: 750, color: 'text.primary', lineHeight: 1.3 }}>
+                  {editingItem ? 'Edit material requisition' : 'New material requisition'}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.35 }}>
+                  {editingItem
+                    ? `Update the details for ${editingItem.id}.`
+                    : 'Tell us what you need, why you need it, and when it is required.'}
+                </Typography>
+              </Box>
+              <IconButton
+                aria-label="Close requisition form"
+                onClick={() => setIsCreateOpen(false)}
+                size="small"
+                sx={{ color: 'text.secondary', alignSelf: 'flex-start', mt: -0.5, mr: -1 }}
+              >
+                <X size={19} />
+              </IconButton>
             </DialogTitle>
-            <DialogContent dividers>
+            <DialogContent sx={{ px: { xs: 2.5, sm: 3.5 }, py: 3 }}>
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                  Item details
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Describe the material and how much is needed.
+                </Typography>
+              </Box>
               <Grid container spacing={2}>
-                <Grid item xs={12} sm={8}>
+                <Grid item xs={12} sm={7}>
                   <TextField
                     fullWidth
                     required
                     size="small"
-                    label="Requirement Title / Item Name"
-                    placeholder="e.g. Safety Helmets & Industrial Gloves"
+                    label="Item name"
+                    placeholder="e.g. Safety helmets"
                     value={formTitle}
                     onChange={(e) => setFormTitle(e.target.value)}
                   />
                 </Grid>
 
-                <Grid item xs={12} sm={4}>
+                <Grid item xs={12} sm={5}>
                   <FormControl fullWidth size="small">
                     <InputLabel>Category</InputLabel>
                     <Select value={formCategory} label="Category" onChange={(e) => setFormCategory(e.target.value)}>
@@ -795,7 +858,7 @@ export default function RequirementsPage() {
                     type="number"
                     size="small"
                     label="Quantity"
-                    inputProps={{ min: 1 }}
+                    inputProps={{ min: 1, step: 1 }}
                     value={formQuantity}
                     onChange={(e) => setFormQuantity(Math.max(1, parseInt(e.target.value || '1', 10)))}
                   />
@@ -818,7 +881,7 @@ export default function RequirementsPage() {
                     type="number"
                     size="small"
                     label="Est. Unit Cost (₹)"
-                    inputProps={{ min: 0 }}
+                    inputProps={{ min: 0, step: '0.01' }}
                     value={formUnitCost}
                     onChange={(e) => setFormUnitCost(Math.max(0, parseFloat(e.target.value || '0')))}
                   />
@@ -831,10 +894,37 @@ export default function RequirementsPage() {
                     label="Total Est. Cost (₹)"
                     value={`₹${(formQuantity * formUnitCost).toLocaleString()}`}
                     InputProps={{ readOnly: true }}
-                    sx={{ bgcolor: 'action.hover' }}
+                    sx={{
+                      '& .MuiOutlinedInput-root': { bgcolor: 'action.hover' },
+                      '& .MuiInputBase-input': { fontWeight: 700, color: '#04552B' },
+                    }}
                   />
                 </Grid>
 
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    multiline
+                    minRows={2}
+                    size="small"
+                    label="Specifications"
+                    placeholder="Add size, model, material, or other relevant details"
+                    value={formSpecifications}
+                    onChange={(e) => setFormSpecifications(e.target.value)}
+                  />
+                </Grid>
+              </Grid>
+
+              <Divider sx={{ my: 3 }} />
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                  Fulfilment & ownership
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Set the urgency, delivery date, and responsible department.
+                </Typography>
+              </Box>
+              <Grid container spacing={2}>
                 <Grid item xs={12} sm={4}>
                   <FormControl fullWidth size="small">
                     <InputLabel>Priority</InputLabel>
@@ -843,6 +933,20 @@ export default function RequirementsPage() {
                       <MenuItem value="MEDIUM">Medium</MenuItem>
                       <MenuItem value="HIGH">High</MenuItem>
                       <MenuItem value="CRITICAL">Critical</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+
+                <Grid item xs={12} sm={4}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Department</InputLabel>
+                    <Select value={formDepartment} label="Department" onChange={(e) => setFormDepartment(e.target.value)}>
+                      <MenuItem value="Operations">Operations</MenuItem>
+                      <MenuItem value="IT">IT & Infrastructure</MenuItem>
+                      <MenuItem value="Engineering">Engineering</MenuItem>
+                      <MenuItem value="Finance">Finance</MenuItem>
+                      <MenuItem value="HR">HR & Admin</MenuItem>
+                      <MenuItem value="Sales">Sales & Marketing</MenuItem>
                     </Select>
                   </FormControl>
                 </Grid>
@@ -861,7 +965,7 @@ export default function RequirementsPage() {
                   </FormControl>
                 </Grid>
 
-                <Grid item xs={12} sm={4}>
+                <Grid item xs={12} sm={6}>
                   <TextField
                     fullWidth
                     type="date"
@@ -871,20 +975,6 @@ export default function RequirementsPage() {
                     value={formRequiredByDate}
                     onChange={(e) => setFormRequiredByDate(e.target.value)}
                   />
-                </Grid>
-
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Department</InputLabel>
-                    <Select value={formDepartment} label="Department" onChange={(e) => setFormDepartment(e.target.value)}>
-                      <MenuItem value="Operations">Operations</MenuItem>
-                      <MenuItem value="IT">IT & Infrastructure</MenuItem>
-                      <MenuItem value="Engineering">Engineering</MenuItem>
-                      <MenuItem value="Finance">Finance</MenuItem>
-                      <MenuItem value="HR">HR & Admin</MenuItem>
-                      <MenuItem value="Sales">Sales & Marketing</MenuItem>
-                    </Select>
-                  </FormControl>
                 </Grid>
 
                 <Grid item xs={12} sm={6}>
@@ -900,22 +990,54 @@ export default function RequirementsPage() {
                 <Grid item xs={12}>
                   <TextField
                     fullWidth
-                    multiline
-                    rows={2}
                     size="small"
-                    label="Business Justification / Reason"
-                    placeholder="Explain why this material requirement is needed..."
+                    label="Suggested vendor (optional)"
+                    placeholder="Enter a preferred supplier, if any"
+                    value={formVendorSuggestion}
+                    onChange={(e) => setFormVendorSuggestion(e.target.value)}
+                  />
+                </Grid>
+
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    multiline
+                    minRows={2}
+                    size="small"
+                    label="Business justification"
+                    placeholder="Explain why this material is needed"
                     value={formJustification}
                     onChange={(e) => setFormJustification(e.target.value)}
                   />
                 </Grid>
               </Grid>
             </DialogContent>
-            <DialogActions sx={{ px: 3, py: 2 }}>
-              <Button onClick={() => setIsCreateOpen(false)} sx={{ color: 'text.secondary' }}>
+            <DialogActions
+              sx={{
+                px: { xs: 2.5, sm: 3.5 },
+                py: 2,
+                gap: 1,
+                borderTop: '1px solid',
+                borderColor: 'divider',
+                bgcolor: 'background.default',
+              }}
+            >
+              <Button onClick={() => setIsCreateOpen(false)} sx={{ color: 'text.secondary', px: 2 }}>
                 Cancel
               </Button>
-              <Button type="submit" variant="contained" sx={{ bgcolor: '#04552B', '&:hover': { bgcolor: '#034120' }, px: 3 }}>
+              <Button
+                type="submit"
+                variant="contained"
+                sx={{
+                  bgcolor: '#04552B',
+                  '&:hover': { bgcolor: '#034120' },
+                  px: 2.5,
+                  py: 1,
+                  borderRadius: 2,
+                  fontWeight: 700,
+                  boxShadow: 'none',
+                }}
+              >
                 {editingItem ? 'Save Changes' : 'Submit Requisition'}
               </Button>
             </DialogActions>
