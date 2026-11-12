@@ -318,10 +318,6 @@ export default function RequirementsPage() {
   // Save Material Requirement from standard dialog
   const handleSaveMaterialRequirement = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formTitle.trim()) {
-      showError('Please enter a requirement title');
-      return;
-    }
     if (formItems.length === 0) {
       showError('Please add at least one item line');
       return;
