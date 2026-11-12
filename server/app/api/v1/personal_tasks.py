@@ -1320,12 +1320,19 @@ def get_my_day_summary(
     current_user: User = Depends(get_current_user),
 ):
     """Today's tasks and overdue items with quick metrics"""
-    today = datetime.now(timezone.utc).date()
+    now_local = get_local_now()
+    today = now_local.date()
+
+    user_personal_scope = or_(
+        and_(Task.created_by == current_user.id, or_(Task.assignee_id.is_(None), Task.assignee_id == current_user.id)),
+        Task.assignee_id == current_user.id,
+        Task.assignees.any(TaskAssignee.user_id == current_user.id)
+    )
 
     # Active tasks for today
     today_tasks_q = db.query(Task).filter(
         Task.is_personal.is_(True),
-        Task.created_by == current_user.id,
+        user_personal_scope,
         Task.is_deleted.is_(False),
         Task.is_archived.is_(False),
         or_(Task.planned_date == today, and_(Task.planned_date.is_(None), Task.due_date == today))
@@ -1334,7 +1341,7 @@ def get_my_day_summary(
     # Overdue tasks
     overdue_tasks_q = db.query(Task).filter(
         Task.is_personal.is_(True),
-        Task.created_by == current_user.id,
+        user_personal_scope,
         Task.is_deleted.is_(False),
         Task.is_archived.is_(False),
         Task.is_completed.is_(False),

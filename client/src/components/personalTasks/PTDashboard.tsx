@@ -182,6 +182,7 @@ export default function PTDashboard({
           onReopenTask={onReopenTask}
           onArchiveTask={onArchiveTask}
           onDeleteTask={onDeleteTask}
+          onUpdateTask={onUpdateTask}
         />
       </Box>
     </Box>

@@ -383,17 +383,17 @@ export const personalTasksApi = baseApi.injectEndpoints({
     // Workload & My Day
     getPersonalWorkload: build.query<WorkloadSummary, void>({
       query: () => '/tasks/personal/workload',
-      providesTags: ['PersonalTasks'],
+      providesTags: ['PersonalTasks', { type: 'PersonalTasks', id: 'LIST' }],
     }),
 
     getMyDaySummary: build.query<MyDaySummary, void>({
       query: () => '/tasks/personal/my-day',
-      providesTags: ['PersonalTasks'],
+      providesTags: ['PersonalTasks', { type: 'PersonalTasks', id: 'LIST' }],
     }),
 
     getWeeklyReview: build.query<WeeklyReview, void>({
       query: () => '/tasks/personal/weekly-review',
-      providesTags: ['PersonalTasks'],
+      providesTags: ['PersonalTasks', { type: 'PersonalTasks', id: 'LIST' }],
     }),
 
     // Task Log Notes

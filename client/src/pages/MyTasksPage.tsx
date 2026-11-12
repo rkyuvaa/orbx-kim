@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { format } from 'date-fns';
 import {
   Box,
   Typography,
@@ -126,7 +127,11 @@ export default function MyTasksPage() {
     include_archived: activeSection === 'archive',
   });
 
-  const { data: myDaySummary, isLoading: isMyDayLoading } = useGetMyDaySummaryQuery();
+  const {
+    data: myDaySummary,
+    isLoading: isMyDayLoading,
+    refetch: refetchMyDay,
+  } = useGetMyDaySummaryQuery();
   const { data: workload, isLoading: isWorkloadLoading } = useGetPersonalWorkloadQuery();
   const { data: weeklyReview, isLoading: isReviewLoading } = useGetWeeklyReviewQuery();
   const { data: activeTimer } = useGetActiveTimerQuery(undefined, {
@@ -180,23 +185,24 @@ export default function MyTasksPage() {
 
   // Section Counts
   const overdueCount = useMemo(() => {
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
     return tasks.filter((t) => {
       if (t.is_completed || t.cancelled_at || !t.due_date) return false;
-      const d = new Date(t.due_date).getTime();
-      const now = new Date().setHours(0, 0, 0, 0);
-      return d < now;
+      if (t.assignee_id && t.assignee_id !== currentUser?.id) return false;
+      return t.due_date.split('T')[0] < todayStr;
     }).length;
-  }, [tasks]);
+  }, [tasks, currentUser?.id]);
 
   const todayCount = useMemo(() => {
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
     return tasks.filter((t) => {
       if (t.is_completed || t.cancelled_at) return false;
+      if (t.assignee_id && t.assignee_id !== currentUser?.id) return false;
       const planned = t.planned_date ? t.planned_date.split('T')[0] : null;
       const due = t.due_date ? t.due_date.split('T')[0] : null;
       return planned === todayStr || (!planned && due === todayStr);
     }).length;
-  }, [tasks]);
+  }, [tasks, currentUser?.id]);
 
   // Section Filtered Tasks
   const displayedTasks = useMemo(() => {
@@ -254,7 +260,7 @@ export default function MyTasksPage() {
       list = list.filter((t) => t.due_date && t.due_date.split('T')[0] === dueDateFilter);
     }
 
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
 
     // Personal / assigned-to-me isolation for daily personal views
     if (['my-day', 'upcoming', 'overdue'].includes(activeSection)) {
@@ -320,9 +326,16 @@ export default function MyTasksPage() {
 
   const handleQuickAdd = async (taskData: PTTaskCreate) => {
     try {
-      const res = await createTask(taskData).unwrap();
+      const payload: PTTaskCreate = { ...taskData };
+      if (activeSection === 'my-day' && !payload.due_date && !payload.planned_date) {
+        const todayStr = format(new Date(), 'yyyy-MM-dd');
+        payload.planned_date = todayStr;
+        payload.due_date = todayStr;
+      }
+      const res = await createTask(payload).unwrap();
       showToast(`Task "${res.title}" created.`, 'success');
       refetchTasks();
+      refetchMyDay();
     } catch {
       showToast('Failed to create task.', 'error');
     }
@@ -352,6 +365,7 @@ export default function MyTasksPage() {
             },
           }).unwrap();
           refetchTasks();
+          refetchMyDay();
         }
       );
 
@@ -365,6 +379,7 @@ export default function MyTasksPage() {
         });
       }
       refetchTasks();
+      refetchMyDay();
     } catch {
       showToast('Status update failed.', 'error');
     }
@@ -376,6 +391,7 @@ export default function MyTasksPage() {
       showToast('Task cancelled.', 'info');
       setDrawerOpen(false);
       refetchTasks();
+      refetchMyDay();
     } catch {
       showToast('Failed to cancel task.', 'error');
     }
@@ -386,6 +402,7 @@ export default function MyTasksPage() {
       await reopenTask(id).unwrap();
       showToast('Task reopened.', 'success');
       refetchTasks();
+      refetchMyDay();
     } catch {
       showToast('Failed to reopen task.', 'error');
     }
@@ -397,6 +414,7 @@ export default function MyTasksPage() {
       showToast('Task moved to archive.', 'info');
       setDrawerOpen(false);
       refetchTasks();
+      refetchMyDay();
     } catch {
       showToast('Failed to archive task.', 'error');
     }
@@ -407,6 +425,7 @@ export default function MyTasksPage() {
       await restoreTask(id).unwrap();
       showToast('Task restored to active planner.', 'success');
       refetchTasks();
+      refetchMyDay();
     } catch {
       showToast('Failed to restore task.', 'error');
     }
@@ -424,9 +443,11 @@ export default function MyTasksPage() {
         triggerUndoToast('Task deleted.', async () => {
           await restoreTask(id).unwrap();
           refetchTasks();
+          refetchMyDay();
         });
       }
       refetchTasks();
+      refetchMyDay();
     } catch {
       showToast('Failed to delete task.', 'error');
     }
@@ -437,6 +458,7 @@ export default function MyTasksPage() {
       await updateTask({ id, data: patch }).unwrap();
       showToast('Task updated.', 'success');
       refetchTasks();
+      refetchMyDay();
     } catch {
       showToast('Failed to update task.', 'error');
     }
@@ -525,6 +547,7 @@ export default function MyTasksPage() {
       await stopTimer({ taskId, description }).unwrap();
       showToast('Timer stopped and actual hours recorded.', 'success');
       refetchTasks();
+      refetchMyDay();
     } catch {
       showToast('Failed to stop timer.', 'error');
     }
@@ -999,6 +1022,7 @@ export default function MyTasksPage() {
           const updated = await updateTask({ id, data: patch }).unwrap();
           setSelectedTask(updated);
           refetchTasks();
+          refetchMyDay();
         }}
         onToggleComplete={handleToggleComplete}
         onCancelTask={handleCancelTask}
