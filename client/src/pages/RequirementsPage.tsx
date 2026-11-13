@@ -54,6 +54,7 @@ import { RequirementItem, MaterialRequisitionItem } from '@/types/requirements';
 import ITRequirementFormModal from '@/components/requirements/ITRequirementFormModal';
 import ITRequirementDetailDrawer from '@/components/requirements/ITRequirementDetailDrawer';
 import { useDatabaseStoredState } from '@/hooks/useDatabaseStoredState';
+import { useGetUsersQuery } from '@/api/rbacApi';
 import {
   useGenerateDocumentNumberMutation,
   usePreviewDocumentNumberMutation,
@@ -74,10 +75,9 @@ export default function RequirementsPage() {
     [],
   );
 
-  // Employee master (auto-fetch department & approver for requester)
-  const [employees] = useDatabaseStoredState<any[]>('crm_employee_master_data', []);
-
-  // Document numbering
+  // RBAC users from Settings > Users (auto-fetch department & approver for requester)
+  const { data: usersData } = useGetUsersQuery({ page: 1, page_size: 200 });
+  const rbacUsers: any[] = usersData?.items || [];
   const [generateDocumentNumber] = useGenerateDocumentNumberMutation();
   const [previewDocumentNumber] = usePreviewDocumentNumberMutation();
 
@@ -157,27 +157,27 @@ export default function RequirementsPage() {
   const fulfilledCount = typeFiltered.filter((i) => i.status === 'FULFILLED' || i.status === 'COMPLETED').length;
   const totalCostEstimate = typeFiltered.reduce((acc, curr) => acc + (curr.total_cost || 0), 0);
 
-  // Auto-populate header fields from auth + employee master
+  // Auto-populate header fields from auth + RBAC users (Settings > Users)
   const populateHeaderDefaults = useCallback(() => {
     const requesterName = loggedUser?.full_name || '';
     setFormRequesterName(requesterName);
     setFormRequestedBy(requesterName || 'Admin User');
     setFormRequestDate(new Date().toISOString().split('T')[0]);
 
-    // Look up requester in employee master to get department & approver (manager)
-    const employee = employees.find(
-      (e: any) => e.name === requesterName || e.email === loggedUser?.email || e.linked_user === loggedUser?.email,
+    // Look up requester in RBAC users to get department & approver (manager)
+    const user = rbacUsers.find(
+      (e: any) => e.full_name === requesterName || e.email === loggedUser?.email,
     );
-    setFormDepartment(employee?.department || '');
-    setFormApprover(employee?.reporting_manager || '');
-  }, [loggedUser, employees]);
+    setFormDepartment(user?.primary_department_name || '');
+    setFormApprover(user?.reporting_manager_name || '');
+  }, [loggedUser, rbacUsers]);
 
-  // Re-populate department & approver when employee master data loads asynchronously
+  // Re-populate department & approver when RBAC users data loads asynchronously
   useEffect(() => {
-    if (!employees || employees.length === 0) return;
+    if (!rbacUsers || rbacUsers.length === 0) return;
     if (!loggedUser) return;
     populateHeaderDefaults();
-  }, [employees, loggedUser, populateHeaderDefaults]);
+  }, [rbacUsers, loggedUser, populateHeaderDefaults]);
 
   // Form Reset for Material
   const resetForm = () => {
