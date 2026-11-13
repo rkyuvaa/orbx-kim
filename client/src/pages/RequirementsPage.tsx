@@ -49,7 +49,7 @@ import { useTableSort } from '../hooks/useTableSort';
 import ErpSortHeaderCell from '../components/ui/ErpSortHeaderCell';
 import { useToast } from '@/components/ui/ToastHost';
 import { formatDate } from '@/utils/format';
-import { useAppSelector } from '../app/hooks';
+import { useAppDispatch, useAppSelector } from '../app/hooks';
 import { RequirementItem, MaterialRequisitionItem } from '@/types/requirements';
 import ITRequirementFormModal from '@/components/requirements/ITRequirementFormModal';
 import ITRequirementDetailDrawer from '@/components/requirements/ITRequirementDetailDrawer';
@@ -58,12 +58,23 @@ import {
   useGenerateDocumentNumberMutation,
   usePreviewDocumentNumberMutation,
 } from '@/api/documentNumberingApi';
+import { useMeQuery } from '@/api/authApi';
+import { setUser } from '../auth/authSlice';
 
 export default function RequirementsPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const { showSuccess, showError } = useToast();
   const loggedUser = useAppSelector((state) => state.auth.user);
+  const dispatch = useAppDispatch();
+  const { data: meUser } = useMeQuery();
+
+  // Sync fresh user from /auth/me (includes department & manager name) into Redux
+  useEffect(() => {
+    if (meUser) {
+      dispatch(setUser(meUser));
+    }
+  }, [meUser, dispatch]);
 
   // Active tab check
   const isIT = location.pathname.includes('/requirements/it');
