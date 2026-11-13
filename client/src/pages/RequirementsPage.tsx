@@ -145,7 +145,6 @@ export default function RequirementsPage() {
   const [selectedDetailItem, setSelectedDetailItem] = useState<RequirementItem | null>(null);
 
   // Legacy Material Form State
-  const [formTitle, setFormTitle] = useState('');
   const [formCategory, setFormCategory] = useState('');
   const [formQuantity, setFormQuantity] = useState<number>(1);
   const [formUnit, setFormUnit] = useState('Pcs');
@@ -212,7 +211,6 @@ export default function RequirementsPage() {
   // Form Reset for Material
   const resetForm = () => {
     setEditingItem(null);
-    setFormTitle('');
     setFormCategory(categoryOptions[0] || '');
     setFormQuantity(1);
     setFormUnit('Pcs');
@@ -244,7 +242,6 @@ export default function RequirementsPage() {
   const handleOpenEdit = (item: RequirementItem) => {
     setEditingItem(item);
     if (!isIT) {
-      setFormTitle(item.title);
       setFormCategory(item.category);
       setFormQuantity(item.quantity);
       setFormUnit(item.unit);
@@ -380,7 +377,7 @@ export default function RequirementsPage() {
           r.id === editingItem.id
             ? {
                 ...r,
-                title: formTitle.trim(),
+                title: requestNo,
                 category: formCategory || categoryOptions[0],
                 quantity: Number(formQuantity),
                 unit: formUnit.trim(),
@@ -394,7 +391,7 @@ export default function RequirementsPage() {
                 justification: formJustification.trim(),
                 specifications: formSpecifications.trim(),
                 vendor_suggestion: formVendorSuggestion.trim(),
-                request_no: formRequestNo.trim() || undefined,
+                request_no: requestNo,
                 request_date: formRequestDate,
                 requester_name: formRequesterName,
                 approver: formApprover,
@@ -419,7 +416,7 @@ export default function RequirementsPage() {
       const newItem: RequirementItem = {
         id: newId,
         type: 'MATERIAL',
-        title: formTitle.trim(),
+        title: requestNo,
         category: formCategory || categoryOptions[0],
         quantity: Number(formQuantity),
         unit: formUnit.trim(),
@@ -433,7 +430,7 @@ export default function RequirementsPage() {
         justification: formJustification.trim(),
         specifications: formSpecifications.trim(),
         vendor_suggestion: formVendorSuggestion.trim(),
-        request_no: formRequestNo.trim() || undefined,
+        request_no: requestNo,
         request_date: formRequestDate,
         requester_name: formRequesterName,
         approver: formApprover,
@@ -924,11 +921,20 @@ export default function RequirementsPage() {
                 px: { xs: 2.5, sm: 3.5 },
                 py: 1.5,
                 display: 'flex',
-                justifyContent: 'flex-end',
+                justifyContent: 'space-between',
+                alignItems: 'center',
                 borderBottom: '1px solid',
                 borderColor: 'divider',
               }}
             >
+              <Box sx={{ width: { xs: '75%', sm: '50%' } }}>
+                <Typography variant="caption" color="text.secondary">
+                  Material / Service Request No
+                </Typography>
+                <Typography variant="h6" sx={{ color: 'text.primary', fontWeight: 700 }}>
+                  {formRequestNo || 'Generating…'}
+                </Typography>
+              </Box>
               <IconButton
                 aria-label="Close requisition form"
                 onClick={() => setIsCreateOpen(false)}
@@ -940,18 +946,7 @@ export default function RequirementsPage() {
             </Box>
             <DialogContent sx={{ px: { xs: 2.5, sm: 3.5 }, py: 3 }}>
               <Grid container spacing={2}>
-                <Grid item xs={12} sm={6} md={4}>
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">
-                      Material / Service Request No
-                    </Typography>
-                    <Typography variant="body1" sx={{ color: 'text.primary', mt: 0.25 }}>
-                      {formRequestNo || 'Generating…'}
-                    </Typography>
-                  </Box>
-                </Grid>
-
-                <Grid item xs={12} sm={6} md={4}>
+                <Grid item xs={12} sm={3} md={2}>
                   <TextField
                     fullWidth
                     size="small"
@@ -974,7 +969,7 @@ export default function RequirementsPage() {
                   />
                 </Grid>
 
-                <Grid item xs={12} sm={6} md={4}>
+                <Grid item xs={12} sm={3} md={2}>
                   <TextField
                     fullWidth
                     size="small"
