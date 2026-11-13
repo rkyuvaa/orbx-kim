@@ -29,6 +29,7 @@ class UserOut(BaseModel):
     role: UserRole
     initials: str
     primary_department_name: str | None = None
+    reporting_manager_id: int | None = None
     reporting_manager_name: str | None = None
 
     model_config = {"from_attributes": True}
