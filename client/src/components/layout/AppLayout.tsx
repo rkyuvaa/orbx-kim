@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Drawer, useMediaQuery } from '@mui/material';
+import { Box, Button, Drawer, IconButton, useMediaQuery } from '@mui/material';
+import { Bell, X } from 'lucide-react';
 
 import { useAppDispatch } from '@/app/hooks';
 import { logout } from '@/auth/authSlice';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 
@@ -14,6 +16,81 @@ export default function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+
+  const { isSupported, permission, isSubscribed, subscribe } = usePushNotifications();
+  const [bannerDismissed, setBannerDismissed] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return sessionStorage.getItem('kim_notif_banner_dismissed') === '1';
+  });
+
+  // Automatically ask request for notification access in browser once logged in
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    if ('Notification' in window) {
+      if (Notification.permission === 'default') {
+        subscribe();
+      } else if (Notification.permission === 'granted' && !isSubscribed) {
+        subscribe();
+      }
+    }
+  }, [subscribe, isSubscribed]);
+
+  const handleDismissBanner = () => {
+    sessionStorage.setItem('kim_notif_banner_dismissed', '1');
+    setBannerDismissed(true);
+  };
+
+  const notificationPromptBanner = isSupported && permission === 'default' && !bannerDismissed && (
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: 1.5,
+        px: { xs: 2, md: 3 },
+        py: 1,
+        backgroundColor: '#F0FDF4',
+        borderBottom: '1px solid #DCFCE7',
+        color: '#166534',
+        fontSize: '0.84rem',
+        zIndex: 10,
+        flexShrink: 0,
+      }}
+    >
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+        <Bell size={16} color="#16C47F" />
+        <span style={{ fontWeight: 500 }}>
+          Enable browser notifications to stay updated on tasks, reminders, and team activity.
+        </span>
+      </Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Button
+          size="small"
+          variant="contained"
+          onClick={() => subscribe()}
+          sx={{
+            backgroundColor: '#16C47F',
+            color: '#FFFFFF',
+            textTransform: 'none',
+            fontWeight: 600,
+            fontSize: '0.78rem',
+            py: 0.35,
+            px: 1.5,
+            borderRadius: '6px',
+            boxShadow: 'none',
+            '&:hover': { backgroundColor: '#13A86B', boxShadow: 'none' },
+          }}
+        >
+          Allow Notifications
+        </Button>
+        <IconButton size="small" onClick={handleDismissBanner} sx={{ color: '#166534' }}>
+          <X size={15} />
+        </IconButton>
+      </Box>
+    </Box>
+  );
 
   // Close mobile drawer on route navigation
   useEffect(() => {
@@ -106,6 +183,7 @@ export default function AppLayout() {
               isMobile={true}
               isSidebarCollapsed={false}
             />
+            {notificationPromptBanner}
             <main
               className="app-main"
               style={{
@@ -148,6 +226,7 @@ export default function AppLayout() {
               isMobile={false}
               isSidebarCollapsed={collapsed}
             />
+            {notificationPromptBanner}
             <main
               className="app-main"
               style={{

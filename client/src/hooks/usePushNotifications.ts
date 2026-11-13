@@ -7,6 +7,36 @@ import {
   useTestPushMutation,
 } from '@/api/pushApi';
 
+export function checkPushSupport(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    'serviceWorker' in navigator &&
+    'PushManager' in window &&
+    'Notification' in window
+  );
+}
+
+export async function requestNotificationPermission(): Promise<NotificationPermission> {
+  if (typeof window === 'undefined' || !('Notification' in window)) {
+    return 'denied';
+  }
+  try {
+    const res = Notification.requestPermission();
+    if (res && typeof (res as any).then === 'function') {
+      return await res;
+    }
+  } catch {
+    return new Promise((resolve) => {
+      try {
+        Notification.requestPermission((perm) => resolve(perm));
+      } catch {
+        resolve('denied');
+      }
+    });
+  }
+  return Notification.permission;
+}
+
 function urlB64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -19,8 +49,11 @@ function urlB64ToUint8Array(base64String: string): Uint8Array {
 }
 
 export function usePushNotifications() {
-  const [isSupported, setIsSupported] = useState<boolean>(false);
-  const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>('default');
+  const [isSupported, setIsSupported] = useState<boolean>(() => checkPushSupport());
+  const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>(() => {
+    if (typeof window === 'undefined' || !('Notification' in window)) return 'unsupported';
+    return Notification.permission;
+  });
   const [isBrowserSubscribed, setIsBrowserSubscribed] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -35,7 +68,7 @@ export function usePushNotifications() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const supported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+    const supported = checkPushSupport();
     setIsSupported(supported);
 
     if (!supported) {
@@ -60,7 +93,8 @@ export function usePushNotifications() {
   }, []);
 
   const subscribe = useCallback(async () => {
-    if (!isSupported) {
+    const supported = isSupported || checkPushSupport();
+    if (!supported) {
       setActionError('Push notifications are not supported by this browser.');
       return false;
     }
@@ -69,7 +103,7 @@ export function usePushNotifications() {
     setActionError(null);
 
     try {
-      const currentPerm = await Notification.requestPermission();
+      const currentPerm = await requestNotificationPermission();
       setPermission(currentPerm);
 
       if (currentPerm !== 'granted') {
@@ -78,7 +112,19 @@ export function usePushNotifications() {
         return false;
       }
 
-      const vapidPublicKey = keyData?.public_key;
+      let vapidPublicKey = keyData?.public_key;
+      if (!vapidPublicKey) {
+        try {
+          const res = await fetch('/api/v1/push/public-key');
+          if (res.ok) {
+            const json = await res.json();
+            vapidPublicKey = json?.public_key;
+          }
+        } catch (e) {
+          console.warn('Fallback fetch for VAPID key failed:', e);
+        }
+      }
+
       if (!vapidPublicKey) {
         setActionError('Unable to load push server public key.');
         setIsProcessing(false);

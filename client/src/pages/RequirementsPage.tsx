@@ -193,9 +193,15 @@ export default function RequirementsPage() {
     setFormItems([]);
   };
 
-  const handleOpenCreate = () => {
+  const handleOpenCreate = async () => {
     resetForm();
     setIsCreateOpen(true);
+    try {
+      const result = await generateDocumentNumber({ document_type: 'material_requisition' }).unwrap();
+      setFormRequestNo(result.document_number);
+    } catch {
+      showError('Failed to generate request number. Please configure document numbering for material_requisition.');
+    }
   };
 
   const handleOpenEdit = (item: RequirementItem) => {
@@ -323,17 +329,10 @@ export default function RequirementsPage() {
       return;
     }
 
-    // Generate request number via document numbering framework (create-if-missing + increment)
-    let requestNo = formRequestNo.trim();
+    const requestNo = formRequestNo.trim();
     if (!requestNo) {
-      try {
-        const result = await generateDocumentNumber({ document_type: 'material_requisition' }).unwrap();
-        requestNo = result.document_number;
-        setFormRequestNo(requestNo);
-      } catch {
-        showError('Failed to generate request number. Please configure document numbering for material_requisition.');
-        return;
-      }
+      showError('Request number is not available yet. Please wait or reopen the form.');
+      return;
     }
 
     const calculatedTotal = formQuantity * formUnitCost;
@@ -883,70 +882,39 @@ export default function RequirementsPage() {
           }}
         >
           <form onSubmit={handleSaveMaterialRequirement}>
-            <DialogTitle
+            <Box
               sx={{
                 px: { xs: 2.5, sm: 3.5 },
-                py: 2.5,
+                py: 1.5,
                 display: 'flex',
-                alignItems: 'center',
-                gap: 1.75,
+                justifyContent: 'flex-end',
                 borderBottom: '1px solid',
                 borderColor: 'divider',
               }}
             >
-              <Box
-                sx={{
-                  width: 42,
-                  height: 42,
-                  display: 'grid',
-                  placeItems: 'center',
-                  flexShrink: 0,
-                  borderRadius: 2,
-                  bgcolor: '#E8F3EC',
-                  color: '#04552B',
-                }}
-              >
-                <Package size={21} />
-              </Box>
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Typography variant="h6" sx={{ fontWeight: 750, color: 'text.primary', lineHeight: 1.3 }}>
-                  {editingItem ? 'Edit material requisition' : 'New material requisition'}
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.35 }}>
-                  {editingItem
-                    ? `Update the details for ${editingItem.id}.`
-                    : 'Tell us what you need, why you need it, and when it is required.'}
-                </Typography>
-              </Box>
               <IconButton
                 aria-label="Close requisition form"
                 onClick={() => setIsCreateOpen(false)}
                 size="small"
-                sx={{ color: 'text.secondary', alignSelf: 'flex-start', mt: -0.5, mr: -1 }}
+                sx={{ color: 'text.secondary' }}
               >
                 <X size={19} />
               </IconButton>
-            </DialogTitle>
+            </Box>
             <DialogContent sx={{ px: { xs: 2.5, sm: 3.5 }, py: 3 }}>
-              {/* ── Requisition header ── */}
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.primary' }}>
-                  Requisition Details
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Auto-populated fields are sourced from your profile and employee master.
-                </Typography>
-              </Box>
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={6} md={4}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="Material / Service Request No"
-                    value={formRequestNo}
-                    InputProps={{ readOnly: true }}
-                    sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'action.hover' } }}
-                  />
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Material / Service Request No
+                    </Typography>
+                    <Typography
+                      variant="body1"
+                      sx={{ fontWeight: 700, fontFamily: 'monospace', color: 'text.primary', mt: 0.25 }}
+                    >
+                      {formRequestNo || 'Generating…'}
+                    </Typography>
+                  </Box>
                 </Grid>
 
                 <Grid item xs={12} sm={6} md={4}>

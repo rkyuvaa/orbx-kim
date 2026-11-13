@@ -19,6 +19,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { useLoginMutation } from '@/api/authApi';
 import { setCredentials, logout } from '@/auth/authSlice';
+import { requestNotificationPermission } from '@/hooks/usePushNotifications';
 
 const loginSchema = z.object({
   email: z
@@ -207,6 +208,12 @@ export default function LoginPage() {
       const result = await login({ email: trimmedEmail, password: rawPassword } as any).unwrap();
       if (result?.access_token && result?.user) {
         dispatch(setCredentials({ token: result.access_token, user: result.user }));
+
+        // Automatically ask request for notification access in browser upon login
+        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+          requestNotificationPermission().catch(() => {});
+        }
+
         navigate(from, { replace: true });
       } else {
         dispatch(logout());
