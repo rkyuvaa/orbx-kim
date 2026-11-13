@@ -76,7 +76,7 @@ export default function RequirementsPage() {
   );
 
   // RBAC users from Settings > Users (auto-fetch department & approver for requester)
-  const { data: usersData } = useGetUsersQuery({ page: 1, page_size: 200 });
+  const { data: usersData } = useGetUsersQuery({ page: 1, page_size: 100 });
   const rbacUsers: any[] = usersData?.items || [];
   const [generateDocumentNumber] = useGenerateDocumentNumberMutation();
   const [previewDocumentNumber] = usePreviewDocumentNumberMutation();
