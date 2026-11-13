@@ -317,6 +317,7 @@ export default function UserManagementPage() {
             <tr style={{ background: '#F8FAF8', borderBottom: '1px solid #E4EBE1', color: '#44584C', fontWeight: 700 }}>
               <th style={{ padding: '12px 16px' }}>User</th>
               <th style={{ padding: '12px 16px' }}>Department</th>
+              <th style={{ padding: '12px 16px' }}>Manager</th>
               <th style={{ padding: '12px 16px' }}>Designation</th>
               <th style={{ padding: '12px 16px' }}>Roles</th>
               <th style={{ padding: '12px 16px' }}>Status</th>
@@ -366,6 +367,7 @@ export default function UserManagementPage() {
                   </td>
                   
                   <td style={{ padding: '12px 16px', color: '#04552B', fontWeight: 600 }}>{u.primary_department_name || '-'}</td>
+                  <td style={{ padding: '12px 16px', color: '#44584C' }}>{u.reporting_manager_name || '-'}</td>
                   <td style={{ padding: '12px 16px', color: '#44584C' }}>{u.designation || '-'}</td>
                   <td style={{ padding: '12px 16px' }}>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
