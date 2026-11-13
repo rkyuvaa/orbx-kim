@@ -926,20 +926,23 @@ export default function RequirementsPage() {
             '& .MuiDialog-container': {
               ml: 'var(--current-sidebar-width, 0px)',
               width: 'calc(100% - var(--current-sidebar-width, 0px))',
-              alignItems: 'center',
+              alignItems: 'flex-start',
+              justifyContent: 'flex-start',
+              pt: 1,
             },
           }}
           PaperProps={{
             sx: {
-              width: 'calc(100% - 16px)',
+              width: 'calc(100% - var(--current-sidebar-width, 0px))',
               maxWidth: 'none',
-              maxHeight: 'calc(100vh - 48px)',
-              m: 1,
+              mx: 0,
+              mt: 0,
               borderRadius: 3,
               border: '1px solid',
               borderColor: 'divider',
               boxShadow: '0 24px 80px rgba(15, 23, 42, 0.22)',
               overflowY: 'auto',
+              maxHeight: 'calc(100vh - 112px)',
             },
           }}
         >
