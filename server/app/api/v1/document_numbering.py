@@ -181,7 +181,7 @@ def preview_sequence_format(
 def generate_document_number(
     document_type: str,
     db: Session = Depends(get_db),
-    _: User = Depends(_verify_settings_access),
+    current_user: User = Depends(get_current_user),
 ):
     """Generate and reserve the next document number for a document type (e.g. material_requisition).
 
