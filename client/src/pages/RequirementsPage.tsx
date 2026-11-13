@@ -76,6 +76,18 @@ export default function RequirementsPage() {
     }
   }, [meUser, dispatch]);
 
+  // Auto-populate header fields from logged-in user (Settings > Users / RBAC profile)
+  const populateHeaderDefaults = useCallback(() => {
+    const requesterName = loggedUser?.full_name || '';
+    setFormRequesterName(requesterName);
+    setFormRequestedBy(requesterName || 'Admin User');
+    setFormRequestDate(new Date().toISOString().split('T')[0]);
+
+    // Department & Approver fetched from logged-in user's profile (no RBAC admin permission needed)
+    setFormDepartment(loggedUser?.primary_department_name || '');
+    setFormApprover(loggedUser?.reporting_manager_name || '');
+  }, [loggedUser]);
+
   // Auto-populate header fields when loggedUser changes (department & manager from /auth/me)
   useEffect(() => {
     populateHeaderDefaults();
@@ -168,18 +180,6 @@ export default function RequirementsPage() {
   const approvedCount = typeFiltered.filter((i) => i.status === 'APPROVED' || i.status === 'IN_PROCUREMENT' || i.status === 'IT_PROCESSING' || i.status === 'IT_MANAGER_REVIEW' || i.status === 'DEPT_HEAD_APPROVAL').length;
   const fulfilledCount = typeFiltered.filter((i) => i.status === 'FULFILLED' || i.status === 'COMPLETED').length;
   const totalCostEstimate = typeFiltered.reduce((acc, curr) => acc + (curr.total_cost || 0), 0);
-
-  // Auto-populate header fields from logged-in user (Settings > Users / RBAC profile)
-  const populateHeaderDefaults = useCallback(() => {
-    const requesterName = loggedUser?.full_name || '';
-    setFormRequesterName(requesterName);
-    setFormRequestedBy(requesterName || 'Admin User');
-    setFormRequestDate(new Date().toISOString().split('T')[0]);
-
-    // Department & Approver fetched from logged-in user's profile (no RBAC admin permission needed)
-    setFormDepartment(loggedUser?.primary_department_name || '');
-    setFormApprover(loggedUser?.reporting_manager_name || '');
-  }, [loggedUser]);
 
   // Form Reset for Material
   const resetForm = () => {
