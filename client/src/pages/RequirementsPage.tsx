@@ -924,25 +924,34 @@ export default function RequirementsPage() {
           fullWidth
           sx={{
             '& .MuiDialog-container': {
-              ml: 'var(--current-sidebar-width, 0px)',
+              position: 'fixed',
+              top: 0,
+              left: 'var(--current-sidebar-width, 0px)',
               width: 'calc(100% - var(--current-sidebar-width, 0px))',
+              height: '100%',
               alignItems: 'flex-start',
               justifyContent: 'flex-start',
-              pt: 1,
+              overflow: 'hidden',
+              zIndex: 1301,
             },
           }}
           PaperProps={{
             sx: {
-              width: 'calc(100% - var(--current-sidebar-width, 0px))',
+              width: '100%',
+              height: '100%',
               maxWidth: 'none',
+              maxHeight: 'none',
+              m: 0,
               mx: 0,
+              my: 0,
+              ml: 0,
               mt: 0,
-              borderRadius: 3,
+              borderRadius: 0,
               border: '1px solid',
               borderColor: 'divider',
               boxShadow: '0 24px 80px rgba(15, 23, 42, 0.22)',
+              overflow: 'hidden',
               overflowY: 'auto',
-              maxHeight: 'calc(100vh - 112px)',
             },
           }}
         >
