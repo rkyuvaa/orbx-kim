@@ -10,6 +10,7 @@ import {
   ShieldAlert,
   MapPin,
   Hash,
+  Ruler,
   Settings2,
   MessageSquare,
 } from 'lucide-react';
@@ -20,6 +21,7 @@ import MailServerConfigCard from '@/components/settings/MailServerConfigCard';
 import SmsGatewayConfigCard from '@/components/settings/SmsGatewayConfigCard';
 import SystemBackupCard from '@/components/settings/SystemBackupCard';
 import DocumentNumberingTab from '@/components/settings/DocumentNumberingTab';
+import DropdownOptionsPanel from '@/features/configuration/DropdownOptionsPanel';
 import CustomFieldsAdminCard from '@/components/settings/CustomFieldsAdminCard';
 import UserManagementPage from '@/pages/admin/UserManagementPage';
 import RoleManagementPage from '@/pages/admin/RoleManagementPage';
@@ -73,6 +75,7 @@ export default function SettingsPage() {
     tabs.push({ key: 'branches', label: 'Branches', icon: <MapPin size={16} /> });
   }
   tabs.push({ key: 'numbering', label: 'Document Numbering', icon: <Hash size={16} /> });
+  tabs.push({ key: 'units', label: 'Units of Measure', icon: <Ruler size={16} /> });
   if (canCustomFields) {
     tabs.push({ key: 'custom_fields', label: 'Custom Fields', icon: <Settings2 size={16} /> });
   }
@@ -191,6 +194,16 @@ export default function SettingsPage() {
           )}
 
           {t.key === 'numbering' && <DocumentNumberingTab />}
+
+          {t.key === 'units' && (
+            <DropdownOptionsPanel
+              category="unit_of_measure"
+              title="Units of Measure"
+              singularTitle="Unit"
+              description="Configure the units available on Material Requirement item lines."
+              placeholder="e.g. Box"
+            />
+          )}
 
                     {t.key === 'custom_fields' && <CustomFieldsAdminCard />}
 

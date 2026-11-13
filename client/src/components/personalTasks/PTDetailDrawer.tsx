@@ -487,7 +487,7 @@ export default function PTDetailDrawer({
                           Assigned Date:
                         </Typography>
                         <Typography variant="caption" sx={{ fontWeight: 600, color: isDark ? '#E2E8F0' : '#1E293B' }}>
-                          {format(parseISO(task.assigned_at), 'dd/MM/yyyy, hh:mm a')}
+                          {format(parseISO(task.assigned_at), 'dd-MM-yyyy, hh:mm a')}
                         </Typography>
                       </Box>
                     )}

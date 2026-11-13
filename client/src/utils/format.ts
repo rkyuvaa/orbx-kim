@@ -52,7 +52,7 @@ export function formatDate(iso?: string | Date | null): string {
     const dd = String(iso.getDate()).padStart(2, '0');
     const mm = String(iso.getMonth() + 1).padStart(2, '0');
     const yyyy = iso.getFullYear();
-    return `${dd}/${mm}/${yyyy}`;
+    return `${dd}-${mm}-${yyyy}`;
   }
 
   const raw = String(iso).trim();
@@ -61,19 +61,22 @@ export function formatDate(iso?: string | Date | null): string {
   // YYYY-MM-DD (e.g. 2026-10-22)
   if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
     const [yyyy, mm, dd] = raw.split('-');
-    return `${dd}/${mm}/${yyyy}`;
+    return `${dd}-${mm}-${yyyy}`;
   }
 
-  // Already dd/mm/yyyy
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(raw)) {
+  // Already dd-mm-yyyy
+  if (/^\d{2}-\d{2}-\d{4}$/.test(raw)) {
     return raw;
+  }
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(raw)) {
+    return raw.replace(/\//g, '-');
   }
 
   // If contains T or space, take date part if it matches YYYY-MM-DD
   const datePart = raw.split(/[T ]/)[0];
   if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
     const [yyyy, mm, dd] = datePart.split('-');
-    return `${dd}/${mm}/${yyyy}`;
+    return `${dd}-${mm}-${yyyy}`;
   }
 
   const d = new Date(raw);
@@ -81,7 +84,7 @@ export function formatDate(iso?: string | Date | null): string {
   const dd = String(d.getDate()).padStart(2, '0');
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   const yyyy = d.getFullYear();
-  return `${dd}/${mm}/${yyyy}`;
+  return `${dd}-${mm}-${yyyy}`;
 }
 
 export function formatDateTime(iso?: string | Date | null): string {
@@ -98,7 +101,7 @@ export function formatDateTime(iso?: string | Date | null): string {
   hours = hours % 12;
   hours = hours ? hours : 12;
   const hh = String(hours).padStart(2, '0');
-  return `${dd}/${mm}/${yyyy}, ${hh}:${minutes} ${ampm}`;
+  return `${dd}-${mm}-${yyyy}, ${hh}:${minutes} ${ampm}`;
 }
 
 export function initialsOf(name?: string | null): string {
@@ -236,7 +239,7 @@ export function formatStandardDateTime(
     const yyyy = dateInput.getFullYear();
     const hh = String(dateInput.getHours()).padStart(2, '0');
     const min = String(dateInput.getMinutes()).padStart(2, '0');
-    return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
+    return `${dd}-${mm}-${yyyy} ${hh}:${min}`;
   }
 
   const rawStr = String(dateInput).trim();
@@ -309,7 +312,7 @@ export function formatStandardDateTime(
   const hh = (tParts[0] || '00').padStart(2, '0');
   const min = (tParts[1] || '00').padStart(2, '0');
 
-  return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
+  return `${dd}-${mm}-${yyyy} ${hh}:${min}`;
 }
 
 /**

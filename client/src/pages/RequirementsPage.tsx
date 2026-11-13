@@ -58,9 +58,20 @@ import {
   useGenerateDocumentNumberMutation,
   usePreviewDocumentNumberMutation,
 } from '@/api/documentNumberingApi';
+import { useDropdownOptionsQuery } from '@/api/mastersApi';
 import { useMeQuery } from '@/api/authApi';
 import { useGetAllUsersQuery } from '@/api/rbacApi';
 import { setUser } from '../auth/authSlice';
+import StandardDateInput from '@/components/common/StandardDateInput';
+
+const numberFieldSx = {
+  m: -1.5,
+  '& input[type=number]': { MozAppearance: 'textfield' },
+  '& input[type=number]::-webkit-outer-spin-button, & input[type=number]::-webkit-inner-spin-button': {
+    WebkitAppearance: 'none',
+    margin: 0,
+  },
+};
 
 export default function RequirementsPage() {
   const location = useLocation();
@@ -70,6 +81,12 @@ export default function RequirementsPage() {
   const dispatch = useAppDispatch();
   const { data: meUser } = useMeQuery();
   const { data: allUsers = [], isLoading: usersLoading } = useGetAllUsersQuery();
+  const { data: configuredUoms = [], isLoading: uomsLoading } =
+    useDropdownOptionsQuery('unit_of_measure');
+  const uomOptions = useMemo(
+    () => configuredUoms.filter((option) => option.is_active),
+    [configuredUoms],
+  );
 
   // Build a lookup map of user id -> full name for reporting manager resolution
   const userNameMap = useMemo(() => {
@@ -327,7 +344,7 @@ export default function RequirementsPage() {
       item_description: '',
       drawing_specs_yn: 'N',
       hsn_sac: '',
-      uom: 'Pcs',
+      uom: '',
       qty: 1,
       rate: 0,
       budget_amount: 0,
@@ -903,10 +920,19 @@ export default function RequirementsPage() {
         <Dialog
           open={isCreateOpen}
           onClose={() => setIsCreateOpen(false)}
-          maxWidth="xl"
+          maxWidth={false}
           fullWidth
+          sx={{
+            '& .MuiDialog-container': {
+              ml: 'var(--current-sidebar-width, 0px)',
+              width: 'calc(100% - var(--current-sidebar-width, 0px))',
+            },
+          }}
           PaperProps={{
             sx: {
+              width: 'calc(100% - 16px)',
+              maxWidth: 'none',
+              m: 1,
               borderRadius: 3,
               border: '1px solid',
               borderColor: 'divider',
@@ -951,8 +977,7 @@ export default function RequirementsPage() {
                     fullWidth
                     size="small"
                     label="Material / Service Request Date"
-                    type="date"
-                    value={formRequestDate}
+                    value={formatDate(formRequestDate)}
                     InputProps={{ readOnly: true }}
                     sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'action.hover' } }}
                   />
@@ -1010,6 +1035,33 @@ export default function RequirementsPage() {
                     onChange={(e) => setFormProjectName(e.target.value)}
                   />
                 </Grid>
+
+                <Grid item xs={12} sm={6} md={4}>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Requested Date
+                    </Typography>
+                    <Box
+                      sx={{
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        borderRadius: 1,
+                        height: 40,
+                        px: 1.25,
+                        display: 'flex',
+                        alignItems: 'center',
+                        '&:hover': { borderColor: 'text.primary' },
+                      }}
+                    >
+                      <StandardDateInput
+                        value={formRequiredByDate}
+                        onChange={(value) => setFormRequiredByDate(value || '')}
+                        placeholder="dd-mm-yyyy"
+                        sx={{ width: '100%', py: 0 }}
+                      />
+                    </Box>
+                  </Box>
+                </Grid>
               </Grid>
 
               <Divider sx={{ my: 3 }} />
@@ -1028,7 +1080,9 @@ export default function RequirementsPage() {
                       <TableCell sx={{ width: 40 }} />
                       <TableCell>Material / Service Code</TableCell>
                       <TableCell>Item &amp; Description</TableCell>
-                      <TableCell sx={{ minWidth: 80 }}>Drawing / Specs (Y/N)</TableCell>
+                      <TableCell sx={{ width: 40, minWidth: 40, whiteSpace: 'normal', lineHeight: 1.1 }}>
+                        Data Sheet*
+                      </TableCell>
                       <TableCell sx={{ minWidth: 70 }}>HSN / SAC</TableCell>
                       <TableCell sx={{ minWidth: 60 }}>UOM</TableCell>
                       <TableCell sx={{ minWidth: 60 }}>Qty</TableCell>
@@ -1083,13 +1137,23 @@ export default function RequirementsPage() {
                           />
                         </TableCell>
                         <TableCell>
-                          <TextField
-                            fullWidth
-                            size="small"
-                            value={row.uom}
-                            onChange={(e) => updateItemField(index, 'uom', e.target.value)}
-                            sx={{ m: -1.5 }}
-                          />
+                          <FormControl fullWidth size="small" sx={{ m: -1.5 }}>
+                            <Select
+                              value={uomOptions.some((option) => option.value === row.uom) ? row.uom : ''}
+                              disabled={uomsLoading || uomOptions.length === 0}
+                              displayEmpty
+                              renderValue={(value) =>
+                                value || (uomsLoading ? 'Loading…' : 'Configure UOM')
+                              }
+                              onChange={(e) => updateItemField(index, 'uom', e.target.value)}
+                            >
+                              {uomOptions.map((option) => (
+                                <MenuItem key={option.id} value={option.value}>
+                                  {option.label}
+                                </MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
                         </TableCell>
                         <TableCell>
                           <TextField
@@ -1098,7 +1162,7 @@ export default function RequirementsPage() {
                             type="number"
                             value={row.qty}
                             onChange={(e) => updateItemField(index, 'qty', Number(e.target.value || 0))}
-                            sx={{ m: -1.5 }}
+                            sx={numberFieldSx}
                           />
                         </TableCell>
                         <TableCell>
@@ -1108,7 +1172,7 @@ export default function RequirementsPage() {
                             type="number"
                             value={row.rate}
                             onChange={(e) => updateItemField(index, 'rate', Number(e.target.value || 0))}
-                            sx={{ m: -1.5 }}
+                            sx={numberFieldSx}
                           />
                         </TableCell>
                         <TableCell>
@@ -1118,7 +1182,7 @@ export default function RequirementsPage() {
                             type="number"
                             value={row.budget_amount}
                             onChange={(e) => updateItemField(index, 'budget_amount', Number(e.target.value || 0))}
-                            sx={{ m: -1.5 }}
+                            sx={numberFieldSx}
                           />
                         </TableCell>
                         <TableCell

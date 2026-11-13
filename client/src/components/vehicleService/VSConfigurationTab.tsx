@@ -202,7 +202,7 @@ function DdMmYyyyInput({
         fullWidth={fullWidth}
         required={required}
         disabled={disabled}
-        placeholder="dd/mm/yyyy"
+        placeholder="dd-mm-yyyy"
         value={displayVal}
         onChange={handleTextChange}
         InputProps={{
@@ -1687,7 +1687,7 @@ export default function VSConfigurationTab() {
                 InputLabelProps={{ shrink: true }}
                 value={retrofitDate}
                 onChange={(e) => setRetrofitDate(e.target.value)}
-                helperText={retrofitDate ? `${formatDate(retrofitDate)} (dd/mm/yyyy)` : 'Format: dd/mm/yyyy'}
+                helperText={retrofitDate ? `${formatDate(retrofitDate)} (dd-mm-yyyy)` : 'Format: dd-mm-yyyy'}
               />
             </Grid>
             <Grid item xs={12} sm={4}>
@@ -1699,7 +1699,7 @@ export default function VSConfigurationTab() {
                 InputLabelProps={{ shrink: true }}
                 value={warrantyExpiry}
                 onChange={(e) => setWarrantyExpiry(e.target.value)}
-                helperText={warrantyExpiry ? `${formatDate(warrantyExpiry)} (dd/mm/yyyy)` : 'Format: dd/mm/yyyy'}
+                helperText={warrantyExpiry ? `${formatDate(warrantyExpiry)} (dd-mm-yyyy)` : 'Format: dd-mm-yyyy'}
               />
             </Grid>
             <Grid item xs={12} sm={4}>

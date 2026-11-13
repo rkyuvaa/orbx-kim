@@ -13,7 +13,7 @@ export interface StandardDateInputProps {
 export const StandardDateInput: React.FC<StandardDateInputProps> = ({
   value,
   onChange,
-  placeholder = 'dd/mm/yyyy',
+  placeholder = 'dd-mm-yyyy',
   disabled = false,
   sx,
 }) => {
