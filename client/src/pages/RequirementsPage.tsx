@@ -908,10 +908,7 @@ export default function RequirementsPage() {
                     <Typography variant="caption" color="text.secondary">
                       Material / Service Request No
                     </Typography>
-                    <Typography
-                      variant="body1"
-                      sx={{ fontWeight: 700, fontFamily: 'monospace', color: 'text.primary', mt: 0.25 }}
-                    >
+                    <Typography variant="body1" sx={{ color: 'text.primary', mt: 0.25 }}>
                       {formRequestNo || 'Generating…'}
                     </Typography>
                   </Box>
@@ -946,7 +943,8 @@ export default function RequirementsPage() {
                     size="small"
                     label="Department"
                     value={formDepartment}
-                    onChange={(e) => setFormDepartment(e.target.value)}
+                    InputProps={{ readOnly: true }}
+                    sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'action.hover' } }}
                   />
                 </Grid>
 
@@ -956,7 +954,8 @@ export default function RequirementsPage() {
                     size="small"
                     label="Approver (Requester's Manager)"
                     value={formApprover}
-                    onChange={(e) => setFormApprover(e.target.value)}
+                    InputProps={{ readOnly: true }}
+                    sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'action.hover' } }}
                   />
                 </Grid>
 
