@@ -6,6 +6,7 @@ import { Bell, X } from 'lucide-react';
 import { useAppDispatch } from '@/app/hooks';
 import { logout } from '@/auth/authSlice';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import NotificationAccessDialog from '@/components/notifications/NotificationAccessDialog';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 
@@ -245,6 +246,7 @@ export default function AppLayout() {
           </div>
         </>
       )}
+      <NotificationAccessDialog />
     </div>
   );
 }

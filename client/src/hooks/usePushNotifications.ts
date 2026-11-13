@@ -37,9 +37,20 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
   return Notification.permission;
 }
 
+function arrayBufferToBase64Url(buffer: ArrayBuffer | null): string {
+  if (!buffer) return '';
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return window.btoa(binary).replace(/\+/g, '-').replace(/_/g, '/').replace(/=+$/, '');
+}
+
 function urlB64ToUint8Array(base64String: string): Uint8Array {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const clean = (base64String || '').trim();
+  const padding = '='.repeat((4 - (clean.length % 4)) % 4);
+  const base64 = (clean + padding).replace(/-/g, '+').replace(/_/g, '/');
   const rawData = window.atob(base64);
   const outputArray = new Uint8Array(rawData.length);
   for (let i = 0; i < rawData.length; ++i) {
@@ -131,7 +142,23 @@ export function usePushNotifications() {
         return false;
       }
 
-      const registration = await navigator.serviceWorker.ready;
+      // Safe service worker retrieval with timeout to prevent hanging in Firefox Private or unsupported modes
+      let registration: ServiceWorkerRegistration;
+      try {
+        const readyPromise = navigator.serviceWorker.ready;
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Service worker ready timeout')), 4000)
+        );
+        registration = await Promise.race([readyPromise, timeoutPromise]);
+      } catch {
+        const existing = await navigator.serviceWorker.getRegistration('/sw.js');
+        if (existing) {
+          registration = existing;
+        } else {
+          registration = await navigator.serviceWorker.register('/sw.js');
+        }
+      }
+
       let subscription = await registration.pushManager.getSubscription();
 
       if (!subscription) {
@@ -143,15 +170,32 @@ export function usePushNotifications() {
       }
 
       const jsonSub = subscription.toJSON();
-      if (!jsonSub.endpoint || !jsonSub.keys?.p256dh || !jsonSub.keys?.auth) {
+      let p256dh = jsonSub.keys?.p256dh || '';
+      let auth = jsonSub.keys?.auth || '';
+
+      // Cross-browser fallback for Firefox / Edge where toJSON().keys may be missing
+      if (!p256dh && typeof (subscription as any).getKey === 'function') {
+        const rawKey = (subscription as any).getKey('p256dh');
+        if (rawKey) {
+          p256dh = arrayBufferToBase64Url(rawKey);
+        }
+      }
+      if (!auth && typeof (subscription as any).getKey === 'function') {
+        const rawAuth = (subscription as any).getKey('auth');
+        if (rawAuth) {
+          auth = arrayBufferToBase64Url(rawAuth);
+        }
+      }
+
+      if (!subscription.endpoint || !p256dh || !auth) {
         throw new Error('Incomplete push subscription data returned by browser.');
       }
 
       await subscribeMutation({
-        endpoint: jsonSub.endpoint,
+        endpoint: subscription.endpoint,
         keys: {
-          p256dh: jsonSub.keys.p256dh,
-          auth: jsonSub.keys.auth,
+          p256dh,
+          auth,
         },
         user_agent: navigator.userAgent,
       }).unwrap();
