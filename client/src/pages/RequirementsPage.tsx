@@ -59,6 +59,7 @@ import {
   usePreviewDocumentNumberMutation,
 } from '@/api/documentNumberingApi';
 import { useMeQuery } from '@/api/authApi';
+import { useGetAllUsersQuery } from '@/api/rbacApi';
 import { setUser } from '../auth/authSlice';
 
 export default function RequirementsPage() {
@@ -68,6 +69,16 @@ export default function RequirementsPage() {
   const loggedUser = useAppSelector((state) => state.auth.user);
   const dispatch = useAppDispatch();
   const { data: meUser } = useMeQuery();
+  const { data: allUsers = [], isLoading: usersLoading } = useGetAllUsersQuery();
+
+  // Build a lookup map of user id -> full name for reporting manager resolution
+  const userNameMap = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const u of allUsers) {
+      if (u.id != null) map.set(u.id, u.full_name || '');
+    }
+    return map;
+  }, [allUsers]);
 
   // Sync fresh user from /auth/me (includes department & manager name) into Redux
   useEffect(() => {
@@ -83,10 +94,21 @@ export default function RequirementsPage() {
     setFormRequestedBy(requesterName || 'Admin User');
     setFormRequestDate(new Date().toISOString().split('T')[0]);
 
-    // Department & Approver fetched from logged-in user's profile (no RBAC admin permission needed)
+    // Department from logged-in user's profile (no RBAC admin permission needed)
     setFormDepartment(loggedUser?.primary_department_name || '');
-    setFormApprover(loggedUser?.reporting_manager_name || '');
-  }, [loggedUser]);
+
+    // Approver = logged-in user's reporting manager name.
+    // Look up the manager's full name from the full user list (by reporting_manager_id),
+    // falling back to reporting_manager_name already returned by /auth/me.
+    let managerName = '';
+    if (loggedUser?.reporting_manager_id != null) {
+      managerName = userNameMap.get(loggedUser.reporting_manager_id) || '';
+    }
+    if (!managerName) {
+      managerName = loggedUser?.reporting_manager_name || '';
+    }
+    setFormApprover(managerName);
+  }, [loggedUser, userNameMap]);
 
   // Auto-populate header fields when loggedUser changes (department & manager from /auth/me)
   useEffect(() => {
