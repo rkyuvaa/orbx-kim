@@ -98,8 +98,12 @@ export default function RequirementsPage() {
     setFormRequestedBy(requesterName || 'Admin User');
     setFormRequestDate(new Date().toISOString().split('T')[0]);
 
-    // Department from logged-in user's profile (no RBAC admin permission needed)
-    setFormDepartment(loggedUser?.primary_department_name || '');
+    // Prefer the user-list profile, then fall back to the authenticated profile.
+    setFormDepartment(
+      currentUserRecord?.primary_department_name ||
+      loggedUser?.primary_department_name ||
+      '',
+    );
 
     // Resolve the manager id from the logged-in user's row first, then /auth/me.
     const managerId =

@@ -12,7 +12,7 @@ from app.core.security import (
     verify_password,
 )
 from app.db.session import get_db
-from app.models import User, DepartmentUser
+from app.models import User
 from app.models.user import UserStatus
 from app.schemas.auth import (
     ChangePasswordRequest,
@@ -53,6 +53,26 @@ def _clear_refresh_cookie(response: Response) -> None:
     )
 
 
+def _to_user_out(user: User) -> UserOut:
+    departments = [du.department for du in user.department_users if du.department]
+    primary_dept = next(
+        (d for d in departments if any(
+            du.is_primary and du.department_id == d.id for du in user.department_users
+        )),
+        departments[0] if departments else None,
+    )
+    manager = user.reporting_manager
+    return UserOut.model_validate(
+        {
+            **user.__dict__,
+            "initials": user.initials,
+            "primary_department_name": primary_dept.name if primary_dept else None,
+            "reporting_manager_id": user.reporting_manager_id,
+            "reporting_manager_name": manager.full_name if manager else None,
+        }
+    )
+
+
 @router.post("/login", response_model=TokenResponse)
 def login(request: Request, payload: LoginRequest, response: Response, db: Session = Depends(get_db)):
     client_ip = request.client.host if request.client else None
@@ -60,7 +80,7 @@ def login(request: Request, payload: LoginRequest, response: Response, db: Sessi
     refresh = create_refresh_token(str(user.id))
     _set_refresh_cookie(response, refresh)
     access = create_access_token(str(user.id), user.role.value)
-    return TokenResponse(access_token=access, user=UserOut.model_validate(user))
+    return TokenResponse(access_token=access, user=_to_user_out(user))
 
 
 @router.post("/refresh", response_model=TokenResponse)
@@ -103,7 +123,7 @@ def refresh(request: Request, response: Response, db: Session = Depends(get_db))
     new_refresh = create_refresh_token(str(user.id))
     _set_refresh_cookie(response, new_refresh)
     access = create_access_token(str(user.id), user.role.value)
-    return TokenResponse(access_token=access, user=UserOut.model_validate(user))
+    return TokenResponse(access_token=access, user=_to_user_out(user))
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
@@ -114,16 +134,7 @@ def logout(response: Response):
 
 @router.get("/me", response_model=UserOut)
 def me(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    departments = [du.department for du in user.department_users if du.department]
-    primary_dept = next(
-        (d for d in departments if any(du.is_primary for du in user.department_users if du.department_id == d.id)),
-        departments[0] if departments else None,
-    )
-    manager_name = user.reporting_manager.full_name if user.reporting_manager else None
-
-    return UserOut.model_validate(
-        {**user.__dict__, "primary_department_name": primary_dept.name if primary_dept else None, "reporting_manager_name": manager_name}
-    )
+    return _to_user_out(user)
 
 
 @router.patch("/users/me", response_model=UserOut)
@@ -136,7 +147,7 @@ def update_profile(
     db.add(user)
     db.commit()
     db.refresh(user)
-    return UserOut.model_validate(user)
+    return _to_user_out(user)
 
 
 @router.post("/change-password", status_code=status.HTTP_204_NO_CONTENT)
