@@ -79,6 +79,10 @@ export default function RequirementsPage() {
     }
     return map;
   }, [allUsers]);
+  const currentUserRecord = useMemo(
+    () => allUsers.find((user) => user.id === loggedUser?.id),
+    [allUsers, loggedUser?.id],
+  );
 
   // Sync fresh user from /auth/me (includes department & manager name) into Redux
   useEffect(() => {
@@ -97,18 +101,16 @@ export default function RequirementsPage() {
     // Department from logged-in user's profile (no RBAC admin permission needed)
     setFormDepartment(loggedUser?.primary_department_name || '');
 
-    // Approver = logged-in user's reporting manager name.
-    // Look up the manager's full name from the full user list (by reporting_manager_id),
-    // falling back to reporting_manager_name already returned by /auth/me.
-    let managerName = '';
-    if (loggedUser?.reporting_manager_id != null) {
-      managerName = userNameMap.get(loggedUser.reporting_manager_id) || '';
-    }
-    if (!managerName) {
-      managerName = loggedUser?.reporting_manager_name || '';
-    }
+    // Resolve the manager id from the logged-in user's row first, then /auth/me.
+    const managerId =
+      currentUserRecord?.reporting_manager_id ?? loggedUser?.reporting_manager_id;
+    const managerName =
+      (managerId != null ? userNameMap.get(managerId) : '') ||
+      currentUserRecord?.reporting_manager_name ||
+      loggedUser?.reporting_manager_name ||
+      '';
     setFormApprover(managerName);
-  }, [loggedUser, userNameMap]);
+  }, [currentUserRecord, loggedUser, userNameMap]);
 
   // Auto-populate header fields when loggedUser changes (department & manager from /auth/me)
   useEffect(() => {
