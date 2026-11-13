@@ -172,6 +172,13 @@ export default function RequirementsPage() {
     setFormApprover(employee?.reporting_manager || '');
   }, [loggedUser, employees]);
 
+  // Re-populate department & approver when employee master data loads asynchronously
+  useEffect(() => {
+    if (!employees || employees.length === 0) return;
+    if (!loggedUser) return;
+    populateHeaderDefaults();
+  }, [employees, loggedUser, populateHeaderDefaults]);
+
   // Form Reset for Material
   const resetForm = () => {
     setEditingItem(null);
