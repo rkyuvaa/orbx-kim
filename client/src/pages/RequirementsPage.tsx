@@ -76,6 +76,11 @@ export default function RequirementsPage() {
     }
   }, [meUser, dispatch]);
 
+  // Auto-populate header fields when loggedUser changes (department & manager from /auth/me)
+  useEffect(() => {
+    populateHeaderDefaults();
+  }, [loggedUser, populateHeaderDefaults]);
+
   // Active tab check
   const isIT = location.pathname.includes('/requirements/it');
   const reqType: 'MATERIAL' | 'IT' = isIT ? 'IT' : 'MATERIAL';
