@@ -22,6 +22,8 @@ export interface User {
   full_name: string;
   role: UserRole;
   initials: string;
+  primary_department_name: string | null;
+  reporting_manager_name: string | null;
 }
 
 export interface UserBrief {

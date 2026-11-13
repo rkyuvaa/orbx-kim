@@ -54,7 +54,6 @@ import { RequirementItem, MaterialRequisitionItem } from '@/types/requirements';
 import ITRequirementFormModal from '@/components/requirements/ITRequirementFormModal';
 import ITRequirementDetailDrawer from '@/components/requirements/ITRequirementDetailDrawer';
 import { useDatabaseStoredState } from '@/hooks/useDatabaseStoredState';
-import { useGetUsersQuery } from '@/api/rbacApi';
 import {
   useGenerateDocumentNumberMutation,
   usePreviewDocumentNumberMutation,
@@ -75,9 +74,6 @@ export default function RequirementsPage() {
     [],
   );
 
-  // RBAC users from Settings > Users (auto-fetch department & approver for requester)
-  const { data: usersData } = useGetUsersQuery({ page: 1, page_size: 100 });
-  const rbacUsers: any[] = usersData?.items || [];
   const [generateDocumentNumber] = useGenerateDocumentNumberMutation();
   const [previewDocumentNumber] = usePreviewDocumentNumberMutation();
 
@@ -157,27 +153,17 @@ export default function RequirementsPage() {
   const fulfilledCount = typeFiltered.filter((i) => i.status === 'FULFILLED' || i.status === 'COMPLETED').length;
   const totalCostEstimate = typeFiltered.reduce((acc, curr) => acc + (curr.total_cost || 0), 0);
 
-  // Auto-populate header fields from auth + RBAC users (Settings > Users)
+  // Auto-populate header fields from logged-in user (Settings > Users / RBAC profile)
   const populateHeaderDefaults = useCallback(() => {
     const requesterName = loggedUser?.full_name || '';
     setFormRequesterName(requesterName);
     setFormRequestedBy(requesterName || 'Admin User');
     setFormRequestDate(new Date().toISOString().split('T')[0]);
 
-    // Look up requester in RBAC users to get department & approver (manager)
-    const user = rbacUsers.find(
-      (e: any) => e.full_name === requesterName || e.email === loggedUser?.email,
-    );
-    setFormDepartment(user?.primary_department_name || '');
-    setFormApprover(user?.reporting_manager_name || '');
-  }, [loggedUser, rbacUsers]);
-
-  // Re-populate department & approver when RBAC users data loads asynchronously
-  useEffect(() => {
-    if (!rbacUsers || rbacUsers.length === 0) return;
-    if (!loggedUser) return;
-    populateHeaderDefaults();
-  }, [rbacUsers, loggedUser, populateHeaderDefaults]);
+    // Department & Approver fetched from logged-in user's profile (no RBAC admin permission needed)
+    setFormDepartment(loggedUser?.primary_department_name || '');
+    setFormApprover(loggedUser?.reporting_manager_name || '');
+  }, [loggedUser]);
 
   // Form Reset for Material
   const resetForm = () => {

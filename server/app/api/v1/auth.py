@@ -12,7 +12,7 @@ from app.core.security import (
     verify_password,
 )
 from app.db.session import get_db
-from app.models import User
+from app.models import User, DepartmentUser
 from app.models.user import UserStatus
 from app.schemas.auth import (
     ChangePasswordRequest,
@@ -113,8 +113,17 @@ def logout(response: Response):
 
 
 @router.get("/me", response_model=UserOut)
-def me(user: User = Depends(get_current_user)):
-    return UserOut.model_validate(user)
+def me(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    departments = [du.department for du in user.department_users if du.department]
+    primary_dept = next(
+        (d for d in departments if any(du.is_primary for du in user.department_users if du.department_id == d.id)),
+        departments[0] if departments else None,
+    )
+    manager_name = user.reporting_manager.full_name if user.reporting_manager else None
+
+    return UserOut.model_validate(
+        {**user.__dict__, "primary_department_name": primary_dept.name if primary_dept else None, "reporting_manager_name": manager_name}
+    )
 
 
 @router.patch("/users/me", response_model=UserOut)
