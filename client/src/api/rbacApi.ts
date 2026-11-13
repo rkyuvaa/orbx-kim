@@ -66,6 +66,12 @@ export const rbacApi = createApi({
       providesTags: ['Users'],
     }),
 
+    getAllUsers: builder.query<UserDetail[], void>({
+      query: () => ({ url: '/users', params: { page: 1, page_size: 100 } }),
+      transformResponse: (res: { items: UserDetail[] }) => res?.items || [],
+      providesTags: ['Users'],
+    }),
+
     getUserDetail: builder.query<UserDetail, number>({
       query: (id) => `/users/${id}`,
       providesTags: (_res, _err, id) => [{ type: 'Users', id }],
@@ -241,6 +247,7 @@ export const rbacApi = createApi({
 
 export const {
   useGetUsersQuery,
+  useGetAllUsersQuery,
   useGetUserDetailQuery,
   useCreateUserMutation,
   useUpdateUserMutation,

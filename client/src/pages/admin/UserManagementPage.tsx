@@ -16,6 +16,7 @@ import {
 import { Menu, MenuItem, Divider } from '@mui/material';
 import {
   useGetUsersQuery,
+  useGetAllUsersQuery,
   useCreateUserMutation,
   useUpdateUserMutation,
   useDeleteUserMutation,
@@ -108,6 +109,10 @@ export default function UserManagementPage() {
     department_id: deptFilter,
     user_status: statusFilter || undefined,
   });
+
+  // All users for Reporting Manager dropdown (not paginated)
+  const { data: allUsersForManager } = useGetAllUsersQuery();
+  const managerOptions: UserDetail[] = allUsersForManager?.filter((u) => u.id !== selectedUser?.id) || [];
 
   const { data: rolesList } = useGetRolesQuery();
   const { data: deptsList } = useGetDepartmentsQuery();
@@ -835,9 +840,7 @@ export default function UserManagementPage() {
                         style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid #D8E2D5', fontSize: 13 }}
                       >
                         <option value="">None (Top Level)</option>
-                        {usersData?.items
-                          ?.filter((u) => u.id !== selectedUser.id)
-                          .map((u) => (
+                        {managerOptions.map((u) => (
                             <option key={u.id} value={u.id}>
                               {u.full_name} ({u.role})
                             </option>
