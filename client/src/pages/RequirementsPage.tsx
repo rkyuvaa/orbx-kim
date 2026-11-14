@@ -384,13 +384,9 @@ export default function RequirementsPage() {
   const handleOpenCreate = async () => {
     resetForm();
     setIsCreateOpen(true);
-    const documentType = isIT ? 'it_requirement' : 'mr';
-    try {
-      const result = await generateDocumentNumber({ document_type: documentType }).unwrap();
-      setFormRequestNo(result.document_number);
-    } catch {
-      showError(`Failed to generate request number. Please configure document numbering for ${documentType}.`);
-    }
+    // Document number is generated only on save (not on open),
+    // so no numbers are wasted if the user cancels, and admin
+    // changes to the current number are respected.
   };
 
   const handleOpenEdit = async (item: RequirementItem) => {
@@ -1034,7 +1030,7 @@ export default function RequirementsPage() {
                   Material / Service Request No
                 </Typography>
                 <Typography variant="h6" sx={{ color: 'text.primary', fontWeight: 700 }}>
-                  {formRequestNo || 'Generating…'}
+                  {formRequestNo || '—'}
                 </Typography>
               </Box>
               <Box sx={{ display: 'flex', gap: 1 }}>
