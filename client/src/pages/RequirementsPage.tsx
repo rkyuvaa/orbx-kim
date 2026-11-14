@@ -46,6 +46,7 @@ import {
   X,
   MoreVertical,
   Paperclip,
+  Calendar,
 } from 'lucide-react';
 import { useTableSort } from '../hooks/useTableSort';
 import ErpSortHeaderCell from '../components/ui/ErpSortHeaderCell';
@@ -63,7 +64,6 @@ import { useDropdownOptionsQuery } from '@/api/mastersApi';
 import { useMeQuery } from '@/api/authApi';
 import { useGetAllUsersQuery } from '@/api/rbacApi';
 import { setUser } from '../auth/authSlice';
-import StandardDateInput from '@/components/common/StandardDateInput';
 
 const numberFieldSx = {
   m: -1.5,
@@ -1008,30 +1008,24 @@ export default function RequirementsPage() {
               <Grid container spacing={2}>
                 {/* Both date fields together in same row, matching styling */}
                 <Grid item xs={12} sm={6} md={3}>
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">
-                      Material / Service Request Date
-                    </Typography>
-                    <Box
-                      sx={{
-                        border: '1px solid',
-                        borderColor: 'divider',
-                        borderRadius: 1,
-                        height: 40,
-                        px: 1.25,
-                        display: 'flex',
-                        alignItems: 'center',
-                        '&:hover': { borderColor: 'text.primary' },
-                      }}
-                    >
-                      <StandardDateInput
-                        value={formRequestDate}
-                        onChange={(value) => setFormRequestDate(value || '')}
-                        placeholder="dd-mm-yyyy"
-                        sx={{ width: '100%', py: 0 }}
-                      />
-                    </Box>
-                  </Box>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Material / Service Request Date"
+                    type="date"
+                    value={formRequestDate}
+                    onChange={(e) => setFormRequestDate(e.target.value)}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Box sx={{ mr: 0.5, color: 'text.secondary' }}>
+                            <Calendar size={16} />
+                          </Box>
+                        </InputAdornment>
+                      ),
+                    }}
+                    sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'action.hover' } }}
+                  />
                 </Grid>
 
                 <Grid item xs={12} sm={6} md={3}>
@@ -1088,30 +1082,24 @@ export default function RequirementsPage() {
                 </Grid>
 
                 <Grid item xs={12} sm={6} md={3}>
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">
-                      Requested Date
-                    </Typography>
-                    <Box
-                      sx={{
-                        border: '1px solid',
-                        borderColor: 'divider',
-                        borderRadius: 1,
-                        height: 40,
-                        px: 1.25,
-                        display: 'flex',
-                        alignItems: 'center',
-                        '&:hover': { borderColor: 'text.primary' },
-                      }}
-                    >
-                      <StandardDateInput
-                        value={formRequiredByDate}
-                        onChange={(value) => setFormRequiredByDate(value || '')}
-                        placeholder="dd-mm-yyyy"
-                        sx={{ width: '100%', py: 0 }}
-                      />
-                    </Box>
-                  </Box>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Requested Date"
+                    type="date"
+                    value={formRequiredByDate}
+                    onChange={(e) => setFormRequiredByDate(e.target.value)}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Box sx={{ mr: 0.5, color: 'text.secondary' }}>
+                            <Calendar size={16} />
+                          </Box>
+                        </InputAdornment>
+                      ),
+                    }}
+                    sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'action.hover' } }}
+                  />
                 </Grid>
               </Grid>
 
