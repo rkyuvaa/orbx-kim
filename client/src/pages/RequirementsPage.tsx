@@ -248,7 +248,7 @@ export default function RequirementsPage() {
   const handleOpenCreate = async () => {
     resetForm();
     setIsCreateOpen(true);
-    const documentType = isIT ? 'it_requirement' : 'material_requisition';
+    const documentType = isIT ? 'it_requirement' : 'mr';
     try {
       const result = await generateDocumentNumber({ document_type: documentType }).unwrap();
       setFormRequestNo(result.document_number);
