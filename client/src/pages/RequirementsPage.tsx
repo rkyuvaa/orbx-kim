@@ -1320,7 +1320,7 @@ export default function RequirementsPage() {
                   </TableBody>
                 </Table>
               </TableContainer>
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 0.5, mb: 1, flexShrink: 0 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-start', gap: 1, mt: 0.5, mb: 1, flexShrink: 0 }}>
                 <Button
                   variant="outlined"
                   size="small"
