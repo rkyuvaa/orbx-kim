@@ -74,6 +74,125 @@ const numberFieldSx = {
   },
 };
 
+// Helper Badge Colors
+const getPriorityChip = (priority: string) => {
+  switch (priority) {
+    case 'CRITICAL':
+      return <Chip label="CRITICAL" size="small" sx={{ bgcolor: '#FEE2E2', color: '#DC2626', fontWeight: 700, fontSize: '0.65rem' }} />;
+    case 'HIGH':
+      return <Chip label="HIGH" size="small" sx={{ bgcolor: '#FFEDD5', color: '#EA580C', fontWeight: 700, fontSize: '0.65rem' }} />;
+    case 'MEDIUM':
+      return <Chip label="MEDIUM" size="small" sx={{ bgcolor: '#FEF3C7', color: '#D97706', fontWeight: 700, fontSize: '0.65rem' }} />;
+    default:
+      return <Chip label="LOW" size="small" sx={{ bgcolor: '#F1F5F9', color: '#475569', fontWeight: 700, fontSize: '0.65rem' }} />;
+  }
+};
+
+const getStatusChip = (status: string) => {
+  switch (status) {
+    case 'FULFILLED':
+    case 'COMPLETED':
+      return <Chip label="COMPLETED" size="small" icon={<CheckCircle2 size={12} />} sx={{ bgcolor: '#DCFCE7', color: '#15803D', fontWeight: 700, fontSize: '0.68rem' }} />;
+    case 'APPROVED':
+      return <Chip label="APPROVED" size="small" sx={{ bgcolor: '#DBEAFE', color: '#1D4ED8', fontWeight: 700, fontSize: '0.68rem' }} />;
+    case 'SUBMITTED':
+      return <Chip label="SUBMITTED" size="small" icon={<Clock size={12} />} sx={{ bgcolor: '#FEF3C7', color: '#B45309', fontWeight: 700, fontSize: '0.68rem' }} />;
+    case 'MANAGER_APPROVAL':
+      return <Chip label="MANAGER APPROVAL" size="small" icon={<Clock size={12} />} sx={{ bgcolor: '#DBEAFE', color: '#1D4ED8', fontWeight: 700, fontSize: '0.68rem' }} />;
+    case 'IT_MANAGER_REVIEW':
+      return <Chip label="IT REVIEW" size="small" icon={<Clock size={12} />} sx={{ bgcolor: '#E0E7FF', color: '#4338CA', fontWeight: 700, fontSize: '0.68rem' }} />;
+    case 'DEPT_HEAD_APPROVAL':
+      return <Chip label="DEPT APPROVAL" size="small" icon={<Clock size={12} />} sx={{ bgcolor: '#F3E8FF', color: '#7E22CE', fontWeight: 700, fontSize: '0.68rem' }} />;
+    case 'IT_PROCESSING':
+      return <Chip label="IT PROCESSING" size="small" icon={<Laptop size={12} />} sx={{ bgcolor: '#CCFBF1', color: '#0F766E', fontWeight: 700, fontSize: '0.68rem' }} />;
+    case 'REJECTED':
+      return <Chip label="REJECTED" size="small" icon={<XCircle size={12} />} sx={{ bgcolor: '#FEE2E2', color: '#B91C1C', fontWeight: 700, fontSize: '0.68rem' }} />;
+    case 'DRAFT':
+      return <Chip label="DRAFT" size="small" sx={{ bgcolor: '#F1F5F9', color: '#64748B', fontWeight: 700, fontSize: '0.68rem' }} />;
+    default:
+      return <Chip label="PENDING" size="small" icon={<AlertTriangle size={12} />} sx={{ bgcolor: '#FEF3C7', color: '#B45309', fontWeight: 700, fontSize: '0.68rem' }} />;
+  }
+};
+
+// ── Requirement table row component (extracts useState so hooks stay valid) ──
+interface RequirementRowProps {
+  item: RequirementItem;
+  isIT: boolean;
+  setSelectedDetailItem: (item: RequirementItem | null) => void;
+  handleOpenEdit: (item: RequirementItem) => void;
+  handleDeleteItem: (id: string) => void;
+}
+
+function RequirementRow({ item, isIT, setSelectedDetailItem, handleOpenEdit, handleDeleteItem }: RequirementRowProps) {
+  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+  const open = Boolean(anchorEl);
+
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    event.stopPropagation();
+    setAnchorEl(event.currentTarget);
+  };
+  const handleMenuClose = () => setAnchorEl(null);
+  const handleEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    handleOpenEdit(item);
+    handleMenuClose();
+  };
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    handleDeleteItem(item.id);
+    handleMenuClose();
+  };
+  const handleView = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedDetailItem(item);
+    handleMenuClose();
+  };
+
+  return (
+    <TableRow key={item.id} hover sx={{ cursor: 'pointer' }} onClick={() => setSelectedDetailItem(item)}>
+      <TableCell sx={{ fontWeight: 600 }}>{item.title}</TableCell>
+      <TableCell sx={{ fontSize: '0.85rem', color: 'text.secondary' }}>{item.requester_name || item.requested_by || '-'}</TableCell>
+      {!isIT && (
+        <TableCell sx={{ fontWeight: 600 }}>
+          {item.quantity} {item.unit}
+        </TableCell>
+      )}
+      {!isIT && (
+        <TableCell sx={{ fontWeight: 700 }}>
+          ₹{(item.total_cost || 0).toLocaleString()}
+        </TableCell>
+      )}
+      <TableCell>{item.department}</TableCell>
+      <TableCell sx={{ fontSize: '0.8rem' }}>{formatDate(item.preferred_go_live_date || item.required_by_date)}</TableCell>
+      <TableCell>{item.urgency ? <Chip label={item.urgency} size="small" variant="outlined" /> : getPriorityChip(item.priority)}</TableCell>
+      <TableCell>{getStatusChip(item.status)}</TableCell>
+      <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+        <IconButton size="small" onClick={handleMenuOpen} sx={{ color: 'text.secondary' }}>
+          <MoreVertical size={16} />
+        </IconButton>
+        <Menu
+          anchorEl={anchorEl}
+          open={open}
+          onClose={handleMenuClose}
+          PaperProps={{ sx: { borderRadius: 2, border: '1px solid', borderColor: 'divider' } }}
+          anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        >
+          <MenuItem onClick={handleView} dense sx={{ py: 1, fontSize: '0.8rem' }}>
+            <Box sx={{ mr: 1, display: 'inline-flex' }}><Eye size={14} /></Box> View
+          </MenuItem>
+          <MenuItem onClick={handleEdit} dense sx={{ py: 1, fontSize: '0.8rem', color: '#2563EB' }}>
+            <Box sx={{ mr: 1, display: 'inline-flex' }}><Edit3 size={14} /></Box> Edit
+          </MenuItem>
+          <MenuItem onClick={handleDelete} dense sx={{ py: 1, fontSize: '0.8rem', color: '#DC2626' }}>
+            <Box sx={{ mr: 1, display: 'inline-flex' }}><Trash2 size={14} /></Box> Delete
+          </MenuItem>
+        </Menu>
+      </TableCell>
+    </TableRow>
+  );
+}
+
 export default function RequirementsPage() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -499,46 +618,6 @@ export default function RequirementsPage() {
     showSuccess(`Updated ${id} status to ${newStatus.replace('_', ' ')}`);
   };
 
-  // Helper Badge Colors
-  const getPriorityChip = (priority: string) => {
-    switch (priority) {
-      case 'CRITICAL':
-        return <Chip label="CRITICAL" size="small" sx={{ bgcolor: '#FEE2E2', color: '#DC2626', fontWeight: 700, fontSize: '0.65rem' }} />;
-      case 'HIGH':
-        return <Chip label="HIGH" size="small" sx={{ bgcolor: '#FFEDD5', color: '#EA580C', fontWeight: 700, fontSize: '0.65rem' }} />;
-      case 'MEDIUM':
-        return <Chip label="MEDIUM" size="small" sx={{ bgcolor: '#FEF3C7', color: '#D97706', fontWeight: 700, fontSize: '0.65rem' }} />;
-      default:
-        return <Chip label="LOW" size="small" sx={{ bgcolor: '#F1F5F9', color: '#475569', fontWeight: 700, fontSize: '0.65rem' }} />;
-    }
-  };
-
-  const getStatusChip = (status: string) => {
-    switch (status) {
-      case 'FULFILLED':
-      case 'COMPLETED':
-        return <Chip label="COMPLETED" size="small" icon={<CheckCircle2 size={12} />} sx={{ bgcolor: '#DCFCE7', color: '#15803D', fontWeight: 700, fontSize: '0.68rem' }} />;
-      case 'APPROVED':
-        return <Chip label="APPROVED" size="small" sx={{ bgcolor: '#DBEAFE', color: '#1D4ED8', fontWeight: 700, fontSize: '0.68rem' }} />;
-      case 'SUBMITTED':
-        return <Chip label="SUBMITTED" size="small" icon={<Clock size={12} />} sx={{ bgcolor: '#FEF3C7', color: '#B45309', fontWeight: 700, fontSize: '0.68rem' }} />;
-      case 'MANAGER_APPROVAL':
-        return <Chip label="MANAGER APPROVAL" size="small" icon={<Clock size={12} />} sx={{ bgcolor: '#DBEAFE', color: '#1D4ED8', fontWeight: 700, fontSize: '0.68rem' }} />;
-      case 'IT_MANAGER_REVIEW':
-        return <Chip label="IT REVIEW" size="small" icon={<Clock size={12} />} sx={{ bgcolor: '#E0E7FF', color: '#4338CA', fontWeight: 700, fontSize: '0.68rem' }} />;
-      case 'DEPT_HEAD_APPROVAL':
-        return <Chip label="DEPT APPROVAL" size="small" icon={<Clock size={12} />} sx={{ bgcolor: '#F3E8FF', color: '#7E22CE', fontWeight: 700, fontSize: '0.68rem' }} />;
-      case 'IT_PROCESSING':
-        return <Chip label="IT PROCESSING" size="small" icon={<Laptop size={12} />} sx={{ bgcolor: '#CCFBF1', color: '#0F766E', fontWeight: 700, fontSize: '0.68rem' }} />;
-      case 'REJECTED':
-        return <Chip label="REJECTED" size="small" icon={<XCircle size={12} />} sx={{ bgcolor: '#FEE2E2', color: '#B91C1C', fontWeight: 700, fontSize: '0.68rem' }} />;
-      case 'DRAFT':
-        return <Chip label="DRAFT" size="small" sx={{ bgcolor: '#F1F5F9', color: '#64748B', fontWeight: 700, fontSize: '0.68rem' }} />;
-      default:
-        return <Chip label="PENDING" size="small" icon={<AlertTriangle size={12} />} sx={{ bgcolor: '#FEF3C7', color: '#B45309', fontWeight: 700, fontSize: '0.68rem' }} />;
-    }
-  };
-
   return (
     <Box sx={{ width: '100%', maxWidth: 'none', minWidth: 0, px: 0, py: 0.5, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', flex: 1 }}>
       {/* ── Sub-menu Navigation Tabs ────────────────────────────────────────── */}
@@ -748,74 +827,16 @@ export default function RequirementsPage() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {sortedItems.map((item) => {
-              const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
-              const open = Boolean(anchorEl);
-              const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
-                event.stopPropagation();
-                setAnchorEl(event.currentTarget);
-              };
-              const handleMenuClose = () => setAnchorEl(null);
-              const handleEdit = (e: React.MouseEvent) => {
-                e.stopPropagation();
-                handleOpenEdit(item);
-                handleMenuClose();
-              };
-              const handleDelete = (e: React.MouseEvent) => {
-                e.stopPropagation();
-                handleDeleteItem(item.id);
-                handleMenuClose();
-              };
-              const handleView = (e: React.MouseEvent) => {
-                e.stopPropagation();
-                setSelectedDetailItem(item);
-                handleMenuClose();
-              };
-
-              return (
-                <TableRow key={item.id} hover sx={{ cursor: 'pointer' }} onClick={() => setSelectedDetailItem(item)}>
-                  <TableCell sx={{ fontWeight: 600 }}>{item.title}</TableCell>
-                  <TableCell sx={{ fontSize: '0.85rem', color: 'text.secondary' }}>{item.requester_name || item.requested_by || '-'}</TableCell>
-                  {!isIT && (
-                    <TableCell sx={{ fontWeight: 600 }}>
-                      {item.quantity} {item.unit}
-                    </TableCell>
-                  )}
-                  {!isIT && (
-                    <TableCell sx={{ fontWeight: 700 }}>
-                      ₹{(item.total_cost || 0).toLocaleString()}
-                    </TableCell>
-                  )}
-                  <TableCell>{item.department}</TableCell>
-                  <TableCell sx={{ fontSize: '0.8rem' }}>{formatDate(item.preferred_go_live_date || item.required_by_date)}</TableCell>
-                  <TableCell>{item.urgency ? <Chip label={item.urgency} size="small" variant="outlined" /> : getPriorityChip(item.priority)}</TableCell>
-                  <TableCell>{getStatusChip(item.status)}</TableCell>
-                  <TableCell align="right" onClick={(e) => e.stopPropagation()}>
-                    <IconButton size="small" onClick={handleMenuOpen} sx={{ color: 'text.secondary' }}>
-                      <MoreVertical size={16} />
-                    </IconButton>
-                    <Menu
-                      anchorEl={anchorEl}
-                      open={open}
-                      onClose={handleMenuClose}
-                      PaperProps={{ sx: { borderRadius: 2, border: '1px solid', borderColor: 'divider' } }}
-                      anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-                      transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                    >
-                      <MenuItem onClick={handleView} dense sx={{ py: 1, fontSize: '0.8rem' }}>
-                        <Box sx={{ mr: 1, display: 'inline-flex' }}><Eye size={14} /></Box> View
-                      </MenuItem>
-                      <MenuItem onClick={handleEdit} dense sx={{ py: 1, fontSize: '0.8rem', color: '#2563EB' }}>
-                        <Box sx={{ mr: 1, display: 'inline-flex' }}><Edit3 size={14} /></Box> Edit
-                      </MenuItem>
-                      <MenuItem onClick={handleDelete} dense sx={{ py: 1, fontSize: '0.8rem', color: '#DC2626' }}>
-                        <Box sx={{ mr: 1, display: 'inline-flex' }}><Trash2 size={14} /></Box> Delete
-                      </MenuItem>
-                    </Menu>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
+            {sortedItems.map((item) => (
+              <RequirementRow
+                key={item.id}
+                item={item}
+                isIT={isIT}
+                setSelectedDetailItem={setSelectedDetailItem}
+                handleOpenEdit={handleOpenEdit}
+                handleDeleteItem={handleDeleteItem}
+              />
+            ))}
 
             {/* Clean Empty State Message */}
             {filteredItems.length === 0 && (
