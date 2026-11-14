@@ -33,6 +33,7 @@ class PersonalSettings(Base):
     push_log_note_update: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true", nullable=False)
     push_task_completed: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true", nullable=False)
     push_task_comments: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true", nullable=False)
+    last_digest_sent_date: Mapped[str | None] = mapped_column(String(10), nullable=True)  # YYYY-MM-DD
     holidays_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.current_timestamp())
     updated_at: Mapped[datetime] = mapped_column(

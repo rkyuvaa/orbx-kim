@@ -15,6 +15,47 @@ interface PTActivityTimelineProps {
   isLoading: boolean;
 }
 
+const ACTION_LABELS: Record<string, string> = {
+  CREATED: 'Created',
+  UPDATED: 'Updated',
+  ASSIGNED: 'Assigned',
+  ASSIGNMENT_CHANGED: 'Reassigned',
+  PROGRESS_UPDATED: 'Progress Updated',
+  COMPLETED: 'Completed',
+  REOPENED: 'Reopened',
+  STATUS_CHANGED: 'Status Changed',
+  DELETED: 'Deleted',
+  ARCHIVED: 'Archived',
+  RESTORED: 'Restored',
+  CANCELLED: 'Cancelled',
+  TIMER_STARTED: 'Timer Started',
+  TIMER_STOPPED: 'Timer Stopped',
+  TIME_LOGGED: 'Manual Time Logged',
+  REMINDER_SCHEDULED: 'Reminder Scheduled',
+  REMINDER_DELETED: 'Reminder Removed',
+  REMINDER_SNOOZED: 'Reminder Snoozed',
+  LOG_NOTE_ADDED: 'Log Note Added',
+};
+
+const FIELD_LABELS: Record<string, string> = {
+  assignee_id: 'Assignee',
+  progress_percentage: 'Progress',
+  status_id: 'Status',
+  due_date: 'Due Date',
+  cancellation_reason: 'Cancellation Reason',
+  log_note: 'Log Note',
+  title: 'Title',
+  priority: 'Priority',
+};
+
+function formatAction(action: string): string {
+  return ACTION_LABELS[action] || action.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function formatField(field: string): string {
+  return FIELD_LABELS[field] || field.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export default function PTActivityTimeline({ activities, isLoading }: PTActivityTimelineProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
@@ -74,18 +115,20 @@ export default function PTActivityTimeline({ activities, isLoading }: PTActivity
             >
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 <Chip
-                  label={act.action}
+                  label={formatAction(act.action)}
                   size="small"
-                  sx={{ fontWeight: 700, minWidth: 100, height: 24, fontSize: '0.72rem' }}
+                  sx={{ fontWeight: 700, minWidth: 110, height: 24, fontSize: '0.72rem' }}
                 />
 
                 <Box>
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    {act.new_value || act.action}
+                    {act.new_value || formatAction(act.action)}
                   </Typography>
                   {act.field_name && (
                     <Typography variant="caption" sx={{ color: '#64748B' }}>
-                      Field: {act.field_name} {act.old_value ? `(was "${act.old_value}")` : ''}
+                      {formatField(act.field_name)}
+                      {act.old_value ? ` (was "${act.old_value}")` : ''}
+                      {act.new_value ? ` → "${act.new_value}"` : ''}
                     </Typography>
                   )}
                 </Box>

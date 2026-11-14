@@ -15,6 +15,47 @@ interface PTAuditLogProps {
   isLoading?: boolean;
 }
 
+const ACTION_LABELS: Record<string, string> = {
+  CREATED: 'Created',
+  UPDATED: 'Updated',
+  ASSIGNED: 'Assigned',
+  ASSIGNMENT_CHANGED: 'Reassigned',
+  PROGRESS_UPDATED: 'Progress Updated',
+  COMPLETED: 'Completed',
+  REOPENED: 'Reopened',
+  STATUS_CHANGED: 'Status Changed',
+  DELETED: 'Deleted',
+  ARCHIVED: 'Archived',
+  RESTORED: 'Restored',
+  CANCELLED: 'Cancelled',
+  TIMER_STARTED: 'Timer Started',
+  TIMER_STOPPED: 'Timer Stopped',
+  TIME_LOGGED: 'Manual Time Logged',
+  REMINDER_SCHEDULED: 'Reminder Scheduled',
+  REMINDER_DELETED: 'Reminder Removed',
+  REMINDER_SNOOZED: 'Reminder Snoozed',
+  LOG_NOTE_ADDED: 'Log Note Added',
+};
+
+const FIELD_LABELS: Record<string, string> = {
+  assignee_id: 'Assignee',
+  progress_percentage: 'Progress',
+  status_id: 'Status',
+  due_date: 'Due Date',
+  cancellation_reason: 'Cancellation Reason',
+  log_note: 'Log Note',
+  title: 'Title',
+  priority: 'Priority',
+};
+
+function formatAction(action: string): string {
+  return ACTION_LABELS[action] || action.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function formatField(field: string): string {
+  return FIELD_LABELS[field] || field.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export default function PTAuditLog({ activities, isLoading }: PTAuditLogProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
@@ -87,7 +128,7 @@ export default function PTAuditLog({ activities, isLoading }: PTAuditLogProps) {
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Chip
-                  label={act.action}
+                  label={formatAction(act.action)}
                   size="small"
                   sx={{
                     height: 20,
@@ -119,7 +160,7 @@ export default function PTAuditLog({ activities, isLoading }: PTAuditLogProps) {
             {act.field_name && (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: '0.8rem' }}>
                 <Typography variant="caption" sx={{ fontWeight: 600, color: '#64748B' }}>
-                  {act.field_name}:
+                  {formatField(act.field_name)}:
                 </Typography>
                 {act.old_value && (
                   <Typography variant="caption" sx={{ color: '#EF4444', textDecoration: 'line-through' }}>

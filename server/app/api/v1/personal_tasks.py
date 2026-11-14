@@ -378,12 +378,12 @@ def assign_personal_task(
     db.add(task_assignee)
 
     # Activity Log
+    assignee_name = assigned_user.full_name or assigned_user.username or "Employee"
     _log_pt_activity(db, task.id, current_user.id, "CREATED", new_val=task.title, source="user")
-    _log_pt_activity(db, task.id, current_user.id, "ASSIGNED", field_name="assignee_id", new_val=str(data.assignee_id), source="user")
+    _log_pt_activity(db, task.id, current_user.id, "ASSIGNED", field_name="assignee_id", new_val=assignee_name, source="user")
 
     # Task Log Note
     timestamp_str = now_local.strftime("%d/%m/%Y, %I:%M %p")
-    assignee_name = assigned_user.full_name or assigned_user.username or "Employee"
     creator_name = current_user.full_name or current_user.username or "User"
     log_note = TaskLogNote(
         task_id=task.id,
@@ -564,7 +564,7 @@ def update_personal_task(
                     background_tasks=background_tasks,
                     client_base_url=client_base_url,
                 )
-        _log_pt_activity(db, task.id, current_user.id, "ASSIGNMENT_CHANGED", field_name="assignee_id", old_val=str(old_assignee_id), new_val=str(task.assignee_id), source="user")
+        _log_pt_activity(db, task.id, current_user.id, "ASSIGNMENT_CHANGED", field_name="assignee_id", old_val=old_name, new_val=new_name, source="user")
         timestamp_str = now_local.strftime("%d/%m/%Y, %I:%M %p")
         db.add(TaskLogNote(
             task_id=task.id,
@@ -1513,13 +1513,15 @@ def create_personal_task_log_note(
 
     # Capture in local time
     now_local = get_local_now()
+    note_content = data.note.strip()
     log_note = TaskLogNote(
         task_id=task.id,
         user_id=current_user.id,
-        note=data.note.strip(),
+        note=note_content,
         created_at=now_local,
     )
     db.add(log_note)
+    _log_pt_activity(db, task.id, current_user.id, "LOG_NOTE_ADDED", field_name="log_note", new_val=note_content[:150], source="user")
     db.commit()
     db.refresh(log_note)
 

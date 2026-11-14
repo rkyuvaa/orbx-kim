@@ -1,9 +1,11 @@
 import base64
+from datetime import datetime
 import json
 import logging
 import os
 from pathlib import Path
 from typing import Any
+import zoneinfo
 
 from cryptography.hazmat.primitives import serialization
 from py_vapid import Vapid
@@ -99,6 +101,44 @@ def is_push_category_enabled(db: Session, user_id: int, category: str) -> bool:
         return True
 
 
+def is_in_quiet_hours(db: Session, user_id: int) -> bool:
+    """
+    Checks if current local time for the user falls within their configured quiet hours.
+    Returns True if current time is within quiet hours (so notifications should be suppressed).
+    """
+    try:
+        from app.models.personal_settings import PersonalSettings
+
+        settings_rec = db.query(PersonalSettings).filter(PersonalSettings.user_id == user_id).first()
+        if not settings_rec or not settings_rec.quiet_hours_start or not settings_rec.quiet_hours_end:
+            return False
+
+        start_str = settings_rec.quiet_hours_start.strip()
+        end_str = settings_rec.quiet_hours_end.strip()
+        if not start_str or not end_str:
+            return False
+
+        # Determine user's local time based on their timezone
+        tz_str = settings_rec.timezone or "Asia/Kolkata"
+        try:
+            tz = zoneinfo.ZoneInfo(tz_str)
+        except Exception:
+            tz = zoneinfo.ZoneInfo("Asia/Kolkata")
+
+        now_local = datetime.now(tz)
+        current_time_str = now_local.strftime("%H:%M")
+
+        if start_str <= end_str:
+            # Same-day range (e.g. "13:00" to "15:00")
+            return start_str <= current_time_str < end_str
+        else:
+            # Overnight range (e.g. "22:00" to "08:00")
+            return current_time_str >= start_str or current_time_str < end_str
+    except Exception as e:
+        logger.warning(f"Error checking quiet hours for user {user_id}: {e}")
+        return False
+
+
 def send_push_to_user(
     db: Session,
     user_id: int,
@@ -107,12 +147,18 @@ def send_push_to_user(
     url: str | None = None,
     tag: str | None = None,
     data: dict[str, Any] | None = None,
+    ignore_quiet_hours: bool = False,
 ) -> int:
     """
     Dispatches a Web Push notification to all active devices of a user.
+    Suppresses dispatch if user is currently in Quiet Hours (unless ignore_quiet_hours=True).
     Removes invalid/expired endpoints automatically.
     Returns the count of successfully delivered push notifications.
     """
+    if not ignore_quiet_hours and is_in_quiet_hours(db, user_id):
+        logger.info(f"Push notification for user {user_id} suppressed due to active Quiet Hours.")
+        return 0
+
     subscriptions = db.query(PushSubscription).filter(PushSubscription.user_id == user_id).all()
     if not subscriptions:
         return 0
