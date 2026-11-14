@@ -45,16 +45,16 @@ import {
   DollarSign,
   X,
   MoreVertical,
+  Paperclip,
 } from 'lucide-react';
 import { useTableSort } from '../hooks/useTableSort';
 import ErpSortHeaderCell from '../components/ui/ErpSortHeaderCell';
 import { useToast } from '@/components/ui/ToastHost';
 import { formatDate } from '@/utils/format';
 import { useAppDispatch, useAppSelector } from '../app/hooks';
-import { RequirementItem, MaterialRequisitionItem } from '@/types/requirements';
+import { RequirementItem, MaterialRequisitionItem, AttachmentFile } from '@/types/requirements';
 import ITRequirementFormModal from '@/components/requirements/ITRequirementFormModal';
-import ITRequirementDetailDrawer from '@/components/requirements/ITRequirementDetailDrawer';
-import { useDatabaseStoredState } from '@/hooks/useDatabaseStoredState';
+import ITRequirementDetailDrawer from '@/components/requirements/ITRequirementDetailDrawer';import { useDatabaseStoredState } from '@/hooks/useDatabaseStoredState';
 import {
   useGenerateDocumentNumberMutation,
   usePreviewDocumentNumberMutation,
@@ -306,6 +306,7 @@ export default function RequirementsPage() {
 
   // Material requisition item lines
   const [formItems, setFormItems] = useState<MaterialRequisitionItem[]>([]);
+  const [formAttachments, setFormAttachments] = useState<AttachmentFile[]>([]);
 
   // Categories list
   const materialCategories = ['Raw Materials', 'Consumables', 'Safety Equipment', 'Tools & Machinery', 'Office Supplies', 'Packaging'];
@@ -364,6 +365,7 @@ export default function RequirementsPage() {
     setFormProjectName('');
     setFormRequestNo('');
     setFormNotes('');
+    setFormAttachments([]);
     setFormItems([]);
   };
 
@@ -476,6 +478,22 @@ export default function RequirementsPage() {
   const removeItemRow = (index: number) => {
     const next = formItems.filter((_, i) => i !== index).map((row, i) => ({ ...row, s_no: i + 1 }));
     setFormItems(next);
+  };
+
+  // Attachment upload handler
+  const handleAttachmentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const newAttachments: AttachmentFile[] = Array.from(files).map((f) => ({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      name: f.name,
+      size: f.size,
+      type: f.type,
+      uploaded_at: new Date().toISOString(),
+      uploaded_by: 'Current User',
+    }));
+    setFormAttachments((prev) => [...prev, ...newAttachments]);
+    e.target.value = '';
   };
 
   const updateItemField = (index: number, field: keyof MaterialRequisitionItem, value: any) => {
@@ -988,7 +1006,8 @@ export default function RequirementsPage() {
               }}
             >
               <Grid container spacing={2}>
-                <Grid item xs={12} sm={3} md={2}>
+                {/* Both date fields together in same row, matching styling */}
+                <Grid item xs={12} sm={6} md={3}>
                   <Box>
                     <Typography variant="caption" color="text.secondary">
                       Material / Service Request Date
@@ -1015,60 +1034,7 @@ export default function RequirementsPage() {
                   </Box>
                 </Grid>
 
-                <Grid item xs={12} sm={6} md={4}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="Name (Requester)"
-                    value={formRequesterName}
-                    InputProps={{ readOnly: true }}
-                    sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'action.hover' } }}
-                  />
-                </Grid>
-
-                <Grid item xs={12} sm={3} md={2}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="Department"
-                    value={formDepartment}
-                    InputProps={{ readOnly: true }}
-                    sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'action.hover' } }}
-                  />
-                </Grid>
-
-                <Grid item xs={12} sm={6} md={4}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="Approver (Requester's Manager)"
-                    value={formApprover}
-                    InputProps={{ readOnly: true }}
-                    sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'action.hover' } }}
-                  />
-                </Grid>
-
-                <Grid item xs={12} sm={6} md={4}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="Project Code"
-                    value={formProjectCode}
-                    onChange={(e) => setFormProjectCode(e.target.value)}
-                  />
-                </Grid>
-
-                <Grid item xs={12} sm={6} md={4}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="Project Name"
-                    value={formProjectName}
-                    onChange={(e) => setFormProjectName(e.target.value)}
-                  />
-                </Grid>
-
-                <Grid item xs={12} sm={6} md={4}>
+                <Grid item xs={12} sm={6} md={3}>
                   <Box>
                     <Typography variant="caption" color="text.secondary">
                       Requested Date
@@ -1094,6 +1060,59 @@ export default function RequirementsPage() {
                     </Box>
                   </Box>
                 </Grid>
+
+                <Grid item xs={12} sm={6} md={3}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Name (Requester)"
+                    value={formRequesterName}
+                    InputProps={{ readOnly: true }}
+                    sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'action.hover' } }}
+                  />
+                </Grid>
+
+                <Grid item xs={12} sm={6} md={3}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Department"
+                    value={formDepartment}
+                    InputProps={{ readOnly: true }}
+                    sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'action.hover' } }}
+                  />
+                </Grid>
+
+                <Grid item xs={12} sm={6} md={3}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Approver (Requester's Manager)"
+                    value={formApprover}
+                    InputProps={{ readOnly: true }}
+                    sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'action.hover' } }}
+                  />
+                </Grid>
+
+                <Grid item xs={12} sm={6} md={3}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Project Code"
+                    value={formProjectCode}
+                    onChange={(e) => setFormProjectCode(e.target.value)}
+                  />
+                </Grid>
+
+                <Grid item xs={12} sm={6} md={3}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Project Name"
+                    value={formProjectName}
+                    onChange={(e) => setFormProjectName(e.target.value)}
+                  />
+                </Grid>
               </Grid>
 
               <Divider sx={{ my: 1 }} />
@@ -1112,7 +1131,7 @@ export default function RequirementsPage() {
                       <TableCell sx={{ width: 40 }} />
                       <TableCell>Material / Service Code</TableCell>
                       <TableCell>Item &amp; Description</TableCell>
-                      <TableCell sx={{ width: 40, minWidth: 40, whiteSpace: 'normal', lineHeight: 1.1 }}>
+                      <TableCell sx={{ minWidth: 75, maxWidth: 95, whiteSpace: 'normal', lineHeight: 1.1 }}>
                         Data Sheet*
                       </TableCell>
                       <TableCell sx={{ minWidth: 70 }}>HSN / SAC</TableCell>
@@ -1264,22 +1283,39 @@ export default function RequirementsPage() {
                 )}
               </Box>
 
-              {/* Notes / Purpose */}
-              <Box sx={{ mb: 1 }}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.primary' }}>
-                  Notes / Purpose
-                </Typography>
-              </Box>
-              <TextField
-                fullWidth
-                size="small"
-                multiline
-                rows={2}
-                label="Notes / Purpose"
-                value={formNotes}
-                onChange={(e) => setFormNotes(e.target.value)}
-                sx={{ mb: 1 }}
-              />
+              {/* Notes / Purpose + Attachment */}
+              <Grid container spacing={2} sx={{ mb: 1 }}>
+                <Grid item xs={12} md={8}>
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.primary', mb: 0.5 }}>
+                      Notes / Purpose
+                    </Typography>
+                  </Box>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    multiline
+                    rows={2}
+                    label="Notes / Purpose"
+                    value={formNotes}
+                    onChange={(e) => setFormNotes(e.target.value)}
+                  />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.primary', mb: 0.5 }}>
+                      Attachment
+                    </Typography>
+                  </Box>
+                  <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, height: 120, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1, cursor: 'pointer', '&:hover': { borderColor: '#04552B', bgcolor: '#f0fdf4' } }}>
+                    <Paperclip size={20} color="#04552B" />
+                    <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', fontWeight: 600 }}>
+                      Add Attachment
+                    </Typography>
+                    <input type="file" hidden accept="image/*,.pdf,.doc,.docx" onChange={handleAttachmentUpload} />
+                  </Box>
+                </Grid>
+              </Grid>
             </DialogContent>
           </form>
           </Box>
