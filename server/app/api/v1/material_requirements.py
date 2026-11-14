@@ -22,7 +22,7 @@ def _ensure_upload_dir(request_no: str) -> str:
     return upload_dir
 
 
-@router.post("/{request_no}/upload", response_model=dict)
+@router.post("/{request_no:path}/upload", response_model=dict)
 async def upload_material_requirement_attachment(
     request_no: str,
     file: UploadFile = File(...),
@@ -58,7 +58,7 @@ async def upload_material_requirement_attachment(
     }
 
 
-@router.get("/{request_no}/attachments", response_model=list[dict])
+@router.get("/{request_no:path}/attachments", response_model=list[dict])
 def list_material_requirement_attachments(
     request_no: str,
     db: Session = Depends(get_db),
@@ -93,7 +93,7 @@ def list_material_requirement_attachments(
     return attachments
 
 
-@router.delete("/{request_no}/attachments/{attachment_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{request_no:path}/attachments/{attachment_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_material_requirement_attachment(
     request_no: str,
     attachment_id: str,

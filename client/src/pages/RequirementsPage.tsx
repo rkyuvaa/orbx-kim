@@ -423,10 +423,11 @@ export default function RequirementsPage() {
       setFormAttachments([]);
       return;
     }
+    const encodedRequestNo = encodeURIComponent(formRequestNo);
     setFormAttachments(
       savedAttachments.map((a: AttachmentFile) => ({
         ...a,
-        data_url: `/material-requirements/${formRequestNo}/attachments/${a.id}`,
+        data_url: `/material-requirements/${encodedRequestNo}/attachments/${a.id}`,
       })),
     );
   }, [savedAttachments, formRequestNo]);
@@ -526,7 +527,7 @@ export default function RequirementsPage() {
             type: f.type,
             uploaded_at: result.uploaded_at || new Date().toISOString(),
             uploaded_by: result.uploaded_by || 'Current User',
-            data_url: result.data_url || `/material-requirements/${requestNo}/attachments/${result.id}`,
+            data_url: result.data_url || `/material-requirements/${encodeURIComponent(requestNo)}/attachments/${result.id}`,
           },
         ]);
       } catch {
