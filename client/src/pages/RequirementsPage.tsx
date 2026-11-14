@@ -27,6 +27,7 @@ import {
   Tooltip,
   Drawer,
   Divider,
+  Menu,
 } from '@mui/material';
 import {
   ClipboardList,
@@ -34,7 +35,6 @@ import {
   Laptop,
   Plus,
   Search,
-  Download,
   Trash2,
   Edit3,
   Eye,
@@ -44,6 +44,7 @@ import {
   XCircle,
   DollarSign,
   X,
+  MoreVertical,
 } from 'lucide-react';
 import { useTableSort } from '../hooks/useTableSort';
 import ErpSortHeaderCell from '../components/ui/ErpSortHeaderCell';
@@ -498,58 +499,6 @@ export default function RequirementsPage() {
     showSuccess(`Updated ${id} status to ${newStatus.replace('_', ' ')}`);
   };
 
-  const handleExportCSV = () => {
-    if (filteredItems.length === 0) {
-      showError('No items available to export');
-      return;
-    }
-
-    const headers = isIT
-      ? ['Request ID', 'Title', 'Type', 'Department', 'Requested By', 'Urgency', 'Preferred Go-Live Date', 'Status', 'Created At']
-      : ['ID', 'Type', 'Title', 'Category', 'Quantity', 'Unit', 'Unit Cost', 'Total Cost', 'Priority', 'Status', 'Department', 'Requested By', 'Required By Date'];
-
-    const rows = filteredItems.map((i) =>
-      isIT
-        ? [
-            i.id,
-            `"${i.title.replace(/"/g, '""')}"`,
-            `"${i.requirement_type || i.category}"`,
-            `"${i.department}"`,
-            `"${i.requested_by}"`,
-            `"${i.urgency || i.priority}"`,
-            i.preferred_go_live_date || i.required_by_date,
-            i.status,
-            i.created_at,
-          ]
-        : [
-            i.id,
-            i.type,
-            `"${i.title.replace(/"/g, '""')}"`,
-            `"${i.category}"`,
-            i.quantity,
-            i.unit,
-            i.estimated_unit_cost,
-            i.total_cost,
-            i.priority,
-            i.status,
-            i.department,
-            `"${i.requested_by}"`,
-            i.required_by_date,
-          ],
-    );
-
-    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `${reqType.toLowerCase()}_requirements_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    showSuccess(`Exported ${filteredItems.length} requisitions to CSV`);
-  };
-
   // Helper Badge Colors
   const getPriorityChip = (priority: string) => {
     switch (priority) {
@@ -636,15 +585,6 @@ export default function RequirementsPage() {
 
         {/* Action Buttons */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<Download size={16} />}
-            onClick={handleExportCSV}
-            sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600, borderColor: 'divider', color: 'text.primary' }}
-          >
-            Export CSV
-          </Button>
           <Button
             variant="contained"
             size="small"
@@ -796,9 +736,8 @@ export default function RequirementsPage() {
         <Table size="small">
           <TableHead sx={{ bgcolor: 'background.default' }}>
             <TableRow>
-              <ErpSortHeaderCell variant="mui" field="id" label={isIT ? 'Request ID' : 'Requisition ID'} sortState={sortState} onSort={handleSort} sx={{ py: 1.5 }} />
-              <ErpSortHeaderCell variant="mui" field="title" label="Requirement Title" sortState={sortState} onSort={handleSort} />
-              <ErpSortHeaderCell variant="mui" field="category" label={isIT ? 'Requirement Type' : 'Category'} sortState={sortState} onSort={handleSort} />
+              <ErpSortHeaderCell variant="mui" field="title" label="Requirement Title" sortState={sortState} onSort={handleSort} sx={{ py: 1.5 }} />
+              <ErpSortHeaderCell variant="mui" field="requester_name" label="Requester Name" sortState={sortState} onSort={handleSort} />
               {!isIT && <ErpSortHeaderCell variant="mui" field="quantity" label="Qty & Unit" sortState={sortState} onSort={handleSort} />}
               {!isIT && <ErpSortHeaderCell variant="mui" field="total_cost" label="Est. Cost (₹)" sortState={sortState} onSort={handleSort} />}
               <ErpSortHeaderCell variant="mui" field="department" label="Department" sortState={sortState} onSort={handleSort} />
@@ -809,53 +748,79 @@ export default function RequirementsPage() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {sortedItems.map((item) => (
-              <TableRow key={item.id} hover sx={{ cursor: 'pointer' }} onClick={() => setSelectedDetailItem(item)}>
-                <TableCell sx={{ fontFamily: 'monospace', fontWeight: 700, color: '#04552B' }}>
-                  {item.id}
-                </TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>{item.title}</TableCell>
-                <TableCell>
-                  <Chip label={item.requirement_type || item.category} size="small" variant="outlined" sx={{ height: 22, fontSize: '0.7rem' }} />
-                </TableCell>
-                {!isIT && (
-                  <TableCell sx={{ fontWeight: 600 }}>
-                    {item.quantity} {item.unit}
+            {sortedItems.map((item) => {
+              const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+              const open = Boolean(anchorEl);
+              const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+                event.stopPropagation();
+                setAnchorEl(event.currentTarget);
+              };
+              const handleMenuClose = () => setAnchorEl(null);
+              const handleEdit = (e: React.MouseEvent) => {
+                e.stopPropagation();
+                handleOpenEdit(item);
+                handleMenuClose();
+              };
+              const handleDelete = (e: React.MouseEvent) => {
+                e.stopPropagation();
+                handleDeleteItem(item.id);
+                handleMenuClose();
+              };
+              const handleView = (e: React.MouseEvent) => {
+                e.stopPropagation();
+                setSelectedDetailItem(item);
+                handleMenuClose();
+              };
+
+              return (
+                <TableRow key={item.id} hover sx={{ cursor: 'pointer' }} onClick={() => setSelectedDetailItem(item)}>
+                  <TableCell sx={{ fontWeight: 600 }}>{item.title}</TableCell>
+                  <TableCell sx={{ fontSize: '0.85rem', color: 'text.secondary' }}>{item.requester_name || item.requested_by || '-'}</TableCell>
+                  {!isIT && (
+                    <TableCell sx={{ fontWeight: 600 }}>
+                      {item.quantity} {item.unit}
+                    </TableCell>
+                  )}
+                  {!isIT && (
+                    <TableCell sx={{ fontWeight: 700 }}>
+                      ₹{(item.total_cost || 0).toLocaleString()}
+                    </TableCell>
+                  )}
+                  <TableCell>{item.department}</TableCell>
+                  <TableCell sx={{ fontSize: '0.8rem' }}>{formatDate(item.preferred_go_live_date || item.required_by_date)}</TableCell>
+                  <TableCell>{item.urgency ? <Chip label={item.urgency} size="small" variant="outlined" /> : getPriorityChip(item.priority)}</TableCell>
+                  <TableCell>{getStatusChip(item.status)}</TableCell>
+                  <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+                    <IconButton size="small" onClick={handleMenuOpen} sx={{ color: 'text.secondary' }}>
+                      <MoreVertical size={16} />
+                    </IconButton>
+                    <Menu
+                      anchorEl={anchorEl}
+                      open={open}
+                      onClose={handleMenuClose}
+                      PaperProps={{ sx: { borderRadius: 2, border: '1px solid', borderColor: 'divider' } }}
+                      anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+                      transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                    >
+                      <MenuItem onClick={handleView} dense sx={{ py: 1, fontSize: '0.8rem' }}>
+                        <Box sx={{ mr: 1, display: 'inline-flex' }}><Eye size={14} /></Box> View
+                      </MenuItem>
+                      <MenuItem onClick={handleEdit} dense sx={{ py: 1, fontSize: '0.8rem', color: '#2563EB' }}>
+                        <Box sx={{ mr: 1, display: 'inline-flex' }}><Edit3 size={14} /></Box> Edit
+                      </MenuItem>
+                      <MenuItem onClick={handleDelete} dense sx={{ py: 1, fontSize: '0.8rem', color: '#DC2626' }}>
+                        <Box sx={{ mr: 1, display: 'inline-flex' }}><Trash2 size={14} /></Box> Delete
+                      </MenuItem>
+                    </Menu>
                   </TableCell>
-                )}
-                {!isIT && (
-                  <TableCell sx={{ fontWeight: 700 }}>
-                    ₹{(item.total_cost || 0).toLocaleString()}
-                  </TableCell>
-                )}
-                <TableCell>{item.department}</TableCell>
-                <TableCell sx={{ fontSize: '0.8rem' }}>{formatDate(item.preferred_go_live_date || item.required_by_date)}</TableCell>
-                <TableCell>{item.urgency ? <Chip label={item.urgency} size="small" variant="outlined" /> : getPriorityChip(item.priority)}</TableCell>
-                <TableCell>{getStatusChip(item.status)}</TableCell>
-                <TableCell align="right" onClick={(e) => e.stopPropagation()}>
-                  <Tooltip title="View Details">
-                    <IconButton size="small" onClick={() => setSelectedDetailItem(item)}>
-                      <Eye size={16} />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Edit">
-                    <IconButton size="small" onClick={() => handleOpenEdit(item)} sx={{ color: '#2563EB' }}>
-                      <Edit3 size={16} />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Delete">
-                    <IconButton size="small" onClick={() => handleDeleteItem(item.id)} sx={{ color: '#DC2626' }}>
-                      <Trash2 size={16} />
-                    </IconButton>
-                  </Tooltip>
-                </TableCell>
-              </TableRow>
-            ))}
+                </TableRow>
+              );
+            })}
 
             {/* Clean Empty State Message */}
             {filteredItems.length === 0 && (
               <TableRow>
-                <TableCell colSpan={10} align="center" sx={{ py: 8 }}>
+                <TableCell colSpan={8} align="center" sx={{ py: 8 }}>
                   <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5, color: 'text.secondary' }}>
                     <Box sx={{ p: 2, borderRadius: '50%', bgcolor: 'action.hover', color: '#04552B' }}>
                       {reqType === 'IT' ? <Laptop size={36} /> : <Package size={36} />}
