@@ -920,43 +920,31 @@ export default function RequirementsPage() {
         <Dialog
           open={isCreateOpen}
           onClose={() => setIsCreateOpen(false)}
-          maxWidth={false}
-          fullWidth
+          maxWidth="xl"
           sx={{
             '& .MuiDialog-container': {
-              position: 'fixed',
-              top: 0,
-              left: 'var(--current-sidebar-width, 0px)',
-              width: 'calc(100% - var(--current-sidebar-width, 0px))',
-              height: '100%',
-              alignItems: 'flex-start',
-              justifyContent: 'flex-start',
-              overflow: 'hidden',
-              zIndex: 1301,
+              alignItems: 'center',
+              justifyContent: 'center',
             },
           }}
           PaperProps={{
             sx: {
               width: '100%',
-              height: '100%',
-              maxWidth: 'none',
-              maxHeight: 'none',
-              m: 0,
-              mx: 0,
-              my: 0,
-              ml: 0,
-              mt: 0,
-              borderRadius: 0,
+              maxWidth: { xs: '100%', sm: 1150 },
+              m: { xs: 1, sm: 2 },
+              borderRadius: 3,
               border: '1px solid',
               borderColor: 'divider',
               boxShadow: '0 24px 80px rgba(15, 23, 42, 0.22)',
+              display: 'flex',
+              flexDirection: 'column',
               overflow: 'hidden',
-              overflowY: 'auto',
             },
           }}
         >
-          <form onSubmit={handleSaveMaterialRequirement}>
-            <Box
+          <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            <form onSubmit={handleSaveMaterialRequirement}>
+              <Box
               sx={{
                 px: { xs: 2.5, sm: 3.5 },
                 py: 1.5,
@@ -965,9 +953,10 @@ export default function RequirementsPage() {
                 alignItems: 'center',
                 borderBottom: '1px solid',
                 borderColor: 'divider',
+                flexShrink: 0,
               }}
             >
-              <Box sx={{ width: { xs: '75%', sm: '50%' } }}>
+              <Box>
                 <Typography variant="caption" color="text.secondary">
                   Material / Service Request No
                 </Typography>
@@ -984,7 +973,17 @@ export default function RequirementsPage() {
                 <X size={19} />
               </IconButton>
             </Box>
-            <DialogContent sx={{ px: { xs: 2.5, sm: 3.5 }, py: 3 }}>
+            <DialogContent
+              sx={{
+                px: { xs: 2.5, sm: 3.5 },
+                py: 2.5,
+                flex: 1,
+                overflowY: 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2.5,
+              }}
+            >
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={3} md={2}>
                   <TextField
@@ -1078,8 +1077,8 @@ export default function RequirementsPage() {
                 </Grid>
               </Grid>
 
-              <Divider sx={{ my: 3 }} />
-              <Box sx={{ mb: 2 }}>
+              <Divider sx={{ my: 1 }} />
+              <Box sx={{ mb: 1 }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.primary' }}>
                   Item Lines
                 </Typography>
@@ -1087,7 +1086,7 @@ export default function RequirementsPage() {
                   Add each material / service line item. Amount is calculated as Qty × Rate.
                 </Typography>
               </Box>
-              <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: '8px', mb: 1 }}>
+              <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: '8px', mb: 1, flexShrink: 0 }}>
                 <Table size="small">
                   <TableHead sx={{ bgcolor: 'background.default' }}>
                     <TableRow>
@@ -1228,7 +1227,7 @@ export default function RequirementsPage() {
                   </TableBody>
                 </Table>
               </TableContainer>
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 0.5, mb: 1 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 0.5, mb: 1, flexShrink: 0 }}>
                 <Button
                   variant="outlined"
                   size="small"
@@ -1253,6 +1252,7 @@ export default function RequirementsPage() {
                 borderTop: '1px solid',
                 borderColor: 'divider',
                 bgcolor: 'background.default',
+                flexShrink: 0,
               }}
             >
               <Button onClick={() => setIsCreateOpen(false)} sx={{ color: 'text.secondary', px: 2 }}>
@@ -1275,6 +1275,7 @@ export default function RequirementsPage() {
               </Button>
             </DialogActions>
           </form>
+          </Box>
         </Dialog>
       )}
 
