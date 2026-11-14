@@ -248,11 +248,12 @@ export default function RequirementsPage() {
   const handleOpenCreate = async () => {
     resetForm();
     setIsCreateOpen(true);
+    const documentType = isIT ? 'it_requirement' : 'material_requisition';
     try {
-      const result = await generateDocumentNumber({ document_type: 'material_requisition' }).unwrap();
+      const result = await generateDocumentNumber({ document_type: documentType }).unwrap();
       setFormRequestNo(result.document_number);
     } catch {
-      showError('Failed to generate request number. Please configure document numbering for material_requisition.');
+      showError(`Failed to generate request number. Please configure document numbering for ${documentType}.`);
     }
   };
 
@@ -284,6 +285,7 @@ export default function RequirementsPage() {
 
   // Save IT Requirement from modal
   const handleSaveITRequirement = (payload: Partial<RequirementItem>, isDraft: boolean) => {
+    const requestNo = formRequestNo.trim() || `REQ-IT-${requirements.length + 1}`;
     if (editingItem) {
       setRequirements((prev) =>
         prev.map((r) =>
@@ -291,6 +293,8 @@ export default function RequirementsPage() {
             ? {
                 ...r,
                 ...payload,
+                request_no: requestNo,
+                title: payload.title || r.title,
                 status: isDraft ? 'DRAFT' : payload.status || r.status,
               }
             : r,
@@ -298,15 +302,7 @@ export default function RequirementsPage() {
       );
       showSuccess(`Updated ${editingItem.id} successfully`);
     } else {
-      const prefix = 'REQ-IT';
-      const maxId = requirements.reduce((max, r) => {
-        if (!r.id.startsWith('REQ-IT')) return max;
-        const parts = r.id.split('-');
-        const num = parseInt(parts[parts.length - 1], 10);
-        return !isNaN(num) && num > max ? num : max;
-      }, 0);
-
-      const newId = `${prefix}-${maxId + 1}`;
+      const newId = requestNo;
       const newItem: RequirementItem = {
         id: newId,
         type: 'IT',
@@ -323,6 +319,7 @@ export default function RequirementsPage() {
         required_by_date: payload.required_by_date || new Date().toISOString().split('T')[0],
         justification: payload.justification || '',
         specifications: payload.specifications || '',
+        request_no: requestNo,
         created_at: new Date().toISOString(),
         ...payload,
       };
