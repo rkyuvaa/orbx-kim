@@ -474,7 +474,7 @@ export default function RequirementsPage() {
       };
 
       setRequirements((prev) => [newItem, ...prev]);
-      showSuccess(`${isDraft ? 'Saved draft' : 'Created request'} ${newId} successfully`);
+      showSuccess(`${isDraft ? 'Saved draft' : 'Created request'} ${requestNo} successfully`);
     }
 
     setIsCreateOpen(false);
@@ -623,7 +623,7 @@ export default function RequirementsPage() {
             : r,
         ),
       );
-      showSuccess(`Updated ${editingItem.id} successfully`);
+      showSuccess(`Updated ${requestNo} successfully`);
     } else {
       const prefix = 'REQ-MAT';
       const maxId = requirements.reduce((max, r) => {
@@ -663,7 +663,7 @@ export default function RequirementsPage() {
       };
 
       setRequirements((prev) => [newItem, ...prev]);
-      showSuccess(`Created requisition ${newId} successfully`);
+      showSuccess(`Created requisition ${requestNo} successfully`);
     }
 
     setIsCreateOpen(false);
