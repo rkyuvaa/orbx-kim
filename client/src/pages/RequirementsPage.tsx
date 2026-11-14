@@ -284,7 +284,7 @@ export default function RequirementsPage() {
   // Legacy Material Form State
   const [formCategory, setFormCategory] = useState('');
   const [formQuantity, setFormQuantity] = useState<number>(1);
-  const [formUnit, setFormUnit] = useState('Pcs');
+  const [formUnit, setFormUnit] = useState('Nos');
   const [formUnitCost, setFormUnitCost] = useState<number>(0);
   const [formPriority, setFormPriority] = useState<'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'>('MEDIUM');
   const [formStatus, setFormStatus] = useState<string>('PENDING');
@@ -294,6 +294,7 @@ export default function RequirementsPage() {
   const [formJustification, setFormJustification] = useState('');
   const [formSpecifications, setFormSpecifications] = useState('');
   const [formVendorSuggestion, setFormVendorSuggestion] = useState('');
+  const [formNotes, setFormNotes] = useState('');
 
   // Material requisition header fields
   const [formRequestNo, setFormRequestNo] = useState('');
@@ -362,6 +363,7 @@ export default function RequirementsPage() {
     setFormProjectCode('');
     setFormProjectName('');
     setFormRequestNo('');
+    setFormNotes('');
     setFormItems([]);
   };
 
@@ -461,7 +463,7 @@ export default function RequirementsPage() {
       item_description: '',
       drawing_specs_yn: 'N',
       hsn_sac: '',
-      uom: '',
+      uom: 'Nos',
       qty: 1,
       rate: 0,
       budget_amount: 0,
@@ -947,14 +949,32 @@ export default function RequirementsPage() {
                   {formRequestNo || 'Generating…'}
                 </Typography>
               </Box>
-              <IconButton
-                aria-label="Close requisition form"
-                onClick={() => setIsCreateOpen(false)}
-                size="small"
-                sx={{ color: 'text.secondary' }}
-              >
-                <X size={19} />
-              </IconButton>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Button
+                  onClick={() => setIsCreateOpen(false)}
+                  size="small"
+                  sx={{ color: 'text.secondary', px: 1.5 }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="contained"
+                  size="small"
+                  sx={{
+                    bgcolor: '#04552B',
+                    '&:hover': { bgcolor: '#034120' },
+                    px: 2,
+                    py: 0.75,
+                    borderRadius: 2,
+                    fontWeight: 700,
+                    boxShadow: 'none',
+                    textTransform: 'none',
+                  }}
+                >
+                  {editingItem ? 'Save Changes' : 'Submit Requisition'}
+                </Button>
+              </Box>
             </Box>
             <DialogContent
               sx={{
@@ -969,14 +989,30 @@ export default function RequirementsPage() {
             >
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={3} md={2}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="Material / Service Request Date"
-                    value={formatDate(formRequestDate)}
-                    InputProps={{ readOnly: true }}
-                    sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'action.hover' } }}
-                  />
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Material / Service Request Date
+                    </Typography>
+                    <Box
+                      sx={{
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        borderRadius: 1,
+                        height: 40,
+                        px: 1.25,
+                        display: 'flex',
+                        alignItems: 'center',
+                        '&:hover': { borderColor: 'text.primary' },
+                      }}
+                    >
+                      <StandardDateInput
+                        value={formRequestDate}
+                        onChange={(value) => setFormRequestDate(value || '')}
+                        placeholder="dd-mm-yyyy"
+                        sx={{ width: '100%', py: 0 }}
+                      />
+                    </Box>
+                  </Box>
                 </Grid>
 
                 <Grid item xs={12} sm={6} md={4}>
@@ -1114,8 +1150,8 @@ export default function RequirementsPage() {
                         <TableCell>
                           <FormControl fullWidth size="small" sx={{ m: -1.5 }}>
                             <Select
-                              value={row.drawing_specs_yn}
-                              onChange={(e) => updateItemField(index, 'drawing_specs_yn', e.target.value as 'Y' | 'N')}
+                              value={row.drawing_specs_yn === 'Y' ? 'Yes' : 'No'}
+                              onChange={(e) => updateItemField(index, 'drawing_specs_yn', (e.target.value === 'Yes' ? 'Y' : 'N') as 'Y' | 'N')}
                               displayEmpty
                             >
                               <MenuItem value="Y">Yes</MenuItem>
@@ -1132,16 +1168,17 @@ export default function RequirementsPage() {
                             sx={{ m: -1.5 }}
                           />
                         </TableCell>
-                        <TableCell>
-                          <FormControl fullWidth size="small" sx={{ m: -1.5 }}>
+                        <TableCell sx={{ minWidth: 70, maxWidth: 90 }}>
+                          <FormControl fullWidth size="small" sx={{ m: -1.5, minWidth: 60 }}>
                             <Select
-                              value={uomOptions.some((option) => option.value === row.uom) ? row.uom : ''}
+                              value={uomOptions.some((option) => option.value === row.uom) ? row.uom : 'Nos'}
                               disabled={uomsLoading || uomOptions.length === 0}
                               displayEmpty
                               renderValue={(value) =>
                                 value || (uomsLoading ? 'Loading…' : 'Configure UOM')
                               }
                               onChange={(e) => updateItemField(index, 'uom', e.target.value)}
+                              sx={{ '& .MuiSelect-select': { minWidth: 60, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' } }}
                             >
                               {uomOptions.map((option) => (
                                 <MenuItem key={option.id} value={option.value}>
@@ -1226,37 +1263,24 @@ export default function RequirementsPage() {
                   </Typography>
                 )}
               </Box>
+
+              {/* Notes / Purpose */}
+              <Box sx={{ mb: 1 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                  Notes / Purpose
+                </Typography>
+              </Box>
+              <TextField
+                fullWidth
+                size="small"
+                multiline
+                rows={2}
+                label="Notes / Purpose"
+                value={formNotes}
+                onChange={(e) => setFormNotes(e.target.value)}
+                sx={{ mb: 1 }}
+              />
             </DialogContent>
-            <DialogActions
-              sx={{
-                px: { xs: 2.5, sm: 3.5 },
-                py: 2,
-                gap: 1,
-                borderTop: '1px solid',
-                borderColor: 'divider',
-                bgcolor: 'background.default',
-                flexShrink: 0,
-              }}
-            >
-              <Button onClick={() => setIsCreateOpen(false)} sx={{ color: 'text.secondary', px: 2 }}>
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                variant="contained"
-                sx={{
-                  bgcolor: '#04552B',
-                  '&:hover': { bgcolor: '#034120' },
-                  px: 2.5,
-                  py: 1,
-                  borderRadius: 2,
-                  fontWeight: 700,
-                  boxShadow: 'none',
-                }}
-              >
-                {editingItem ? 'Save Changes' : 'Submit Requisition'}
-              </Button>
-            </DialogActions>
           </form>
           </Box>
         </Dialog>
