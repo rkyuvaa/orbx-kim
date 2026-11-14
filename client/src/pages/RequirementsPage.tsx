@@ -61,6 +61,11 @@ import {
   usePreviewDocumentNumberMutation,
 } from '@/api/documentNumberingApi';
 import { useDropdownOptionsQuery } from '@/api/mastersApi';
+import {
+  useUploadMaterialRequirementAttachmentMutation,
+  useListMaterialRequirementAttachmentsQuery,
+  useDeleteMaterialRequirementAttachmentMutation,
+} from '@/api/materialRequirementsApi';
 import { useMeQuery } from '@/api/authApi';
 import { useGetAllUsersQuery } from '@/api/rbacApi';
 import { setUser } from '../auth/authSlice';
@@ -302,6 +307,12 @@ export default function RequirementsPage() {
   const [formRequesterName, setFormRequesterName] = useState('');
   const [formApprover, setFormApprover] = useState('');
   const [formProjectCode, setFormProjectCode] = useState('');
+
+  // Attachment API hooks (placed after formRequestNo to avoid use-before-declare)
+  const [uploadAttachment] = useUploadMaterialRequirementAttachmentMutation();
+  const { data: savedAttachments = [], isLoading: attachmentsLoading } =
+    useListMaterialRequirementAttachmentsQuery(formRequestNo || '__none__');
+  const [deleteAttachment] = useDeleteMaterialRequirementAttachmentMutation();
   const [formProjectName, setFormProjectName] = useState('');
 
   // Material requisition item lines
@@ -381,8 +392,9 @@ export default function RequirementsPage() {
     }
   };
 
-  const handleOpenEdit = (item: RequirementItem) => {
+  const handleOpenEdit = async (item: RequirementItem) => {
     setEditingItem(item);
+    setFormAttachments([]);
     if (!isIT) {
       setFormCategory(item.category);
       setFormQuantity(item.quantity);
@@ -406,6 +418,21 @@ export default function RequirementsPage() {
     }
     setIsCreateOpen(true);
   };
+
+  // Load saved attachments into form state when they arrive from the API
+  useEffect(() => {
+    if (!formRequestNo || formRequestNo === '__none__') return;
+    if (savedAttachments.length === 0) {
+      setFormAttachments([]);
+      return;
+    }
+    setFormAttachments(
+      savedAttachments.map((a: AttachmentFile) => ({
+        ...a,
+        data_url: `/material-requirements/${formRequestNo}/attachments/${a.id}`,
+      })),
+    );
+  }, [savedAttachments, formRequestNo]);
 
   // Save IT Requirement from modal
   const handleSaveITRequirement = (payload: Partial<RequirementItem>, isDraft: boolean) => {
@@ -481,19 +508,48 @@ export default function RequirementsPage() {
   };
 
   // Attachment upload handler
-  const handleAttachmentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAttachmentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-    const newAttachments: AttachmentFile[] = Array.from(files).map((f) => ({
-      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      name: f.name,
-      size: f.size,
-      type: f.type,
-      uploaded_at: new Date().toISOString(),
-      uploaded_by: 'Current User',
-    }));
-    setFormAttachments((prev) => [...prev, ...newAttachments]);
+    const requestNo = formRequestNo.trim();
+    if (!requestNo) {
+      showError('Request number is not available yet. Please wait or reopen the form.');
+      return;
+    }
+    for (const f of Array.from(files)) {
+      try {
+        const result = await uploadAttachment({ request_no: requestNo, file: f }).unwrap();
+        setFormAttachments((prev) => [
+          ...prev,
+          {
+            id: result.id || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            name: f.name,
+            size: f.size,
+            type: f.type,
+            uploaded_at: result.uploaded_at || new Date().toISOString(),
+            uploaded_by: result.uploaded_by || 'Current User',
+            data_url: result.data_url || `/material-requirements/${requestNo}/attachments/${result.id}`,
+          },
+        ]);
+      } catch {
+        showError(`Failed to upload ${f.name}.`);
+      }
+    }
     e.target.value = '';
+  };
+
+  // Attachment delete handler
+  const handleDeleteAttachment = async (attachment: AttachmentFile) => {
+    if (!window.confirm(`Delete attachment "${attachment.name}"?`)) return;
+    const requestNo = formRequestNo.trim();
+    if (!requestNo) return;
+    try {
+      await deleteAttachment({ request_no: requestNo, attachment_id: attachment.id }).unwrap();
+      setFormAttachments((prev) => prev.filter((a) => a.id !== attachment.id));
+      showSuccess('Attachment deleted');
+    } catch {
+      showError('Failed to delete attachment.');
+    }
   };
 
   const updateItemField = (index: number, field: keyof MaterialRequisitionItem, value: any) => {
@@ -552,6 +608,7 @@ export default function RequirementsPage() {
                 project_code: formProjectCode.trim() || undefined,
                 project_name: formProjectName.trim() || undefined,
                 material_items: formItems,
+                attachments: formAttachments,
               }
             : r,
         ),
@@ -591,6 +648,7 @@ export default function RequirementsPage() {
         project_code: formProjectCode.trim() || undefined,
         project_name: formProjectName.trim() || undefined,
         material_items: formItems,
+        attachments: formAttachments,
         created_at: new Date().toISOString(),
       };
 
@@ -1302,6 +1360,21 @@ export default function RequirementsPage() {
                     </Typography>
                     <input type="file" hidden accept="image/*,.pdf,.doc,.docx" onChange={handleAttachmentUpload} />
                   </Box>
+                  {formAttachments.length > 0 && (
+                    <Box sx={{ mt: 1, maxHeight: 120, overflowY: 'auto', borderTop: '1px solid', borderColor: 'divider', pt: 0.5 }}>
+                      {formAttachments.map((a) => (
+                        <Box key={a.id} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 1, py: 0.5, fontSize: '0.75rem', borderBottom: '1px solid', borderColor: 'divider' }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1, minWidth: 0 }}>
+                            <Paperclip size={14} color="#04552B" />
+                            <a href={a.data_url || `#`} target="_blank" rel="noopener noreferrer" style={{ color: '#1976d2', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</a>
+                          </Box>
+                          <IconButton size="small" onClick={() => handleDeleteAttachment(a)} sx={{ p: 0.5, color: 'text.secondary', '&:hover': { color: '#DC2626' } }} title="Delete">
+                            <Trash2 size={14} />
+                          </IconButton>
+                        </Box>
+                      ))}
+                    </Box>
+                  )}
                 </Grid>
               </Grid>
             </DialogContent>

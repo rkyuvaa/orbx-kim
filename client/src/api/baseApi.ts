@@ -112,6 +112,7 @@ export const baseApi = createApi({
     'VSDashboard',
     'PersonalTasks',
     'DocumentNumbering',
+    'MaterialRequirementAttachment',
       'VSCustomFieldTabs',
       'VSCustomFieldDefinitions',
       'VSCustomFieldValues',

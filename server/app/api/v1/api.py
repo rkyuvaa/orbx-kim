@@ -11,6 +11,7 @@ from app.api.v1 import (
     final_submission,
     hr,
     masters,
+    material_requirements,
     notifications,
     omnierp_webhook,
     personal_tasks,
@@ -41,6 +42,7 @@ api_router.include_router(planned_activities.router)
 api_router.include_router(notifications.router)
 api_router.include_router(push_notifications.router)
 api_router.include_router(masters.router)
+api_router.include_router(material_requirements.router)
 api_router.include_router(hr.router)
 api_router.include_router(omnierp_webhook.router)
 api_router.include_router(recruitment.router)

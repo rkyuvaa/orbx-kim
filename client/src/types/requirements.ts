@@ -86,6 +86,7 @@ export interface RequirementItem {
   project_code?: string;
   project_name?: string;
   material_items?: MaterialRequisitionItem[];
+  attachments?: AttachmentFile[];
 
   // Extended IT Requirement fields
   requester_designation?: string;
