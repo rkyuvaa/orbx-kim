@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -318,6 +318,7 @@ export default function RequirementsPage() {
   // Material requisition item lines
   const [formItems, setFormItems] = useState<MaterialRequisitionItem[]>([]);
   const [formAttachments, setFormAttachments] = useState<AttachmentFile[]>([]);
+  const attachmentFileInputRef = useRef<HTMLInputElement>(null);
 
   // Categories list
   const materialCategories = ['Raw Materials', 'Consumables', 'Safety Equipment', 'Tools & Machinery', 'Office Supplies', 'Packaging'];
@@ -383,13 +384,8 @@ export default function RequirementsPage() {
   const handleOpenCreate = async () => {
     resetForm();
     setIsCreateOpen(true);
-    const documentType = isIT ? 'it_requirement' : 'mr';
-    try {
-      const result = await generateDocumentNumber({ document_type: documentType }).unwrap();
-      setFormRequestNo(result.document_number);
-    } catch {
-      showError(`Failed to generate request number. Please configure document numbering for ${documentType}.`);
-    }
+    // Document number is generated on save, not on open, so admin changes
+    // to the current number are respected and no numbers are wasted on cancel.
   };
 
   const handleOpenEdit = async (item: RequirementItem) => {
@@ -538,6 +534,11 @@ export default function RequirementsPage() {
     e.target.value = '';
   };
 
+  // Open file dialog for attachment
+  const handleOpenAttachmentDialog = () => {
+    attachmentFileInputRef.current?.click();
+  };
+
   // Attachment delete handler
   const handleDeleteAttachment = async (attachment: AttachmentFile) => {
     if (!window.confirm(`Delete attachment "${attachment.name}"?`)) return;
@@ -573,10 +574,19 @@ export default function RequirementsPage() {
       return;
     }
 
-    const requestNo = formRequestNo.trim();
+    // Generate document number on save (respects admin changes to current number,
+    // and avoids wasting numbers if the user cancels)
+    const documentType = isIT ? 'it_requirement' : 'mr';
+    let requestNo = formRequestNo.trim();
     if (!requestNo) {
-      showError('Request number is not available yet. Please wait or reopen the form.');
-      return;
+      try {
+        const result = await generateDocumentNumber({ document_type: documentType }).unwrap();
+        requestNo = result.document_number;
+        setFormRequestNo(requestNo);
+      } catch {
+        showError(`Failed to generate request number. Please configure document numbering for ${documentType}.`);
+        return;
+      }
     }
 
     const calculatedTotal = formQuantity * formUnitCost;
@@ -1353,12 +1363,13 @@ export default function RequirementsPage() {
                       Attachment
                     </Typography>
                   </Box>
-                  <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, height: 120, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1, cursor: 'pointer', '&:hover': { borderColor: '#04552B', bgcolor: '#f0fdf4' } }}>
+                  <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, height: 120, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1, cursor: 'pointer', '&:hover': { borderColor: '#04552B', bgcolor: '#f0fdf4' } }}
+                    onClick={handleOpenAttachmentDialog}>
                     <Paperclip size={20} color="#04552B" />
                     <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', fontWeight: 600 }}>
                       Add Attachment
                     </Typography>
-                    <input type="file" hidden accept="image/*,.pdf,.doc,.docx" onChange={handleAttachmentUpload} />
+                    <input ref={attachmentFileInputRef} type="file" hidden accept="image/*,.pdf,.doc,.docx" onChange={handleAttachmentUpload} />
                   </Box>
                   {formAttachments.length > 0 && (
                     <Box sx={{ mt: 1, maxHeight: 120, overflowY: 'auto', borderTop: '1px solid', borderColor: 'divider', pt: 0.5 }}>
