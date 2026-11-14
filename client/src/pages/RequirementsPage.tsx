@@ -169,6 +169,7 @@ function RequirementRow({ item, isIT, setSelectedDetailItem, handleOpenEdit, han
       )}
       <TableCell>{item.department}</TableCell>
       <TableCell sx={{ fontSize: '0.8rem' }}>{formatDate(item.preferred_go_live_date || item.required_by_date)}</TableCell>
+      <TableCell sx={{ fontSize: '0.8rem' }}>{item.created_at ? formatDate(item.created_at) : '-'}</TableCell>
       <TableCell>{item.urgency ? <Chip label={item.urgency} size="small" variant="outlined" /> : getPriorityChip(item.priority)}</TableCell>
       <TableCell>{getStatusChip(item.status)}</TableCell>
       <TableCell align="right" onClick={(e) => e.stopPropagation()}>
@@ -278,7 +279,6 @@ export default function RequirementsPage() {
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
-  const [createdDateFilter, setCreatedDateFilter] = useState<string>('ALL');
 
   // Modal & Drawer State
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -341,14 +341,10 @@ export default function RequirementsPage() {
         if (!matchTitle && !matchId && !matchDept && !matchCat && !matchReq) return false;
       }
       if (statusFilter !== 'ALL' && item.status !== statusFilter) return false;
-      if (createdDateFilter !== 'ALL') {
-        const itemDate = item.created_at ? item.created_at.split('T')[0] : '';
-        if (itemDate !== createdDateFilter) return false;
-      }
 
       return true;
     });
-  }, [typeFiltered, searchQuery, statusFilter, createdDateFilter]);
+  }, [typeFiltered, searchQuery, statusFilter]);
 
   const { sortState, handleSort, sortData } = useTableSort<RequirementItem>();
   const sortedItems = useMemo(() => sortData(filteredItems), [filteredItems, sortData]);
@@ -868,18 +864,6 @@ export default function RequirementsPage() {
               </Select>
             </FormControl>
           </Grid>
-
-          <Grid item xs={12} sm={4} md={3}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Created Date</InputLabel>
-              <Select value={createdDateFilter} label="Created Date" onChange={(e) => setCreatedDateFilter(e.target.value)}>
-                <MenuItem value="ALL">All Dates</MenuItem>
-                {Array.from(new Set(requirements.filter(r => r.type === reqType).map(r => r.created_at.split('T')[0]))).sort().reverse().map((date) => (
-                  <MenuItem key={date} value={date}>{date}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
         </Grid>
       </Paper>
 
@@ -894,6 +878,7 @@ export default function RequirementsPage() {
               {!isIT && <ErpSortHeaderCell variant="mui" field="total_cost" label="Est. Cost (₹)" sortState={sortState} onSort={handleSort} />}
               <ErpSortHeaderCell variant="mui" field="department" label="Department" sortState={sortState} onSort={handleSort} />
               <ErpSortHeaderCell variant="mui" field="required_by_date" label={isIT ? 'Preferred Go-Live' : 'Required By'} sortState={sortState} onSort={handleSort} />
+              <ErpSortHeaderCell variant="mui" field="created_at" label="Created Date" sortState={sortState} onSort={handleSort} />
               <ErpSortHeaderCell variant="mui" field="priority" label={isIT ? 'Urgency' : 'Priority'} sortState={sortState} onSort={handleSort} />
               <ErpSortHeaderCell variant="mui" field="status" label="Status" sortState={sortState} onSort={handleSort} />
               <ErpSortHeaderCell variant="mui" label="Actions" align="right" sortable={false} />
