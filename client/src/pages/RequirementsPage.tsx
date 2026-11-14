@@ -509,8 +509,9 @@ export default function RequirementsPage() {
     const files = e.target.files;
     if (!files || files.length === 0) return;
     const requestNo = formRequestNo.trim();
-    if (!requestNo) {
-      showError('Request number is not available yet. Please wait or reopen the form.');
+    if (!requestNo || requestNo === '—') {
+      showError('Please save the request first to generate a request number before uploading attachments.');
+      e.target.value = '';
       return;
     }
     for (const f of Array.from(files)) {
