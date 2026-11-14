@@ -278,8 +278,7 @@ export default function RequirementsPage() {
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
-  const [priorityFilter, setPriorityFilter] = useState<string>('ALL');
-  const [departmentFilter, setDepartmentFilter] = useState<string>('ALL');
+  const [createdDateFilter, setCreatedDateFilter] = useState<string>('ALL');
 
   // Modal & Drawer State
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -342,12 +341,14 @@ export default function RequirementsPage() {
         if (!matchTitle && !matchId && !matchDept && !matchCat && !matchReq) return false;
       }
       if (statusFilter !== 'ALL' && item.status !== statusFilter) return false;
-      if (priorityFilter !== 'ALL' && item.priority !== priorityFilter) return false;
-      if (departmentFilter !== 'ALL' && item.department !== departmentFilter) return false;
+      if (createdDateFilter !== 'ALL') {
+        const itemDate = item.created_at ? item.created_at.split('T')[0] : '';
+        if (itemDate !== createdDateFilter) return false;
+      }
 
       return true;
     });
-  }, [typeFiltered, searchQuery, statusFilter, priorityFilter, departmentFilter]);
+  }, [typeFiltered, searchQuery, statusFilter, createdDateFilter]);
 
   const { sortState, handleSort, sortData } = useTableSort<RequirementItem>();
   const sortedItems = useMemo(() => sortData(filteredItems), [filteredItems, sortData]);
@@ -868,30 +869,14 @@ export default function RequirementsPage() {
             </FormControl>
           </Grid>
 
-          <Grid item xs={12} sm={4} md={2.5}>
-            <FormControl fullWidth size="small">
-              <InputLabel>{isIT ? 'Urgency / Priority' : 'Priority'}</InputLabel>
-              <Select value={priorityFilter} label="Priority" onChange={(e) => setPriorityFilter(e.target.value)}>
-                <MenuItem value="ALL">All Priorities</MenuItem>
-                <MenuItem value="CRITICAL">ASAP / Critical</MenuItem>
-                <MenuItem value="HIGH">High / Within 2 Weeks</MenuItem>
-                <MenuItem value="MEDIUM">Medium / Within 1 Month</MenuItem>
-                <MenuItem value="LOW">Low / Can Wait</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-
           <Grid item xs={12} sm={4} md={3}>
             <FormControl fullWidth size="small">
-              <InputLabel>Department</InputLabel>
-              <Select value={departmentFilter} label="Department" onChange={(e) => setDepartmentFilter(e.target.value)}>
-                <MenuItem value="ALL">All Departments</MenuItem>
-                <MenuItem value="Operations">Operations</MenuItem>
-                <MenuItem value="IT">IT & Infrastructure</MenuItem>
-                <MenuItem value="Engineering">Engineering</MenuItem>
-                <MenuItem value="Finance">Finance</MenuItem>
-                <MenuItem value="HR">HR & Admin</MenuItem>
-                <MenuItem value="Sales">Sales & Marketing</MenuItem>
+              <InputLabel>Created Date</InputLabel>
+              <Select value={createdDateFilter} label="Created Date" onChange={(e) => setCreatedDateFilter(e.target.value)}>
+                <MenuItem value="ALL">All Dates</MenuItem>
+                {Array.from(new Set(requirements.filter(r => r.type === reqType).map(r => r.created_at.split('T')[0]))).sort().reverse().map((date) => (
+                  <MenuItem key={date} value={date}>{date}</MenuItem>
+                ))}
               </Select>
             </FormControl>
           </Grid>
