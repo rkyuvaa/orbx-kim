@@ -384,8 +384,13 @@ export default function RequirementsPage() {
   const handleOpenCreate = async () => {
     resetForm();
     setIsCreateOpen(true);
-    // Document number is generated on save, not on open, so admin changes
-    // to the current number are respected and no numbers are wasted on cancel.
+    const documentType = isIT ? 'it_requirement' : 'mr';
+    try {
+      const result = await generateDocumentNumber({ document_type: documentType }).unwrap();
+      setFormRequestNo(result.document_number);
+    } catch {
+      showError(`Failed to generate request number. Please configure document numbering for ${documentType}.`);
+    }
   };
 
   const handleOpenEdit = async (item: RequirementItem) => {
@@ -574,19 +579,16 @@ export default function RequirementsPage() {
       return;
     }
 
-    // Generate document number on save (respects admin changes to current number,
-    // and avoids wasting numbers if the user cancels)
+    // Generate document number on save (respects admin changes to current number)
     const documentType = isIT ? 'it_requirement' : 'mr';
     let requestNo = formRequestNo.trim();
-    if (!requestNo) {
-      try {
-        const result = await generateDocumentNumber({ document_type: documentType }).unwrap();
-        requestNo = result.document_number;
-        setFormRequestNo(requestNo);
-      } catch {
-        showError(`Failed to generate request number. Please configure document numbering for ${documentType}.`);
-        return;
-      }
+    try {
+      const result = await generateDocumentNumber({ document_type: documentType }).unwrap();
+      requestNo = result.document_number;
+      setFormRequestNo(requestNo);
+    } catch {
+      showError(`Failed to generate request number. Please configure document numbering for ${documentType}.`);
+      return;
     }
 
     const calculatedTotal = formQuantity * formUnitCost;
