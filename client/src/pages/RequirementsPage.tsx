@@ -1035,33 +1035,6 @@ export default function RequirementsPage() {
                 </Grid>
 
                 <Grid item xs={12} sm={6} md={3}>
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">
-                      Requested Date
-                    </Typography>
-                    <Box
-                      sx={{
-                        border: '1px solid',
-                        borderColor: 'divider',
-                        borderRadius: 1,
-                        height: 40,
-                        px: 1.25,
-                        display: 'flex',
-                        alignItems: 'center',
-                        '&:hover': { borderColor: 'text.primary' },
-                      }}
-                    >
-                      <StandardDateInput
-                        value={formRequiredByDate}
-                        onChange={(value) => setFormRequiredByDate(value || '')}
-                        placeholder="dd-mm-yyyy"
-                        sx={{ width: '100%', py: 0 }}
-                      />
-                    </Box>
-                  </Box>
-                </Grid>
-
-                <Grid item xs={12} sm={6} md={3}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1112,6 +1085,33 @@ export default function RequirementsPage() {
                     value={formProjectName}
                     onChange={(e) => setFormProjectName(e.target.value)}
                   />
+                </Grid>
+
+                <Grid item xs={12} sm={6} md={3}>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Requested Date
+                    </Typography>
+                    <Box
+                      sx={{
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        borderRadius: 1,
+                        height: 40,
+                        px: 1.25,
+                        display: 'flex',
+                        alignItems: 'center',
+                        '&:hover': { borderColor: 'text.primary' },
+                      }}
+                    >
+                      <StandardDateInput
+                        value={formRequiredByDate}
+                        onChange={(value) => setFormRequiredByDate(value || '')}
+                        placeholder="dd-mm-yyyy"
+                        sx={{ width: '100%', py: 0 }}
+                      />
+                    </Box>
+                  </Box>
                 </Grid>
               </Grid>
 
