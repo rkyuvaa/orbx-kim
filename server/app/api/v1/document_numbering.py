@@ -196,6 +196,7 @@ def generate_document_number(
         default_name="Material / Service Requisition",
         default_description="Auto-generated material & service request numbers",
     )
+    db.commit()
     return {"document_type": document_type, "document_number": number}
 
 
