@@ -138,6 +138,7 @@ export default function App() {
                 <Route path="/requirements" element={<Navigate to="/requirements/material" replace />} />
                 <Route path="/requirements/material" element={<RequirementsPage />} />
                 <Route path="/requirements/it" element={<RequirementsPage />} />
+                <Route path="/requirements/configuration" element={<ConfigurationPage />} />
                 
                 {/* KIM - Policy & Compliance */}
                 <Route path="/compliance" element={<Navigate to="/compliance/policies" replace />} />

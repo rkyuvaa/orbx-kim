@@ -160,6 +160,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
         children: [
           { key: 'req_material', label: 'Material Requirement', path: '/requirements/material', icon: Package, badge: null },
           { key: 'req_it', label: 'IT Requirement', path: '/requirements/it', icon: Laptop, badge: null },
+          { key: 'req_configuration', label: 'Requirements Configuration', path: '/requirements/configuration', icon: Settings2, badge: null },
         ],
       },
       {
