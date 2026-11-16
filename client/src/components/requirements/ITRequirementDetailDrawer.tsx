@@ -28,6 +28,7 @@ import {
   AlertTriangle,
   Download,
   Trash2,
+  Printer,
   Edit3,
   ShieldCheck,
   ArrowRight,
@@ -494,6 +495,15 @@ export default function ITRequirementDetailDrawer({
                   Delete
                 </Button>
               )}
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<Printer size={16} />}
+                onClick={() => window.print()}
+                sx={{ textTransform: 'none', fontWeight: 600 }}
+              >
+                Print
+              </Button>
             </Box>
           </Box>
         </Box>

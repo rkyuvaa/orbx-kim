@@ -48,6 +48,7 @@ import {
   MoreVertical,
   Paperclip,
   Calendar,
+  Printer,
 } from 'lucide-react';
 import { useTableSort } from '../hooks/useTableSort';
 import ErpSortHeaderCell from '../components/ui/ErpSortHeaderCell';
@@ -1619,6 +1620,15 @@ export default function RequirementsPage() {
                     Delete
                   </Button>
                 )}
+                <Button
+                  variant="outlined"
+                  fullWidth
+                  startIcon={<Printer size={16} />}
+                  onClick={() => window.print()}
+                  sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600 }}
+                >
+                  Print
+                </Button>
               </Box>
             </Box>
           )}
