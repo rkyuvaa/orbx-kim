@@ -42,6 +42,10 @@ interface ITRequirementDetailDrawerProps {
   onEdit: (item: RequirementItem) => void;
   onDelete: (id: string) => void;
   onUpdateStatus: (id: string, newStatus: string, rejectionReason?: string) => void;
+  canEdit: boolean;
+  canDelete: boolean;
+  canApprove: boolean;
+  loggedUser: { full_name: string } | null;
 }
 
 export default function ITRequirementDetailDrawer({
@@ -51,6 +55,10 @@ export default function ITRequirementDetailDrawer({
   onEdit,
   onDelete,
   onUpdateStatus,
+  canEdit,
+  canDelete,
+  canApprove,
+  loggedUser,
 }: ITRequirementDetailDrawerProps) {
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [rejectionReasonInput, setRejectionReasonInput] = useState('');
@@ -423,7 +431,7 @@ export default function ITRequirementDetailDrawer({
           {/* Action Bar */}
           <Divider sx={{ my: 2 }} />
           <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
-            {item.status !== 'REJECTED' && item.status !== 'COMPLETED' && (
+            {canApprove && item.status !== 'REJECTED' && item.status !== 'COMPLETED' && (
               <>
                 <Button
                   variant="contained"
@@ -460,28 +468,32 @@ export default function ITRequirementDetailDrawer({
             )}
 
             <Box sx={{ ml: 'auto', display: 'flex', gap: 1 }}>
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<Edit3 size={16} />}
-                onClick={() => {
-                  onClose();
-                  onEdit(item);
-                }}
-                sx={{ textTransform: 'none', fontWeight: 600 }}
-              >
-                Edit
-              </Button>
-              <Button
-                variant="outlined"
-                color="error"
-                size="small"
-                startIcon={<Trash2 size={16} />}
-                onClick={() => onDelete(item.id)}
-                sx={{ textTransform: 'none', fontWeight: 600 }}
-              >
-                Delete
-              </Button>
+              {canEdit && (
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<Edit3 size={16} />}
+                  onClick={() => {
+                    onClose();
+                    onEdit(item);
+                  }}
+                  sx={{ textTransform: 'none', fontWeight: 600 }}
+                >
+                  Edit
+                </Button>
+              )}
+              {canDelete && (
+                <Button
+                  variant="outlined"
+                  color="error"
+                  size="small"
+                  startIcon={<Trash2 size={16} />}
+                  onClick={() => onDelete(item.id)}
+                  sx={{ textTransform: 'none', fontWeight: 600 }}
+                >
+                  Delete
+                </Button>
+              )}
             </Box>
           </Box>
         </Box>

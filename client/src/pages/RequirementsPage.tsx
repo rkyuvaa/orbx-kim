@@ -315,6 +315,13 @@ export default function RequirementsPage() {
   const isIT = location.pathname.includes('/requirements/it');
   const reqType: 'MATERIAL' | 'IT' = isIT ? 'IT' : 'MATERIAL';
 
+  // RBAC permission checks for main component (used in Detail Drawer)
+  const resourceCode = isIT ? 'req_it' : 'req_material';
+  const canView = isSuperAdmin || can('view', resourceCode);
+  const canEdit = isSuperAdmin || can('edit', resourceCode);
+  const canDelete = isSuperAdmin || can('delete', resourceCode);
+  const canApprove = isSuperAdmin || can('approve', resourceCode);
+
   const [requirements, setRequirements] = useDatabaseStoredState<RequirementItem[]>(
     'crm_requirements_items_data',
     [],
@@ -1020,6 +1027,10 @@ export default function RequirementsPage() {
           onEdit={handleOpenEdit}
           onDelete={handleDeleteItem}
           onUpdateStatus={handleUpdateStatus}
+          canEdit={canEdit}
+          canDelete={canDelete}
+          canApprove={canApprove}
+          loggedUser={loggedUser}
         />
       )}
 
@@ -1581,29 +1592,33 @@ export default function RequirementsPage() {
                 )}
 
               <Box sx={{ mt: 'auto', pt: 2, display: 'flex', gap: 1.5 }}>
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  startIcon={<Edit3 size={16} />}
-                  onClick={() => {
-                    const item = selectedDetailItem;
-                    setSelectedDetailItem(null);
-                    handleOpenEdit(item);
-                  }}
-                  sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600 }}
-                >
-                  Edit Requisition
-                </Button>
-                <Button
-                  variant="contained"
-                  color="error"
-                  fullWidth
-                  startIcon={<Trash2 size={16} />}
-                  onClick={() => handleDeleteItem(selectedDetailItem.id)}
-                  sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600 }}
-                >
-                  Delete
-                </Button>
+                {canEdit && (
+                  <Button
+                    variant="outlined"
+                    fullWidth
+                    startIcon={<Edit3 size={16} />}
+                    onClick={() => {
+                      const item = selectedDetailItem;
+                      setSelectedDetailItem(null);
+                      handleOpenEdit(item);
+                    }}
+                    sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600 }}
+                  >
+                    Edit Requisition
+                  </Button>
+                )}
+                {canDelete && (
+                  <Button
+                    variant="contained"
+                    color="error"
+                    fullWidth
+                    startIcon={<Trash2 size={16} />}
+                    onClick={() => handleDeleteItem(selectedDetailItem.id)}
+                    sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600 }}
+                  >
+                    Delete
+                  </Button>
+                )}
               </Box>
             </Box>
           )}
