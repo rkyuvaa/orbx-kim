@@ -13,6 +13,7 @@ import {
   Ruler,
   Settings2,
   MessageSquare,
+  Briefcase,
 } from 'lucide-react';
 
 import { useAppSelector } from '@/app/hooks';
@@ -29,6 +30,7 @@ import DepartmentManagementPage from '@/pages/admin/DepartmentManagementPage';
 import BranchManagementPage from '@/pages/admin/BranchManagementPage';
 import PermissionRegistryPage from '@/pages/admin/PermissionRegistryPage';
 import AccessAuditLogPage from '@/pages/admin/AccessAuditLogPage';
+import CompanyConfigurationPage from '@/pages/CompanyConfigurationPage';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -62,6 +64,7 @@ export default function SettingsPage() {
   const canBranches = isSuperAdmin || can('view', 'departments');
   const canBackup = isSuperAdmin;
   const canCustomFields = isSuperAdmin || can('manage', 'custom_fields');
+  const canCompanyConfig = isSuperAdmin || can('manage', 'settings');
 
   const tabs: { key: string; label: string; icon: React.ReactNode }[] = [];
 
@@ -78,6 +81,9 @@ export default function SettingsPage() {
   tabs.push({ key: 'units', label: 'Units of Measure', icon: <Ruler size={16} /> });
   if (canCustomFields) {
     tabs.push({ key: 'custom_fields', label: 'Custom Fields', icon: <Settings2 size={16} /> });
+  }
+  if (canCompanyConfig) {
+    tabs.push({ key: 'company_config', label: 'Company Configuration', icon: <Briefcase size={16} /> });
   }
   tabs.push({ key: 'mail', label: 'Mail Server (SMTP)', icon: <Mail size={16} /> });
   tabs.push({ key: 'sms', label: 'SMS Gateway (TextGuru)', icon: <MessageSquare size={16} /> });
@@ -206,6 +212,8 @@ export default function SettingsPage() {
           )}
 
                     {t.key === 'custom_fields' && <CustomFieldsAdminCard />}
+
+                    {t.key === 'company_config' && <CompanyConfigurationPage />}
 
                     {t.key === 'mail' && <MailServerConfigCard />}
 
