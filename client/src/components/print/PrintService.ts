@@ -4,19 +4,60 @@ import MaterialRequisitionPrint from './MaterialRequisitionPrint';
 import ITRequirementPrint from './ITRequirementPrint';
 import { RequirementItem } from '@/types/requirements';
 
+interface CompanyConfig {
+  company_name?: string;
+  legal_name?: string;
+  tagline?: string;
+  address_line1?: string;
+  address_line2?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  country?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  gstin?: string;
+  pan?: string;
+  cin?: string;
+  bank_name?: string;
+  bank_account_number?: string;
+  bank_ifsc?: string;
+  bank_branch?: string;
+  logo_base64?: string;
+  logo_mime_type?: string;
+}
+
 interface PrintServiceOptions {
   item: RequirementItem;
+  companyConfig?: CompanyConfig;
   onPrintComplete?: () => void;
 }
 
-export function printMaterialRequisition({ item, onPrintComplete }: PrintServiceOptions) {
+// Fetch company configuration from the API
+async function fetchCompanyConfig(): Promise<CompanyConfig> {
+  try {
+    const response = await fetch('/api/v1/app-data/company_configuration');
+    if (!response.ok) {
+      console.warn('Failed to fetch company configuration');
+      return {};
+    }
+    const data = await response.json();
+    return (data.value as CompanyConfig) || {};
+  } catch (error) {
+    console.warn('Error fetching company configuration:', error);
+    return {};
+  }
+}
+
+export async function printMaterialRequisition({ item, companyConfig, onPrintComplete }: PrintServiceOptions) {
   // Create a new window for printing
   const printWindow = window.open('', '_blank', 'width=1200,height=900,scrollbars=yes');
   
   if (!printWindow) {
     console.error('Failed to open print window - popup blocked?');
     // Fallback to direct print
-    printDirectly(() => React.createElement(MaterialRequisitionPrint, { item }));
+    printDirectly(() => React.createElement(MaterialRequisitionPrint, { item, companyConfig }));
     onPrintComplete?.();
     return;
   }
@@ -25,15 +66,7 @@ export function printMaterialRequisition({ item, onPrintComplete }: PrintService
   const html = ReactDOMServer.renderToStaticMarkup(
     React.createElement(MaterialRequisitionPrint, { 
       item,
-      onPrintReady: () => {
-        printWindow.focus();
-        printWindow.print();
-        // Close window after print dialog
-        printWindow.onafterprint = () => {
-          printWindow.close();
-          onPrintComplete?.();
-        };
-      }
+      companyConfig,
     })
   );
 
@@ -69,6 +102,12 @@ export function printMaterialRequisition({ item, onPrintComplete }: PrintService
   `);
   printWindow.document.close();
 
+  // Auto-trigger print
+  setTimeout(() => {
+    printWindow.focus();
+    printWindow.print();
+  }, 100);
+
   // Handle window close
   printWindow.onafterprint = () => {
     printWindow.close();
@@ -83,12 +122,12 @@ export function printMaterialRequisition({ item, onPrintComplete }: PrintService
   }, 30000);
 }
 
-export function printITRequirement({ item, onPrintComplete }: PrintServiceOptions) {
+export async function printITRequirement({ item, companyConfig, onPrintComplete }: PrintServiceOptions) {
   const printWindow = window.open('', '_blank', 'width=1200,height=900,scrollbars=yes');
   
   if (!printWindow) {
     console.error('Failed to open print window - popup blocked?');
-    printDirectly(() => React.createElement(ITRequirementPrint, { item }));
+    printDirectly(() => React.createElement(ITRequirementPrint, { item, companyConfig }));
     onPrintComplete?.();
     return;
   }
@@ -96,14 +135,7 @@ export function printITRequirement({ item, onPrintComplete }: PrintServiceOption
   const html = ReactDOMServer.renderToStaticMarkup(
     React.createElement(ITRequirementPrint, { 
       item,
-      onPrintReady: () => {
-        printWindow.focus();
-        printWindow.print();
-        printWindow.onafterprint = () => {
-          printWindow.close();
-          onPrintComplete?.();
-        };
-      }
+      companyConfig,
     })
   );
 
@@ -137,6 +169,12 @@ export function printITRequirement({ item, onPrintComplete }: PrintServiceOption
     </html>
   `);
   printWindow.document.close();
+
+  // Auto-trigger print
+  setTimeout(() => {
+    printWindow.focus();
+    printWindow.print();
+  }, 100);
 
   printWindow.onafterprint = () => {
     printWindow.close();
@@ -172,10 +210,13 @@ function printDirectly(renderFn: () => React.ReactElement) {
   });
 }
 
-export function printRequirement(item: RequirementItem, onPrintComplete?: () => void) {
+export async function printRequirement(item: RequirementItem, onPrintComplete?: () => void) {
+  // Fetch company configuration first
+  const companyConfig = await fetchCompanyConfig();
+  
   if (item.type === 'MATERIAL') {
-    printMaterialRequisition({ item, onPrintComplete });
+    await printMaterialRequisition({ item, companyConfig, onPrintComplete });
   } else {
-    printITRequirement({ item, onPrintComplete });
+    await printITRequirement({ item, companyConfig, onPrintComplete });
   }
 }

@@ -2,11 +2,11 @@ import React from 'react';
 import { Box, Typography, Divider, Grid, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
 import { RequirementItem, AttachmentFile } from '@/types/requirements';
 import { formatDate } from '@/utils/format';
-import PrintLayout from './PrintLayout';
+import PrintLayout, { type CompanyConfig } from './PrintLayout';
 
 interface ITRequirementPrintProps {
   item: RequirementItem;
-  onPrintReady?: () => void;
+  companyConfig?: CompanyConfig;
 }
 
 const COLORS = {
@@ -59,7 +59,7 @@ const getStatusColor = (status: string) => {
   }
 };
 
-export default function ITRequirementPrint({ item, onPrintReady }: ITRequirementPrintProps) {
+export default function ITRequirementPrint({ item, companyConfig }: ITRequirementPrintProps) {
   const renderHeaderInfo = () => (
     <Grid container spacing={2} sx={{ mb: 2 }}>
       <Grid item xs={6}>
@@ -480,7 +480,7 @@ export default function ITRequirementPrint({ item, onPrintReady }: ITRequirement
     <PrintLayout
       title="IT Requirement"
       subtitle={item.title}
-      onPrintReady={onPrintReady}
+        companyConfig={companyConfig}
     >
       {renderHeaderInfo()}
       {renderMockupSection()}

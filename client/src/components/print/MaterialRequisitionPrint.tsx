@@ -2,11 +2,11 @@ import React from 'react';
 import { Box, Typography, Divider, Grid, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper } from '@mui/material';
 import { RequirementItem, MaterialRequisitionItem } from '@/types/requirements';
 import { formatDate } from '@/utils/format';
-import PrintLayout from './PrintLayout';
+import PrintLayout, { type CompanyConfig } from './PrintLayout';
 
 interface MaterialRequisitionPrintProps {
   item: RequirementItem;
-  onPrintReady?: () => void;
+  companyConfig?: CompanyConfig;
 }
 
 const COLORS = {
@@ -18,7 +18,7 @@ const COLORS = {
   headerBg: '#f0f4f0',
 };
 
-export default function MaterialRequisitionPrint({ item, onPrintReady }: MaterialRequisitionPrintProps) {
+export default function MaterialRequisitionPrint({ item, companyConfig }: MaterialRequisitionPrintProps) {
   const materialItems = item.material_items || [];
   const totalAmount = materialItems.reduce((sum, row) => sum + (row.amount || 0), 0);
 
@@ -287,7 +287,7 @@ export default function MaterialRequisitionPrint({ item, onPrintReady }: Materia
     <PrintLayout
       title="Material Requisition"
       subtitle={item.title}
-      onPrintReady={onPrintReady}
+        companyConfig={companyConfig}
     >
       {renderHeaderInfo()}
       <Divider sx={{ mb: 2, borderColor: COLORS.accent, borderWidth: 2 }} />

@@ -1207,13 +1207,13 @@ export default function RequirementsPage() {
                     getOptionLabel={(opt) => opt.label}
                     value={costCentreOptions.find(opt => opt.value === formCostCentre) || null}
                     onChange={(_, value) => setFormCostCentre(value?.value || '')}
-                    placeholder="Select cost centre"
                     renderInput={(params) => (
                       <TextField
                         {...params}
                         fullWidth
                         size="small"
                         label="Cost Centre"
+                        placeholder="Select cost centre"
                       />
                     )}
                   />
