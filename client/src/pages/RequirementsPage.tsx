@@ -313,6 +313,7 @@ export default function RequirementsPage() {
     useListMaterialRequirementAttachmentsQuery(formRequestNo || '__none__');
   const [deleteAttachment] = useDeleteMaterialRequirementAttachmentMutation();
   const [formProjectName, setFormProjectName] = useState('');
+  const [formCostCentre, setFormCostCentre] = useState('');
 
   // Material requisition item lines
   const [formItems, setFormItems] = useState<MaterialRequisitionItem[]>([]);
@@ -372,6 +373,7 @@ export default function RequirementsPage() {
     setFormVendorSuggestion('');
     setFormProjectCode('');
     setFormProjectName('');
+    setFormCostCentre('');
     setFormRequestNo('');
     setFormNotes('');
     setFormAttachments([]);
@@ -408,6 +410,7 @@ export default function RequirementsPage() {
       setFormApprover(item.approver || '');
       setFormProjectCode(item.project_code || '');
       setFormProjectName(item.project_name || '');
+      setFormCostCentre(item.cost_centre || '');
       setFormItems(item.material_items || []);
     }
     setIsCreateOpen(true);
@@ -614,6 +617,7 @@ export default function RequirementsPage() {
                 approver: formApprover,
                 project_code: formProjectCode.trim() || undefined,
                 project_name: formProjectName.trim() || undefined,
+                cost_centre: formCostCentre.trim() || undefined,
                 material_items: formItems,
                 attachments: formAttachments,
               }
@@ -654,6 +658,7 @@ export default function RequirementsPage() {
         approver: formApprover,
         project_code: formProjectCode.trim() || undefined,
         project_name: formProjectName.trim() || undefined,
+        cost_centre: formCostCentre.trim() || undefined,
         material_items: formItems,
         attachments: formAttachments,
         created_at: new Date().toISOString(),
@@ -1116,6 +1121,17 @@ export default function RequirementsPage() {
                     label="Project Name"
                     value={formProjectName}
                     onChange={(e) => setFormProjectName(e.target.value)}
+                  />
+                </Grid>
+
+                <Grid item xs={12} sm={6} md={3}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Cost Centre"
+                    value={formCostCentre}
+                    onChange={(e) => setFormCostCentre(e.target.value)}
+                    placeholder="Select or type cost centre"
                   />
                 </Grid>
 

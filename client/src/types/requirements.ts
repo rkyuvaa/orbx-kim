@@ -85,6 +85,7 @@ export interface RequirementItem {
   approver?: string;
   project_code?: string;
   project_name?: string;
+  cost_centre?: string;
   material_items?: MaterialRequisitionItem[];
   attachments?: AttachmentFile[];
 

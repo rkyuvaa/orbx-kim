@@ -41,6 +41,7 @@ export default function ConfigurationPage() {
           <Tab label="Stages" />
           <Tab label="Activity Types" />
           <Tab label="Stage Auto-Move Rules" />
+          <Tab label="Cost Centre" />
           <Tab label="Fuel Types" />
           <Tab label="Customer Statuses" />
           <Tab label="Sources" />
@@ -57,6 +58,15 @@ export default function ConfigurationPage() {
       {tab === 5 && <StageAutomovePanel />}
       {tab === 6 && (
         <DropdownOptionsPanel
+          category="cost_centre"
+          title="Cost Centre"
+          singularTitle="Cost Centre"
+          description="Configurable cost centres for material/service requisitions and project budgeting."
+          placeholder="e.g. CC-100 Manufacturing"
+        />
+      )}
+      {tab === 7 && (
+        <DropdownOptionsPanel
           category="fuel_type"
           title="Fuel Types"
           singularTitle="Fuel Type"
@@ -64,7 +74,7 @@ export default function ConfigurationPage() {
           placeholder="e.g. Electric"
         />
       )}
-      {tab === 7 && (
+      {tab === 8 && (
         <DropdownOptionsPanel
           category="customer_status"
           title="Customer Statuses"
@@ -73,7 +83,7 @@ export default function ConfigurationPage() {
           placeholder="e.g. Hot"
         />
       )}
-      {tab === 8 && (
+      {tab === 9 && (
         <DropdownOptionsPanel
           category="lead_source"
           title="Lead Sources"
@@ -82,7 +92,7 @@ export default function ConfigurationPage() {
           placeholder="e.g. Walk-in"
         />
       )}
-      {tab === 9 && (
+      {tab === 10 && (
         <DropdownOptionsPanel
           category="lost_reason"
           title="Lost Reasons"
@@ -91,7 +101,7 @@ export default function ConfigurationPage() {
           placeholder="e.g. Price Too High"
         />
       )}
-      {tab === 10 && (
+      {tab === 11 && (
         <DropdownOptionsPanel
           category="complaint_category"
           title="Complaint Categories"
