@@ -41,7 +41,6 @@ export default function ConfigurationPage() {
           <Tab label="Stages" />
           <Tab label="Activity Types" />
           <Tab label="Stage Auto-Move Rules" />
-          <Tab label="Cost Centre" />
           <Tab label="Fuel Types" />
           <Tab label="Customer Statuses" />
           <Tab label="Sources" />

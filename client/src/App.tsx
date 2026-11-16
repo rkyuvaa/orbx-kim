@@ -24,6 +24,7 @@ import MyTasksPage from '@/pages/MyTasksPage';
 import RenewalTrackerPage from '@/pages/RenewalTrackerPage';
 import VehicleServicePage from '@/pages/VehicleServicePage';
 import RequirementsPage from '@/pages/RequirementsPage';
+import RequirementsConfigurationPage from '@/pages/RequirementsConfigurationPage';
 import PolicyCompliancePage from '@/pages/PolicyCompliancePage';
 import GenericStagePage from '@/pages/GenericStagePage';
 import ReportsPage from '@/pages/ReportsPage';
@@ -138,7 +139,7 @@ export default function App() {
                 <Route path="/requirements" element={<Navigate to="/requirements/material" replace />} />
                 <Route path="/requirements/material" element={<RequirementsPage />} />
                 <Route path="/requirements/it" element={<RequirementsPage />} />
-                <Route path="/requirements/configuration" element={<ConfigurationPage />} />
+                                <Route path="/requirements/configuration" element={<RequirementsConfigurationPage />} />
                 
                 {/* KIM - Policy & Compliance */}
                 <Route path="/compliance" element={<Navigate to="/compliance/policies" replace />} />
