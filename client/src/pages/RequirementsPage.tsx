@@ -28,6 +28,7 @@ import {
   Drawer,
   Divider,
   Menu,
+  Autocomplete,
 } from '@mui/material';
 import {
   ClipboardList,
@@ -314,6 +315,9 @@ export default function RequirementsPage() {
   const [deleteAttachment] = useDeleteMaterialRequirementAttachmentMutation();
   const [formProjectName, setFormProjectName] = useState('');
   const [formCostCentre, setFormCostCentre] = useState('');
+
+  // Fetch cost centres from dropdown options
+  const { data: costCentreOptions = [] } = useDropdownOptionsQuery('cost_centre');
 
   // Material requisition item lines
   const [formItems, setFormItems] = useState<MaterialRequisitionItem[]>([]);
@@ -1125,13 +1129,21 @@ export default function RequirementsPage() {
                 </Grid>
 
                 <Grid item xs={12} sm={6} md={3}>
-                  <TextField
+                  <Autocomplete
                     fullWidth
                     size="small"
-                    label="Cost Centre"
+                    options={costCentreOptions.map(opt => opt.value)}
                     value={formCostCentre}
-                    onChange={(e) => setFormCostCentre(e.target.value)}
-                    placeholder="Select or type cost centre"
+                    onChange={(_, value) => setFormCostCentre(value || '')}
+                    placeholder="Select cost centre"
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        fullWidth
+                        size="small"
+                        label="Cost Centre"
+                      />
+                    )}
                   />
                 </Grid>
 
