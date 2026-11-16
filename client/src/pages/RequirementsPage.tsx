@@ -56,7 +56,9 @@ import { formatDate } from '@/utils/format';
 import { useAppDispatch, useAppSelector } from '../app/hooks';
 import { RequirementItem, MaterialRequisitionItem, AttachmentFile } from '@/types/requirements';
 import ITRequirementFormModal from '@/components/requirements/ITRequirementFormModal';
-import ITRequirementDetailDrawer from '@/components/requirements/ITRequirementDetailDrawer';import { useDatabaseStoredState } from '@/hooks/useDatabaseStoredState';
+import ITRequirementDetailDrawer from '@/components/requirements/ITRequirementDetailDrawer';
+import { usePermission } from '@/context/AuthPermissionContext';
+import { useDatabaseStoredState } from '@/hooks/useDatabaseStoredState';
 import {
   useGenerateDocumentNumberMutation,
   usePreviewDocumentNumberMutation,
@@ -129,9 +131,11 @@ interface RequirementRowProps {
   handleDeleteItem: (id: string) => void;
   handleUpdateStatus: (id: string, newStatus: string, rejectionReason?: string) => void;
   loggedUser: { full_name: string } | null;
+  can: (action: string, resource: string) => boolean;
+  isSuperAdmin: boolean;
 }
 
-function RequirementRow({ item, isIT, setSelectedDetailItem, handleOpenEdit, handleDeleteItem, handleUpdateStatus, loggedUser }: RequirementRowProps) {
+function RequirementRow({ item, isIT, setSelectedDetailItem, handleOpenEdit, handleDeleteItem, handleUpdateStatus, loggedUser, can, isSuperAdmin }: RequirementRowProps) {
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
 
@@ -171,9 +175,16 @@ function RequirementRow({ item, isIT, setSelectedDetailItem, handleOpenEdit, han
 
   const isApprover = loggedUser?.full_name === item.approver;
   const canApproveReject = (item.status === 'SUBMITTED' || item.status === 'MANAGER_APPROVAL') && isApprover;
+  
+  // RBAC permission checks
+  const resourceCode = isIT ? 'req_it' : 'req_material';
+  const canView = isSuperAdmin || can('view', resourceCode);
+  const canEdit = isSuperAdmin || can('edit', resourceCode);
+  const canDelete = isSuperAdmin || can('delete', resourceCode);
+  const canApprove = isSuperAdmin || can('approve', resourceCode);
 
   return (
-    <TableRow key={item.id} hover sx={{ cursor: 'pointer' }} onClick={() => setSelectedDetailItem(item)}>
+    <TableRow key={item.id} hover sx={{ cursor: canView ? 'pointer' : 'default' }} onClick={canView ? () => setSelectedDetailItem(item) : undefined}>
       <TableCell sx={{ fontWeight: 600 }}>{item.title}</TableCell>
       <TableCell sx={{ fontSize: '0.85rem', color: 'text.secondary' }}>{item.requester_name || item.requested_by || '-'}</TableCell>
       {!isIT && (
@@ -203,13 +214,17 @@ function RequirementRow({ item, isIT, setSelectedDetailItem, handleOpenEdit, han
           anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
           transformOrigin={{ vertical: 'top', horizontal: 'right' }}
         >
-          <MenuItem onClick={handleView} dense sx={{ py: 1, fontSize: '0.8rem' }}>
-            <Box sx={{ mr: 1, display: 'inline-flex' }}><Eye size={14} /></Box> View
-          </MenuItem>
-          <MenuItem onClick={handleEdit} dense sx={{ py: 1, fontSize: '0.8rem', color: '#2563EB' }}>
-            <Box sx={{ mr: 1, display: 'inline-flex' }}><Edit3 size={14} /></Box> Edit
-          </MenuItem>
-          {canApproveReject && (
+          {canView && (
+            <MenuItem onClick={handleView} dense sx={{ py: 1, fontSize: '0.8rem' }}>
+              <Box sx={{ mr: 1, display: 'inline-flex' }}><Eye size={14} /></Box> View
+            </MenuItem>
+          )}
+          {canEdit && (
+            <MenuItem onClick={handleEdit} dense sx={{ py: 1, fontSize: '0.8rem', color: '#2563EB' }}>
+              <Box sx={{ mr: 1, display: 'inline-flex' }}><Edit3 size={14} /></Box> Edit
+            </MenuItem>
+          )}
+          {canApprove && canApproveReject && (
             <>
               <MenuItem onClick={handleApprove} dense sx={{ py: 1, fontSize: '0.8rem', color: '#15803D' }}>
                 <Box sx={{ mr: 1, display: 'inline-flex' }}><CheckCircle2 size={14} /></Box> Approve
@@ -219,9 +234,11 @@ function RequirementRow({ item, isIT, setSelectedDetailItem, handleOpenEdit, han
               </MenuItem>
             </>
           )}
-          <MenuItem onClick={handleDelete} dense sx={{ py: 1, fontSize: '0.8rem', color: '#DC2626' }}>
-            <Box sx={{ mr: 1, display: 'inline-flex' }}><Trash2 size={14} /></Box> Delete
-          </MenuItem>
+          {canDelete && (
+            <MenuItem onClick={handleDelete} dense sx={{ py: 1, fontSize: '0.8rem', color: '#DC2626' }}>
+              <Box sx={{ mr: 1, display: 'inline-flex' }}><Trash2 size={14} /></Box> Delete
+            </MenuItem>
+          )}
         </Menu>
       </TableCell>
     </TableRow>
@@ -236,6 +253,7 @@ export default function RequirementsPage() {
   const dispatch = useAppDispatch();
   const { data: meUser } = useMeQuery();
   const { data: allUsers = [], isLoading: usersLoading } = useGetAllUsersQuery();
+  const { can, isSuperAdmin } = usePermission();
   const { data: configuredUoms = [], isLoading: uomsLoading } =
     useDropdownOptionsQuery('unit_of_measure');
   const uomOptions = useMemo(
@@ -789,17 +807,19 @@ export default function RequirementsPage() {
         </Box>
 
         {/* Action Buttons */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
-          <Button
-            variant="contained"
-            size="small"
-            startIcon={<Plus size={16} />}
-            onClick={handleOpenCreate}
-            sx={{ bgcolor: '#04552B', '&:hover': { bgcolor: '#034120' }, borderRadius: '8px', textTransform: 'none', fontWeight: 600, px: 2 }}
-          >
-            {isIT ? 'New Request' : 'New Requisition'}
-          </Button>
-        </Box>
+        {can('create', isIT ? 'req_it' : 'req_material') && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<Plus size={16} />}
+              onClick={handleOpenCreate}
+              sx={{ bgcolor: '#04552B', '&:hover': { bgcolor: '#034120' }, borderRadius: '8px', textTransform: 'none', fontWeight: 600, px: 2 }}
+            >
+              {isIT ? 'New Request' : 'New Requisition'}
+            </Button>
+          </Box>
+        )}
       </Box>
 
       {/* ── KPI Stat Cards ──────────────────────────────────────────────────── */}
@@ -936,6 +956,8 @@ export default function RequirementsPage() {
                 handleDeleteItem={handleDeleteItem}
                 handleUpdateStatus={handleUpdateStatus}
                 loggedUser={loggedUser}
+                can={can}
+                isSuperAdmin={isSuperAdmin}
               />
             ))}
 
@@ -953,6 +975,7 @@ export default function RequirementsPage() {
                     <Typography variant="body2" color="textSecondary" sx={{ maxWidth: 420 }}>
                       There are no {reqType.toLowerCase()} requirements raised matching your filters. Click below to add your first request.
                     </Typography>
+                    {can('create', isIT ? 'req_it' : 'req_material') && (
                     <Button
                       variant="contained"
                       startIcon={<Plus size={16} />}
@@ -961,6 +984,7 @@ export default function RequirementsPage() {
                     >
                       {reqType === 'IT' ? 'Create IT Request' : 'Create Requisition'}
                     </Button>
+                  )}
                   </Box>
                 </TableCell>
               </TableRow>
@@ -1521,8 +1545,8 @@ export default function RequirementsPage() {
               )}
 
               {/* Approve/Reject buttons for Approver */}
-              {(selectedDetailItem.status === 'SUBMITTED' || selectedDetailItem.status === 'MANAGER_APPROVAL') &&
-                loggedUser?.full_name === selectedDetailItem.approver && (
+              {canView && (selectedDetailItem.status === 'SUBMITTED' || selectedDetailItem.status === 'MANAGER_APPROVAL') &&
+                loggedUser?.full_name === selectedDetailItem.approver && canApprove && (
                   <Box sx={{ mb: 2, display: 'flex', gap: 1.5 }}>
                     <Button
                       variant="contained"
