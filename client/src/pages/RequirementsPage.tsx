@@ -58,6 +58,7 @@ import { useAppDispatch, useAppSelector } from '../app/hooks';
 import { RequirementItem, MaterialRequisitionItem, AttachmentFile } from '@/types/requirements';
 import ITRequirementFormModal from '@/components/requirements/ITRequirementFormModal';
 import ITRequirementDetailDrawer from '@/components/requirements/ITRequirementDetailDrawer';
+import { printRequirement } from '@/components/print';
 import { usePermission } from '@/context/AuthPermissionContext';
 import { useDatabaseStoredState } from '@/hooks/useDatabaseStoredState';
 import {
@@ -1624,7 +1625,7 @@ export default function RequirementsPage() {
                   variant="outlined"
                   fullWidth
                   startIcon={<Printer size={16} />}
-                  onClick={() => window.print()}
+                  onClick={() => printRequirement(selectedDetailItem)}
                   sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600 }}
                 >
                   Print

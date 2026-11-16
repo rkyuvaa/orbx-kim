@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 import { RequirementItem, AttachmentFile } from '@/types/requirements';
 import { formatDate } from '@/utils/format';
+import { printRequirement } from '@/components/print';
 
 interface ITRequirementDetailDrawerProps {
   item: RequirementItem | null;
@@ -499,7 +500,7 @@ export default function ITRequirementDetailDrawer({
                 variant="outlined"
                 size="small"
                 startIcon={<Printer size={16} />}
-                onClick={() => window.print()}
+                onClick={() => printRequirement(item)}
                 sx={{ textTransform: 'none', fontWeight: 600 }}
               >
                 Print
