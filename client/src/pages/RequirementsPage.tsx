@@ -127,9 +127,11 @@ interface RequirementRowProps {
   setSelectedDetailItem: (item: RequirementItem | null) => void;
   handleOpenEdit: (item: RequirementItem) => void;
   handleDeleteItem: (id: string) => void;
+  handleUpdateStatus: (id: string, newStatus: string, rejectionReason?: string) => void;
+  loggedUser: { full_name: string } | null;
 }
 
-function RequirementRow({ item, isIT, setSelectedDetailItem, handleOpenEdit, handleDeleteItem }: RequirementRowProps) {
+function RequirementRow({ item, isIT, setSelectedDetailItem, handleOpenEdit, handleDeleteItem, handleUpdateStatus, loggedUser }: RequirementRowProps) {
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
 
@@ -153,6 +155,22 @@ function RequirementRow({ item, isIT, setSelectedDetailItem, handleOpenEdit, han
     setSelectedDetailItem(item);
     handleMenuClose();
   };
+  const handleApprove = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    handleUpdateStatus(item.id, 'APPROVED');
+    handleMenuClose();
+  };
+  const handleReject = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const reason = window.prompt('Enter rejection reason:');
+    if (reason !== null && reason.trim()) {
+      handleUpdateStatus(item.id, 'REJECTED', reason.trim());
+    }
+    handleMenuClose();
+  };
+
+  const isApprover = loggedUser?.full_name === item.approver;
+  const canApproveReject = (item.status === 'SUBMITTED' || item.status === 'MANAGER_APPROVAL') && isApprover;
 
   return (
     <TableRow key={item.id} hover sx={{ cursor: 'pointer' }} onClick={() => setSelectedDetailItem(item)}>
@@ -191,6 +209,16 @@ function RequirementRow({ item, isIT, setSelectedDetailItem, handleOpenEdit, han
           <MenuItem onClick={handleEdit} dense sx={{ py: 1, fontSize: '0.8rem', color: '#2563EB' }}>
             <Box sx={{ mr: 1, display: 'inline-flex' }}><Edit3 size={14} /></Box> Edit
           </MenuItem>
+          {canApproveReject && (
+            <>
+              <MenuItem onClick={handleApprove} dense sx={{ py: 1, fontSize: '0.8rem', color: '#15803D' }}>
+                <Box sx={{ mr: 1, display: 'inline-flex' }}><CheckCircle2 size={14} /></Box> Approve
+              </MenuItem>
+              <MenuItem onClick={handleReject} dense sx={{ py: 1, fontSize: '0.8rem', color: '#DC2626' }}>
+                <Box sx={{ mr: 1, display: 'inline-flex' }}><XCircle size={14} /></Box> Reject
+              </MenuItem>
+            </>
+          )}
           <MenuItem onClick={handleDelete} dense sx={{ py: 1, fontSize: '0.8rem', color: '#DC2626' }}>
             <Box sx={{ mr: 1, display: 'inline-flex' }}><Trash2 size={14} /></Box> Delete
           </MenuItem>
@@ -649,7 +677,7 @@ export default function RequirementsPage() {
         estimated_unit_cost: Number(formUnitCost),
         total_cost: calculatedTotal,
         priority: formPriority,
-        status: formStatus,
+        status: 'SUBMITTED',
         department: formDepartment,
         requested_by: formRequestedBy.trim(),
         required_by_date: formRequiredByDate,
@@ -669,7 +697,7 @@ export default function RequirementsPage() {
       };
 
       setRequirements((prev) => [newItem, ...prev]);
-      showSuccess(`Created requisition ${requestNo} successfully`);
+      showSuccess(`Created requisition ${requestNo} and submitted for approval`);
     }
 
     setIsCreateOpen(false);
@@ -687,6 +715,10 @@ export default function RequirementsPage() {
   };
 
   const handleUpdateStatus = (id: string, newStatus: string, rejectionReason?: string) => {
+    // Find the item to get the request_no for toast message
+    const item = requirements.find(r => r.id === id);
+    const requestNo = item?.request_no || id;
+    
     setRequirements((prev) =>
       prev.map((r) =>
         r.id === id
@@ -709,7 +741,7 @@ export default function RequirementsPage() {
           : null,
       );
     }
-    showSuccess(`Updated ${id} status to ${newStatus.replace('_', ' ')}`);
+    showSuccess(`${requestNo} status updated to ${newStatus.replace('_', ' ')}`);
   };
 
   return (
@@ -902,6 +934,8 @@ export default function RequirementsPage() {
                 setSelectedDetailItem={setSelectedDetailItem}
                 handleOpenEdit={handleOpenEdit}
                 handleDeleteItem={handleDeleteItem}
+                handleUpdateStatus={handleUpdateStatus}
+                loggedUser={loggedUser}
               />
             ))}
 
@@ -1103,8 +1137,8 @@ export default function RequirementsPage() {
                     size="small"
                     label="Approver (Requester's Manager)"
                     value={formApprover}
-                    InputProps={{ readOnly: true }}
-                    sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'action.hover' } }}
+                    onChange={(e) => setFormApprover(e.target.value)}
+                    placeholder="Enter approver name"
                   />
                 </Grid>
 
@@ -1485,6 +1519,42 @@ export default function RequirementsPage() {
                   </Table>
                 </Box>
               )}
+
+              {/* Approve/Reject buttons for Approver */}
+              {(selectedDetailItem.status === 'SUBMITTED' || selectedDetailItem.status === 'MANAGER_APPROVAL') &&
+                loggedUser?.full_name === selectedDetailItem.approver && (
+                  <Box sx={{ mb: 2, display: 'flex', gap: 1.5 }}>
+                    <Button
+                      variant="contained"
+                      color="success"
+                      fullWidth
+                      startIcon={<CheckCircle2 size={16} />}
+                      onClick={() => {
+                        handleUpdateStatus(selectedDetailItem.id, 'APPROVED');
+                        setSelectedDetailItem(null);
+                      }}
+                      sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600 }}
+                    >
+                      Approve
+                    </Button>
+                    <Button
+                      variant="contained"
+                      color="error"
+                      fullWidth
+                      startIcon={<XCircle size={16} />}
+                      onClick={() => {
+                        const reason = window.prompt('Enter rejection reason:');
+                        if (reason !== null && reason.trim()) {
+                          handleUpdateStatus(selectedDetailItem.id, 'REJECTED', reason.trim());
+                          setSelectedDetailItem(null);
+                        }
+                      }}
+                      sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600 }}
+                    >
+                      Reject
+                    </Button>
+                  </Box>
+                )}
 
               <Box sx={{ mt: 'auto', pt: 2, display: 'flex', gap: 1.5 }}>
                 <Button
