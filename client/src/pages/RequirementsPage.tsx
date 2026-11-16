@@ -1132,9 +1132,10 @@ export default function RequirementsPage() {
                   <Autocomplete
                     fullWidth
                     size="small"
-                    options={costCentreOptions.map(opt => opt.value)}
-                    value={formCostCentre}
-                    onChange={(_, value) => setFormCostCentre(value || '')}
+                    options={costCentreOptions}
+                    getOptionLabel={(opt) => opt.label}
+                    value={costCentreOptions.find(opt => opt.value === formCostCentre) || null}
+                    onChange={(_, value) => setFormCostCentre(value?.value || '')}
                     placeholder="Select cost centre"
                     renderInput={(params) => (
                       <TextField
