@@ -34,19 +34,21 @@ interface PrintLayoutProps {
 
 const renderCompanyHeader = (companyConfig: CompanyConfig) => (
   <Box sx={{ mb: 3 }}>
-    <Grid container spacing={2} alignItems="center">
-      {companyConfig.logo_base64 && companyConfig.logo_mime_type && (
-        <Grid item xs={2}>
+    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2 }}>
+      {/* Left side: Logo and Company Name */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, minWidth: 280 }}>
+        {companyConfig.logo_base64 && companyConfig.logo_mime_type && (
           <Box
             sx={{
-              width: 80,
-              height: 80,
-              borderRadius: '8px',
+              width: 70,
+              height: 70,
+              borderRadius: '6px',
               overflow: 'hidden',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               backgroundColor: '#f5f5f5',
+              flexShrink: 0,
             }}
           >
             <img
@@ -55,38 +57,42 @@ const renderCompanyHeader = (companyConfig: CompanyConfig) => (
               style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
             />
           </Box>
-        </Grid>
-      )}
-      <Grid item xs={companyConfig.logo_base64 ? 10 : 12}>
-        <Typography variant="h4" sx={{ fontWeight: 800, color: '#1a1a1a', lineHeight: 1.2, mb: 0.5 }}>
-          {companyConfig.company_name || 'Company Name'}
-        </Typography>
-        {companyConfig.legal_name && companyConfig.legal_name !== companyConfig.company_name && (
-          <Typography variant="subtitle1" sx={{ color: '#666', fontWeight: 500, mb: 0.5 }}>
-            {companyConfig.legal_name}
-          </Typography>
         )}
-        {companyConfig.tagline && (
-          <Typography variant="body2" sx={{ color: '#888', fontStyle: 'italic', mb: 1 }}>
-            {companyConfig.tagline}
+        <Box>
+          <Typography variant="h5" sx={{ fontWeight: 800, color: '#1a1a1a', lineHeight: 1.2, mb: 0.3 }}>
+            {companyConfig.company_name || 'Company Name'}
           </Typography>
-        )}
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, fontSize: '0.75rem', color: '#555' }}>
+          {companyConfig.legal_name && companyConfig.legal_name !== companyConfig.company_name && (
+            <Typography variant="subtitle1" sx={{ color: '#666', fontWeight: 500, mb: 0.2 }}>
+              {companyConfig.legal_name}
+            </Typography>
+          )}
+          {companyConfig.tagline && (
+            <Typography variant="body2" sx={{ color: '#888', fontStyle: 'italic', mb: 0.5 }}>
+              {companyConfig.tagline}
+            </Typography>
+          )}
+        </Box>
+      </Box>
+      
+      {/* Right side: Company Address and Contact */}
+      <Box sx={{ textAlign: 'right', flex: 1, minWidth: 280, display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+        <Box sx={{ fontSize: '0.8rem', color: '#444', lineHeight: 1.6, textAlign: 'right' }}>
           {companyConfig.address_line1 && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <span>📍</span>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 0.4, mb: 0.3 }}>
+              <span style={{ fontSize: '0.75rem' }}>📍</span>
               <span>{companyConfig.address_line1}</span>
             </Box>
           )}
           {companyConfig.address_line2 && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <span>📍</span>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 0.4, mb: 0.3 }}>
+              <span style={{ fontSize: '0.75rem' }}>📍</span>
               <span>{companyConfig.address_line2}</span>
             </Box>
           )}
           {(companyConfig.city || companyConfig.state || companyConfig.pincode) && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <span>📍</span>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 0.4, mb: 0.5 }}>
+              <span style={{ fontSize: '0.75rem' }}>📍</span>
               <span>
                 {companyConfig.city ? `${companyConfig.city}, ` : ''}
                 {companyConfig.state ? `${companyConfig.state} ` : ''}
@@ -95,32 +101,32 @@ const renderCompanyHeader = (companyConfig: CompanyConfig) => (
             </Box>
           )}
           {companyConfig.phone && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <span>📞</span>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 0.4, mb: 0.3 }}>
+              <span style={{ fontSize: '0.75rem' }}>📞</span>
               <span>{companyConfig.phone}</span>
             </Box>
           )}
           {companyConfig.email && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <span>✉️</span>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 0.4, mb: 0.3 }}>
+              <span style={{ fontSize: '0.75rem' }}>✉️</span>
               <span>{companyConfig.email}</span>
             </Box>
           )}
           {companyConfig.gstin && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <span>🏷️</span>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 0.4, mb: 0.3 }}>
+              <span style={{ fontSize: '0.75rem' }}>🏷️</span>
               <span>GSTIN: {companyConfig.gstin}</span>
             </Box>
           )}
           {companyConfig.pan && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <span>🏷️</span>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 0.4 }}>
+              <span style={{ fontSize: '0.75rem' }}>🏷️</span>
               <span>PAN: {companyConfig.pan}</span>
             </Box>
           )}
         </Box>
-      </Grid>
-              </Grid>
+      </Box>
+    </Box>
     <Divider sx={{ mt: 2, mb: 1, borderColor: '#333', borderWidth: 2 }} />
   </Box>
 );
