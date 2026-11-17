@@ -108,6 +108,8 @@ export default function MaterialRequisitionPrint({ item, companyConfig }: Materi
         <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 0.2, fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem' }}>
           Priority
         </Typography>
+      </Grid>
+      <Grid item xs={6}>
         <Typography variant="body1" sx={{ fontWeight: 600 }}>
           {item.priority || '—'}
         </Typography>
@@ -138,33 +140,33 @@ export default function MaterialRequisitionPrint({ item, companyConfig }: Materi
       <Table size="small">
         <TableHead>
           <TableRow sx={{ backgroundColor: COLORS.headerBg }}>
-            <TableCell sx={{ fontWeight: 700, color: COLORS.primary, borderBottom: `2px solid ${COLORS.accent}`, py: 1, fontSize: '0.7rem' }}>S.No</TableCell>
-            <TableCell sx={{ fontWeight: 700, color: COLORS.primary, borderBottom: `2px solid ${COLORS.accent}`, py: 1, fontSize: '0.7rem' }}>Material / Service Code</TableCell>
-            <TableCell sx={{ fontWeight: 700, color: COLORS.primary, borderBottom: `2px solid ${COLORS.accent}`, py: 1, fontSize: '0.7rem' }}>Item Description</TableCell>
-            <TableCell sx={{ fontWeight: 700, color: COLORS.primary, borderBottom: `2px solid ${COLORS.accent}`, py: 1, fontSize: '0.7rem', textAlign: 'center' }}>Drawing / Specs</TableCell>
-            <TableCell sx={{ fontWeight: 700, color: COLORS.primary, borderBottom: `2px solid ${COLORS.accent}`, py: 1, fontSize: '0.7rem' }}>HSN / SAC</TableCell>
-            <TableCell sx={{ fontWeight: 700, color: COLORS.primary, borderBottom: `2px solid ${COLORS.accent}`, py: 1, fontSize: '0.7rem', textAlign: 'center' }}>UOM</TableCell>
-            <TableCell sx={{ fontWeight: 700, color: COLORS.primary, borderBottom: `2px solid ${COLORS.accent}`, py: 1, fontSize: '0.7rem', textAlign: 'right' }}>Qty</TableCell>
-            <TableCell sx={{ fontWeight: 700, color: COLORS.primary, borderBottom: `2px solid ${COLORS.accent}`, py: 1, fontSize: '0.7rem', textAlign: 'right' }}>Rate (₹)</TableCell>
-            <TableCell sx={{ fontWeight: 700, color: COLORS.primary, borderBottom: `2px solid ${COLORS.accent}`, py: 1, fontSize: '0.7rem', textAlign: 'right' }}>Budget Amount (₹)</TableCell>
-            <TableCell sx={{ fontWeight: 700, color: COLORS.primary, borderBottom: `2px solid ${COLORS.accent}`, py: 1, fontSize: '0.7rem', textAlign: 'right' }}>Amount (₹)</TableCell>
-            <TableCell sx={{ fontWeight: 700, color: COLORS.primary, borderBottom: `2px solid ${COLORS.accent}`, py: 1, fontSize: '0.7rem' }}>Remarks</TableCell>
+            <TableCell sx={{ width: '4%', fontWeight: 700, color: COLORS.primary, borderBottom: `2px solid ${COLORS.accent}`, py: 1, fontSize: '0.7rem' }}>S.No</TableCell>
+            <TableCell sx={{ width: '14%', fontWeight: 700, color: COLORS.primary, borderBottom: `2px solid ${COLORS.accent}`, py: 1, fontSize: '0.7rem' }}>Material / Service Code</TableCell>
+            <TableCell sx={{ width: '25%', fontWeight: 700, color: COLORS.primary, borderBottom: `2px solid ${COLORS.accent}`, py: 1, fontSize: '0.7rem' }}>Item Description</TableCell>
+            <TableCell sx={{ width: '8%', fontWeight: 700, color: COLORS.primary, borderBottom: `2px solid ${COLORS.accent}`, py: 1, fontSize: '0.7rem', textAlign: 'center' }}>Drawing / Specs</TableCell>
+            <TableCell sx={{ width: '8%', fontWeight: 700, color: COLORS.primary, borderBottom: `2px solid ${COLORS.accent}`, py: 1, fontSize: '0.7rem' }}>HSN / SAC</TableCell>
+            <TableCell sx={{ width: '6%', fontWeight: 700, color: COLORS.primary, borderBottom: `2px solid ${COLORS.accent}`, py: 1, fontSize: '0.7rem', textAlign: 'center' }}>UOM</TableCell>
+            <TableCell sx={{ width: '7%', fontWeight: 700, color: COLORS.primary, borderBottom: `2px solid ${COLORS.accent}`, py: 1, fontSize: '0.7rem', textAlign: 'right' }}>Qty</TableCell>
+            <TableCell sx={{ width: '9%', fontWeight: 700, color: COLORS.primary, borderBottom: `2px solid ${COLORS.accent}`, py: 1, fontSize: '0.7rem', textAlign: 'right' }}>Rate (₹)</TableCell>
+            <TableCell sx={{ width: '10%', fontWeight: 700, color: COLORS.primary, borderBottom: `2px solid ${COLORS.accent}`, py: 1, fontSize: '0.7rem', textAlign: 'right' }}>Budget Amount (₹)</TableCell>
+            <TableCell sx={{ width: '10%', fontWeight: 700, color: COLORS.primary, borderBottom: `2px solid ${COLORS.accent}`, py: 1, fontSize: '0.7rem', textAlign: 'right' }}>Amount (₹)</TableCell>
+            <TableCell sx={{ width: '8%', fontWeight: 700, color: COLORS.primary, borderBottom: `2px solid ${COLORS.accent}`, py: 1, fontSize: '0.7rem' }}>Remarks</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
           {materialItems.map((row) => (
             <TableRow key={row.s_no} sx={{ '&:nth-of-type(odd)': { backgroundColor: COLORS.lightBg } }}>
-              <TableCell sx={{ fontWeight: 600, color: COLORS.secondary, borderBottom: `1px solid ${COLORS.border}`, py: 0.75, fontSize: '0.7rem' }}>{row.s_no}</TableCell>
-              <TableCell sx={{ fontWeight: 600, color: COLORS.primary, borderBottom: `1px solid ${COLORS.border}`, py: 0.75, fontSize: '0.75rem' }}>{row.material_service_code || '—'}</TableCell>
-              <TableCell sx={{ fontWeight: 500, color: COLORS.primary, borderBottom: `1px solid ${COLORS.border}`, py: 0.75, fontSize: '0.75rem' }}>{row.item_description}</TableCell>
-              <TableCell sx={{ textAlign: 'center', color: COLORS.secondary, borderBottom: `1px solid ${COLORS.border}`, py: 0.75, fontSize: '0.7rem' }}>{row.drawing_specs_yn}</TableCell>
-              <TableCell sx={{ color: COLORS.secondary, borderBottom: `1px solid ${COLORS.border}`, py: 0.75, fontSize: '0.7rem' }}>{row.hsn_sac || '—'}</TableCell>
-              <TableCell sx={{ textAlign: 'center', color: COLORS.secondary, borderBottom: `1px solid ${COLORS.border}`, py: 0.75, fontSize: '0.7rem' }}>{row.uom}</TableCell>
-              <TableCell sx={{ textAlign: 'right', fontWeight: 600, color: COLORS.primary, borderBottom: `1px solid ${COLORS.border}`, py: 0.75, fontSize: '0.75rem' }}>{row.qty.toLocaleString()}</TableCell>
-              <TableCell sx={{ textAlign: 'right', color: COLORS.primary, borderBottom: `1px solid ${COLORS.border}`, py: 0.75, fontSize: '0.75rem' }}>₹{row.rate?.toLocaleString() || '0'}</TableCell>
-              <TableCell sx={{ textAlign: 'right', color: COLORS.primary, borderBottom: `1px solid ${COLORS.border}`, py: 0.75, fontSize: '0.75rem' }}>₹{row.budget_amount?.toLocaleString() || '0'}</TableCell>
-              <TableCell sx={{ textAlign: 'right', fontWeight: 700, color: COLORS.accent, borderBottom: `1px solid ${COLORS.border}`, py: 0.75, fontSize: '0.75rem' }}>₹{row.amount?.toLocaleString() || '0'}</TableCell>
-              <TableCell sx={{ color: COLORS.secondary, borderBottom: `1px solid ${COLORS.border}`, py: 0.75, fontSize: '0.7rem' }}>{row.remarks || '—'}</TableCell>
+              <TableCell sx={{ width: '4%', fontWeight: 600, color: COLORS.secondary, borderBottom: `1px solid ${COLORS.border}`, py: 0.75, fontSize: '0.7rem' }}>{row.s_no}</TableCell>
+              <TableCell sx={{ width: '14%', fontWeight: 600, color: COLORS.primary, borderBottom: `1px solid ${COLORS.border}`, py: 0.75, fontSize: '0.75rem' }}>{row.material_service_code || '—'}</TableCell>
+              <TableCell sx={{ width: '25%', fontWeight: 500, color: COLORS.primary, borderBottom: `1px solid ${COLORS.border}`, py: 0.75, fontSize: '0.75rem' }}>{row.item_description}</TableCell>
+              <TableCell sx={{ width: '8%', textAlign: 'center', color: COLORS.secondary, borderBottom: `1px solid ${COLORS.border}`, py: 0.75, fontSize: '0.7rem' }}>{row.drawing_specs_yn}</TableCell>
+              <TableCell sx={{ width: '8%', color: COLORS.secondary, borderBottom: `1px solid ${COLORS.border}`, py: 0.75, fontSize: '0.7rem' }}>{row.hsn_sac || '—'}</TableCell>
+              <TableCell sx={{ width: '6%', textAlign: 'center', color: COLORS.secondary, borderBottom: `1px solid ${COLORS.border}`, py: 0.75, fontSize: '0.7rem' }}>{row.uom}</TableCell>
+              <TableCell sx={{ width: '7%', textAlign: 'right', fontWeight: 600, color: COLORS.primary, borderBottom: `1px solid ${COLORS.border}`, py: 0.75, fontSize: '0.75rem' }}>{row.qty.toLocaleString()}</TableCell>
+              <TableCell sx={{ width: '9%', textAlign: 'right', color: COLORS.primary, borderBottom: `1px solid ${COLORS.border}`, py: 0.75, fontSize: '0.75rem' }}>₹{row.rate?.toLocaleString() || '0'}</TableCell>
+              <TableCell sx={{ width: '10%', textAlign: 'right', color: COLORS.primary, borderBottom: `1px solid ${COLORS.border}`, py: 0.75, fontSize: '0.75rem' }}>₹{row.budget_amount?.toLocaleString() || '0'}</TableCell>
+              <TableCell sx={{ width: '10%', textAlign: 'right', fontWeight: 700, color: COLORS.accent, borderBottom: `1px solid ${COLORS.border}`, py: 0.75, fontSize: '0.75rem' }}>₹{row.amount?.toLocaleString() || '0'}</TableCell>
+              <TableCell sx={{ width: '8%', color: COLORS.secondary, borderBottom: `1px solid ${COLORS.border}`, py: 0.75, fontSize: '0.7rem' }}>{row.remarks || '—'}</TableCell>
             </TableRow>
           ))}
           {materialItems.length === 0 && (

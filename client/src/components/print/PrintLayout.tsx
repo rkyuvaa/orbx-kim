@@ -60,8 +60,8 @@ export const renderCompanyHeader = (companyConfig: CompanyConfig) => {
         style={{
           display: 'flex',
           justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          flexWrap: 'wrap',
+          alignItems: 'center',
+          flexWrap: 'nowrap',
           gap: 16,
         }}
       >
@@ -72,7 +72,7 @@ export const renderCompanyHeader = (companyConfig: CompanyConfig) => {
             alignItems: 'center',
             gap: 12,
             flex: 1,
-            minWidth: 260,
+            minWidth: 0,
           }}
         >
           <div
@@ -126,7 +126,7 @@ export const renderCompanyHeader = (companyConfig: CompanyConfig) => {
           style={{
             textAlign: 'right',
             flex: 1,
-            minWidth: 260,
+            minWidth: 0,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'flex-end',
@@ -273,6 +273,52 @@ const printStyles = `
     }
     .no-print {
       display: none !important;
+    }
+    table {
+      page-break-inside: avoid;
+    }
+    tr {
+      page-break-inside: avoid;
+      page-break-after: auto;
+    }
+    thead {
+      display: table-header-group;
+    }
+    tbody {
+      display: table-row-group;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      page-break-after: avoid;
+    }
+    p, li {
+      orphans: 3;
+      widows: 3;
+    }
+    .print-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .print-value {
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+    .print-table-header {
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+    .print-table-body {
+      font-size: 0.75rem;
+    }
+    .print-title {
+      font-size: 20px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .print-subtitle {
+      font-size: 14px;
+      font-weight: 500;
+      color: #555;
     }
   }
 `;
