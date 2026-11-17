@@ -60,8 +60,8 @@ export function PrintHeader({
         <div
           style={{
             flexShrink: 0,
-            width: 45,
-            height: 18,
+            width: 90,
+            height: 48,
             overflow: 'hidden',
             display: 'flex',
             alignItems: 'center',
