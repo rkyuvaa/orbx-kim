@@ -248,12 +248,15 @@ function printDirectly(renderFn: () => React.ReactElement) {
   import('react-dom/client').then(({ createRoot }) => {
     const root = createRoot(printDiv);
     root.render(renderFn());
-    
+
+    // Give the logo (and any other images) time to decode before printing.
+    // waitForImages() is not reusable here: on the main document it would
+    // wait for every image on the page, not just the print content.
     setTimeout(() => {
       window.print();
       root.unmount();
       document.body.removeChild(printDiv);
-    }, 100);
+    }, 500);
   });
 }
 
