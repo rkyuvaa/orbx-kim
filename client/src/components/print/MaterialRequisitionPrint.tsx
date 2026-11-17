@@ -24,15 +24,7 @@ export default function MaterialRequisitionPrint({ item, companyConfig }: Materi
 
   const renderHeaderInfo = () => (
     <Grid container spacing={2} sx={{ mb: 2 }}>
-      <Grid item xs={6}>
-        <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 0.2, fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem' }}>
-          Request No
-        </Typography>
-        <Typography variant="body1" sx={{ fontWeight: 700, fontFamily: 'monospace', color: COLORS.accent }}>
-          {item.request_no || '—'}
-        </Typography>
-      </Grid>
-      <Grid item xs={6}>
+      <Grid item xs={3}>
         <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 0.2, fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem' }}>
           Request Date
         </Typography>
@@ -40,7 +32,7 @@ export default function MaterialRequisitionPrint({ item, companyConfig }: Materi
           {item.request_date ? formatDate(item.request_date) : '—'}
         </Typography>
       </Grid>
-      <Grid item xs={6}>
+      <Grid item xs={3}>
         <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 0.2, fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem' }}>
           Requested By
         </Typography>
@@ -48,7 +40,7 @@ export default function MaterialRequisitionPrint({ item, companyConfig }: Materi
           {item.requested_by || item.requester_name || '—'}
         </Typography>
       </Grid>
-      <Grid item xs={6}>
+      <Grid item xs={3}>
         <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 0.2, fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem' }}>
           Approver
         </Typography>
@@ -56,7 +48,7 @@ export default function MaterialRequisitionPrint({ item, companyConfig }: Materi
           {item.approver || '—'}
         </Typography>
       </Grid>
-      <Grid item xs={6}>
+      <Grid item xs={3}>
         <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 0.2, fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem' }}>
           Department
         </Typography>
@@ -64,7 +56,7 @@ export default function MaterialRequisitionPrint({ item, companyConfig }: Materi
           {item.department || '—'}
         </Typography>
       </Grid>
-      <Grid item xs={6}>
+      <Grid item xs={3}>
         <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 0.2, fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem' }}>
           Status
         </Typography>
@@ -72,7 +64,7 @@ export default function MaterialRequisitionPrint({ item, companyConfig }: Materi
           {item.status}
         </Typography>
       </Grid>
-      <Grid item xs={6}>
+      <Grid item xs={3}>
         <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 0.2, fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem' }}>
           Project Code
         </Typography>
@@ -80,7 +72,7 @@ export default function MaterialRequisitionPrint({ item, companyConfig }: Materi
           {item.project_code || '—'}
         </Typography>
       </Grid>
-      <Grid item xs={6}>
+      <Grid item xs={3}>
         <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 0.2, fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem' }}>
           Project Name
         </Typography>
@@ -88,7 +80,7 @@ export default function MaterialRequisitionPrint({ item, companyConfig }: Materi
           {item.project_name || '—'}
         </Typography>
       </Grid>
-      <Grid item xs={6}>
+      <Grid item xs={3}>
         <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 0.2, fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem' }}>
           Cost Centre
         </Typography>
@@ -96,7 +88,7 @@ export default function MaterialRequisitionPrint({ item, companyConfig }: Materi
           {item.cost_centre || '—'}
         </Typography>
       </Grid>
-      <Grid item xs={6}>
+      <Grid item xs={3}>
         <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 0.2, fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem' }}>
           Category
         </Typography>
@@ -104,12 +96,12 @@ export default function MaterialRequisitionPrint({ item, companyConfig }: Materi
           {item.category || '—'}
         </Typography>
       </Grid>
-      <Grid item xs={6}>
+      <Grid item xs={3}>
         <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 0.2, fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem' }}>
           Priority
         </Typography>
       </Grid>
-      <Grid item xs={6}>
+      <Grid item xs={3}>
         <Typography variant="body1" sx={{ fontWeight: 600 }}>
           {item.priority || '—'}
         </Typography>

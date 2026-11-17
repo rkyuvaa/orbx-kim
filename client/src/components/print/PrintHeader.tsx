@@ -187,7 +187,14 @@ export function PrintHeader({
   );
 }
 
-// Shared footer with print date and page number.
+// Format a Date as dd-mm-yyyy hh:mm
+const formatPrintDate = (date: Date = new Date()): string => {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(date.getDate())}-${pad(date.getMonth() + 1)}-${date.getFullYear()} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
+
+// Shared footer with print date. Page numbers are rendered via CSS @page
+// margin boxes (counter(page) / counter(pages)) so they appear on every page.
 interface PrintFooterProps {
   footerText?: string;
 }
@@ -199,16 +206,12 @@ export function PrintFooter({ footerText }: PrintFooterProps) {
         marginTop: 32,
         borderTop: `1px solid #ccc`,
         paddingTop: 12,
-        display: 'flex',
-        justifyContent: 'space-between',
         fontSize: 9,
         color: '#666',
       }}
     >
-      <div>{footerText || 'Generated from CRMFinance-KIM'}</div>
-      <div>
-        Printed on: {new Date().toLocaleString()} &nbsp;|&nbsp; Page 1 of 1
-      </div>
+      {footerText ? `${footerText} · ` : ''}
+      Printed on {formatPrintDate()}
     </div>
   );
 }

@@ -39,8 +39,13 @@ interface PrintLayoutProps {
 const printStyles = `
   @media print {
     @page {
-      margin: 15mm;
       size: A4;
+      margin: 0;
+      @bottom-center {
+        content: "Page " counter(page) " of " counter(pages);
+        font-size: 9pt;
+        color: #666;
+      }
     }
     body {
       margin: 0;
@@ -48,8 +53,13 @@ const printStyles = `
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
-    .no-print {
+    .no-print, .MuiAppBar-root, .MuiDrawer-root, .sidebar, .topbar, button, .no-print {
       display: none !important;
+    }
+    .print-page-container {
+      padding: 12mm;
+      min-height: 100vh;
+      box-sizing: border-box;
     }
     table {
       page-break-inside: avoid;
@@ -109,15 +119,7 @@ export default function PrintLayout({
   requestDate,
 }: PrintLayoutProps) {
   return (
-    <div
-      style={{
-        padding: 24,
-        fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
-        backgroundColor: '#fff',
-        color: '#000',
-        minHeight: '100vh',
-      }}
-    >
+    <div className="print-page-container">
       <style dangerouslySetInnerHTML={{ __html: printStyles }} />
       <PrintHeader companyConfig={companyConfig} requestNo={requestNo} requestDate={requestDate} />
       <div

@@ -140,7 +140,7 @@ export async function printMaterialRequisition({ item, companyConfig, onPrintCom
       <style>
         @media print {
           @page {
-            margin: 15mm;
+            margin: 0;
             size: A4;
           }
           body { margin: 0; padding: 0; }
@@ -209,7 +209,7 @@ export async function printITRequirement({ item, companyConfig, onPrintComplete 
       <style>
         @media print {
           @page {
-            margin: 15mm;
+            margin: 0;
             size: A4;
           }
           body { margin: 0; padding: 0; }
