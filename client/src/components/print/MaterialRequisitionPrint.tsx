@@ -287,9 +287,11 @@ export default function MaterialRequisitionPrint({ item, companyConfig }: Materi
 
   return (
     <PrintLayout
-      title="Material Requisition"
+      title="Material / Service Request"
       subtitle={item.title}
-        companyConfig={companyConfig}
+      companyConfig={companyConfig}
+      requestNo={item.request_no || item.id}
+      requestDate={item.request_date ? formatDate(item.request_date) : undefined}
     >
       {renderHeaderInfo()}
       <Divider sx={{ mb: 2, borderColor: COLORS.accent, borderWidth: 2 }} />

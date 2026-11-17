@@ -45,9 +45,11 @@ import {
 
 import { useGetAppDataQuery, usePutAppDataMutation } from '@/api/appDataApi';
 import { useToast } from '@/components/ui/ToastHost';
+import { clearCompanyConfigCache } from '@/components/print/PrintService';
 
 const companyConfigSchema = z.object({
   company_name: z.string().min(1, 'Company name is required'),
+  company_short_name: z.string().optional(),
   legal_name: z.string().optional(),
   tagline: z.string().optional(),
   address_line1: z.string().optional(),
@@ -74,6 +76,7 @@ type CompanyConfigFormValues = z.infer<typeof companyConfigSchema>;
 
 const DEFAULT_COMPANY_CONFIG: CompanyConfigFormValues = {
   company_name: '',
+  company_short_name: '',
   legal_name: '',
   tagline: '',
   address_line1: '',
@@ -160,6 +163,7 @@ export default function CompanyConfigurationPage() {
       }).unwrap();
 
       showToast('Company configuration saved successfully', 'success');
+      clearCompanyConfigCache();
     } catch (err: any) {
       if (err?.status === 409) {
         showToast('Configuration was modified by another user. Please refresh and try again.', 'error');
@@ -324,6 +328,16 @@ export default function CompanyConfigurationPage() {
               error={Boolean(errors.company_name)}
               helperText={errors.company_name?.message}
               {...register('company_name')}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              label="Company Short Name"
+              placeholder="e.g. KIM"
+              margin="dense"
+              {...register('company_short_name')}
+              inputProps={{ maxLength: 20 }}
             />
           </Grid>
           <Grid item xs={12} sm={6}>

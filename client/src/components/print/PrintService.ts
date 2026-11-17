@@ -2,7 +2,6 @@ import React from 'react';
 import ReactDOMServer from 'react-dom/server';
 import MaterialRequisitionPrint from './MaterialRequisitionPrint';
 import ITRequirementPrint from './ITRequirementPrint';
-import { DEFAULT_LOGO_SRC } from './PrintLayout';
 import { RequirementItem } from '@/types/requirements';
 
 // Wait until every <img> in the print window has finished loading (or fails,
@@ -79,8 +78,15 @@ interface PrintServiceOptions {
   onPrintComplete?: () => void;
 }
 
+// Cache company config for the session so edits to Company Configuration
+// reflect on the next print without a reload.
+let companyConfigCache: CompanyConfig | null = null;
+
 // Fetch company configuration from the API
-async function fetchCompanyConfig(): Promise<CompanyConfig> {
+async function fetchCompanyConfig(forceRefresh = false): Promise<CompanyConfig> {
+  if (companyConfigCache && !forceRefresh) {
+    return companyConfigCache;
+  }
   try {
     const response = await fetch(`${window.location.origin}/api/v1/app-data/company_configuration`);
     if (!response.ok) {
@@ -88,11 +94,18 @@ async function fetchCompanyConfig(): Promise<CompanyConfig> {
       return {};
     }
     const data = await response.json();
-    return (data.value as CompanyConfig) || {};
+    const config = (data.value as CompanyConfig) || {};
+    companyConfigCache = config;
+    return config;
   } catch (error) {
     console.warn('Error fetching company configuration:', error);
     return {};
   }
+}
+
+// Clear the cached company config (e.g. after editing Settings).
+export function clearCompanyConfigCache() {
+  companyConfigCache = null;
 }
 
 export async function printMaterialRequisition({ item, companyConfig, onPrintComplete }: PrintServiceOptions) {

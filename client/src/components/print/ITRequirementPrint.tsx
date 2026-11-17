@@ -480,7 +480,9 @@ export default function ITRequirementPrint({ item, companyConfig }: ITRequiremen
     <PrintLayout
       title="IT Requirement"
       subtitle={item.title}
-        companyConfig={companyConfig}
+      companyConfig={companyConfig}
+      requestNo={item.request_no || item.id}
+      requestDate={item.date_of_request || item.request_date ? formatDate(item.date_of_request || item.request_date) : undefined}
     >
       {renderHeaderInfo()}
       {renderMockupSection()}

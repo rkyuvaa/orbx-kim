@@ -7,15 +7,12 @@ from sqlalchemy import func, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, require_roles
 from app.db.session import get_db
 from app.models import AppDataDocument
+from app.models.enums import UserRole
 
-router = APIRouter(
-    prefix="/app-data",
-    tags=["app-data"],
-    dependencies=[Depends(get_current_user)],
-)
+router = APIRouter(prefix="/app-data", tags=["app-data"])
 
 
 class AppDataOut(BaseModel):
@@ -43,6 +40,7 @@ def _revision_conflict(key: str, record: AppDataDocument | None) -> dict[str, An
 def get_app_data(
     key: str,
     db: Session = Depends(get_db),
+    _user=Depends(get_current_user),
 ) -> AppDataOut:
     record = (
         db.query(AppDataDocument)
@@ -64,6 +62,7 @@ def put_app_data(
     key: str,
     payload: AppDataUpdate,
     db: Session = Depends(get_db),
+    _user=Depends(require_roles(UserRole.ADMIN)),
 ) -> AppDataOut:
     record = (
         db.query(AppDataDocument)
