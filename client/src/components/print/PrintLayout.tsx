@@ -1,5 +1,4 @@
 import React from 'react';
-import { Box, Typography, Divider, Grid } from '@mui/material';
 
 export interface CompanyConfig {
   company_name?: string;
@@ -32,103 +31,209 @@ interface PrintLayoutProps {
   companyConfig?: CompanyConfig;
 }
 
-const renderCompanyHeader = (companyConfig: CompanyConfig) => (
-  <Box sx={{ mb: 3 }}>
-    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2 }}>
-      {/* Left side: Logo and Company Name */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, minWidth: 280 }}>
-        {companyConfig.logo_base64 && companyConfig.logo_mime_type && (
-          <Box
-            sx={{
-              width: 90,
-              height: 90,
-              overflow: 'hidden',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
+const renderCompanyHeader = (companyConfig: CompanyConfig) => {
+  const logoSrc =
+    companyConfig.logo_base64 && companyConfig.logo_mime_type
+      ? `data:${companyConfig.logo_mime_type};base64,${companyConfig.logo_base64}`
+      : undefined;
+
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          flexWrap: 'wrap',
+          gap: 16,
+        }}
+      >
+        {/* Left side: Logo and Company Name */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            flex: 1,
+            minWidth: 260,
+          }}
+        >
+          {logoSrc && (
+            <div
+              style={{
+                width: 90,
+                height: 90,
+                overflow: 'hidden',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              <img
+                src={logoSrc}
+                alt={companyConfig.company_name || 'Company Logo'}
+                style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+              />
+            </div>
+          )}
+          <div>
+            <div
+              style={{
+                fontSize: 20,
+                fontWeight: 800,
+                color: '#000',
+                lineHeight: 1.2,
+                marginBottom: 4,
+              }}
+            >
+              {companyConfig.company_name || 'Company Name'}
+            </div>
+            {companyConfig.tagline && (
+              <div
+                style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: '#000',
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.5,
+                }}
+              >
+                {companyConfig.tagline}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right side: Company Address and Contact */}
+        <div
+          style={{
+            textAlign: 'right',
+            flex: 1,
+            minWidth: 260,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'flex-end',
+          }}
+        >
+          <div
+            style={{
+              fontSize: 11,
+              color: '#000',
+              lineHeight: 1.7,
+              textAlign: 'right',
             }}
           >
-            <img
-              src={`data:${companyConfig.logo_mime_type};base64,${companyConfig.logo_base64}`}
-              alt={companyConfig.company_name || 'Company Logo'}
-              style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
-            />
-          </Box>
-        )}
-        <Box>
-          <Typography variant="h5" sx={{ fontWeight: 800, color: '#000', lineHeight: 1.2, mb: 0.1 }}>
-            {companyConfig.company_name || 'Company Name'}
-          </Typography>
-          {companyConfig.tagline && (
-            <Typography variant="body2" sx={{ color: '#000', fontWeight: 600, mb: 0, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-              {companyConfig.tagline}
-            </Typography>
-          )}
-        </Box>
-      </Box>
-      
-      {/* Right side: Company Address and Contact */}
-      <Box sx={{ textAlign: 'right', flex: 1, minWidth: 280, display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-        <Box sx={{ fontSize: '0.78rem', color: '#000', lineHeight: 1.7, textAlign: 'right' }}>
-          <Typography sx={{ fontWeight: 700, mb: 0.2 }}>
-            {companyConfig.company_name || 'Company Name'}
-          </Typography>
-          {companyConfig.address_line1 && (
-            <Typography sx={{ mb: 0.2 }}>{companyConfig.address_line1}</Typography>
-          )}
-          {companyConfig.address_line2 && (
-            <Typography sx={{ mb: 0.2 }}>{companyConfig.address_line2}</Typography>
-          )}
-          {(companyConfig.city || companyConfig.state || companyConfig.pincode) && (
-            <Typography sx={{ mb: 0.5 }}>
-              {companyConfig.city ? `${companyConfig.city}, ` : ''}
-              {companyConfig.state ? `${companyConfig.state} ` : ''}
-              {companyConfig.pincode ? `${companyConfig.pincode} ` : ''}
-              {companyConfig.country && companyConfig.country !== 'India' ? companyConfig.country : ''}
-            </Typography>
-          )}
-          {companyConfig.gstin && (
-            <Typography sx={{ mb: 0 }}>
-              GSTIN: {companyConfig.gstin}
-            </Typography>
-          )}
-        </Box>
-      </Box>
-    </Box>
-    <Divider sx={{ mt: 2, mb: 1, borderColor: '#333', borderWidth: 2 }} />
-  </Box>
-);
+            <div style={{ fontWeight: 700, marginBottom: 4 }}>
+              {companyConfig.company_name || 'Company Name'}
+            </div>
+            {companyConfig.address_line1 && (
+              <div style={{ marginBottom: 4 }}>{companyConfig.address_line1}</div>
+            )}
+            {companyConfig.address_line2 && (
+              <div style={{ marginBottom: 4 }}>{companyConfig.address_line2}</div>
+            )}
+            {companyConfig.city || companyConfig.state || companyConfig.pincode && (
+              <div style={{ marginBottom: 8 }}>
+                {companyConfig.city ? `${companyConfig.city}, ` : ''}
+                {companyConfig.state ? `${companyConfig.state} ` : ''}
+                {companyConfig.pincode ? `${companyConfig.pincode} ` : ''}
+                {companyConfig.country &&
+                  companyConfig.country !== 'India' &&
+                  companyConfig.country}
+              </div>
+            )}
+            {companyConfig.gstin && (
+              <div>GSTIN: {companyConfig.gstin}</div>
+            )}
+          </div>
+        </div>
+      </div>
+      <hr
+        style={{
+          marginTop: 16,
+          marginBottom: 8,
+          border: 'none',
+          borderTop: '2px solid #333',
+        }}
+      />
+    </div>
+  );
+};
 
-const renderDocumentTitle = (title: string, subtitle?: string) => (
-  <Box sx={{ textAlign: 'center', mb: 3 }}>
-    <Typography variant="h5" sx={{ fontWeight: 800, color: '#1a1a1a', textTransform: 'uppercase', letterSpacing: 1, mb: 0.5 }}>
-      {title}
-    </Typography>
-    {subtitle && (
-      <Typography variant="subtitle1" sx={{ color: '#555', fontWeight: 500 }}>
-        {subtitle}
-      </Typography>
-    )}
-    <Divider sx={{ mt: 1.5, mx: 'auto', width: '60%', borderColor: '#999' }} />
-  </Box>
-);
+const renderDocumentTitle = (title: string, subtitle?: string) => {
+  return (
+    <div style={{ textAlign: 'center', marginBottom: 24 }}>
+      <div
+        style={{
+          fontSize: 20,
+          fontWeight: 800,
+          color: '#1a1a1a',
+          textTransform: 'uppercase',
+          letterSpacing: 1,
+          marginBottom: 8,
+        }}
+      >
+        {title}
+      </div>
+      {subtitle && (
+        <div
+          style={{
+            fontSize: 14,
+            color: '#555',
+            fontWeight: 500,
+            marginBottom: 12,
+          }}
+        >
+          {subtitle}
+        </div>
+      )}
+      <hr
+        style={{
+          margin: '0 auto',
+          width: '60%',
+          border: 'none',
+          borderTop: '1px solid #999',
+        }}
+      />
+    </div>
+  );
+};
 
-const renderPrintTimestamp = () => (
-  <Box sx={{ textAlign: 'right', mb: 2, fontSize: '0.7rem', color: '#888' }}>
-    <Typography>Printed on: {new Date().toLocaleString()}</Typography>
-  </Box>
-);
+const renderPrintTimestamp = () => {
+  return (
+    <div
+      style={{
+        textAlign: 'right',
+        marginBottom: 16,
+        fontSize: 10,
+        color: '#888',
+      }}
+    >
+      <div>Printed on: {new Date().toLocaleString()}</div>
+    </div>
+  );
+};
 
-const renderFooter = () => (
-  <>
-    <Divider sx={{ mt: 4, borderColor: '#ccc', borderWidth: 1 }} />
-    <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: '#888' }}>
-      <Typography>Generated by CRMFinance-KIM</Typography>
-      <Typography>Page 1 of 1</Typography>
-    </Box>
-  </>
-);
+const renderFooter = () => {
+  return (
+    <>
+      <hr style={{ marginTop: 32, border: 'none', borderTop: '1px solid #ccc' }} />
+      <div
+        style={{
+          marginTop: 16,
+          display: 'flex',
+          justifyContent: 'space-between',
+          fontSize: 10,
+          color: '#888',
+        }}
+      >
+        <div>Generated by CRMFinance-KIM</div>
+        <div>Page 1 of 1</div>
+      </div>
+    </>
+  );
+};
 
 const printStyles = `
   @media print {
@@ -153,9 +258,9 @@ export default function PrintLayout({
   companyConfig = {},
 }: PrintLayoutProps) {
   return (
-    <Box
-      sx={{
-        padding: 3,
+    <div
+      style={{
+        padding: 24,
         fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
         backgroundColor: '#fff',
         color: '#000',
@@ -166,8 +271,8 @@ export default function PrintLayout({
       {renderCompanyHeader(companyConfig)}
       {renderDocumentTitle(title, subtitle)}
       {renderPrintTimestamp()}
-      <Box>{children}</Box>
+      <div>{children}</div>
       {renderFooter()}
-    </Box>
+    </div>
   );
 }
