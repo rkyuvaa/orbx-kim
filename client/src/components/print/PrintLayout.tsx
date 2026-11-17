@@ -40,14 +40,12 @@ const renderCompanyHeader = (companyConfig: CompanyConfig) => (
         {companyConfig.logo_base64 && companyConfig.logo_mime_type && (
           <Box
             sx={{
-              width: 70,
-              height: 70,
-              borderRadius: '6px',
+              width: 90,
+              height: 90,
               overflow: 'hidden',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: '#f5f5f5',
               flexShrink: 0,
             }}
           >
@@ -59,16 +57,11 @@ const renderCompanyHeader = (companyConfig: CompanyConfig) => (
           </Box>
         )}
         <Box>
-          <Typography variant="h5" sx={{ fontWeight: 800, color: '#1a1a1a', lineHeight: 1.2, mb: 0.3 }}>
+          <Typography variant="h5" sx={{ fontWeight: 800, color: '#000', lineHeight: 1.2, mb: 0.1 }}>
             {companyConfig.company_name || 'Company Name'}
           </Typography>
-          {companyConfig.legal_name && companyConfig.legal_name !== companyConfig.company_name && (
-            <Typography variant="subtitle1" sx={{ color: '#666', fontWeight: 500, mb: 0.2 }}>
-              {companyConfig.legal_name}
-            </Typography>
-          )}
           {companyConfig.tagline && (
-            <Typography variant="body2" sx={{ color: '#888', fontStyle: 'italic', mb: 0.5 }}>
+            <Typography variant="body2" sx={{ color: '#000', fontWeight: 600, mb: 0, textTransform: 'uppercase', letterSpacing: 0.5 }}>
               {companyConfig.tagline}
             </Typography>
           )}
@@ -77,52 +70,28 @@ const renderCompanyHeader = (companyConfig: CompanyConfig) => (
       
       {/* Right side: Company Address and Contact */}
       <Box sx={{ textAlign: 'right', flex: 1, minWidth: 280, display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-        <Box sx={{ fontSize: '0.8rem', color: '#444', lineHeight: 1.6, textAlign: 'right' }}>
+        <Box sx={{ fontSize: '0.78rem', color: '#000', lineHeight: 1.7, textAlign: 'right' }}>
+          <Typography sx={{ fontWeight: 700, mb: 0.2 }}>
+            {companyConfig.company_name || 'Company Name'}
+          </Typography>
           {companyConfig.address_line1 && (
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 0.4, mb: 0.3 }}>
-              <span style={{ fontSize: '0.75rem' }}>📍</span>
-              <span>{companyConfig.address_line1}</span>
-            </Box>
+            <Typography sx={{ mb: 0.2 }}>{companyConfig.address_line1}</Typography>
           )}
           {companyConfig.address_line2 && (
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 0.4, mb: 0.3 }}>
-              <span style={{ fontSize: '0.75rem' }}>📍</span>
-              <span>{companyConfig.address_line2}</span>
-            </Box>
+            <Typography sx={{ mb: 0.2 }}>{companyConfig.address_line2}</Typography>
           )}
           {(companyConfig.city || companyConfig.state || companyConfig.pincode) && (
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 0.4, mb: 0.5 }}>
-              <span style={{ fontSize: '0.75rem' }}>📍</span>
-              <span>
-                {companyConfig.city ? `${companyConfig.city}, ` : ''}
-                {companyConfig.state ? `${companyConfig.state} ` : ''}
-                {companyConfig.pincode ? `- ${companyConfig.pincode}` : ''}
-              </span>
-            </Box>
-          )}
-          {companyConfig.phone && (
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 0.4, mb: 0.3 }}>
-              <span style={{ fontSize: '0.75rem' }}>📞</span>
-              <span>{companyConfig.phone}</span>
-            </Box>
-          )}
-          {companyConfig.email && (
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 0.4, mb: 0.3 }}>
-              <span style={{ fontSize: '0.75rem' }}>✉️</span>
-              <span>{companyConfig.email}</span>
-            </Box>
+            <Typography sx={{ mb: 0.5 }}>
+              {companyConfig.city ? `${companyConfig.city}, ` : ''}
+              {companyConfig.state ? `${companyConfig.state} ` : ''}
+              {companyConfig.pincode ? `${companyConfig.pincode} ` : ''}
+              {companyConfig.country && companyConfig.country !== 'India' ? companyConfig.country : ''}
+            </Typography>
           )}
           {companyConfig.gstin && (
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 0.4, mb: 0.3 }}>
-              <span style={{ fontSize: '0.75rem' }}>🏷️</span>
-              <span>GSTIN: {companyConfig.gstin}</span>
-            </Box>
-          )}
-          {companyConfig.pan && (
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 0.4 }}>
-              <span style={{ fontSize: '0.75rem' }}>🏷️</span>
-              <span>PAN: {companyConfig.pan}</span>
-            </Box>
+            <Typography sx={{ mb: 0 }}>
+              GSTIN: {companyConfig.gstin}
+            </Typography>
           )}
         </Box>
       </Box>
