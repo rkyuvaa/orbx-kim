@@ -1,8 +1,35 @@
 import React from 'react';
-import ReactDOMServer from 'react-dom/server';
+import { flushSync } from 'react-dom';
+import { createRoot } from 'react-dom/client';
 import MaterialRequisitionPrint from './MaterialRequisitionPrint';
 import ITRequirementPrint from './ITRequirementPrint';
 import { RequirementItem } from '@/types/requirements';
+
+// Render the print component into a hidden container in the main document so
+// Emotion generates its CSS, render it to static HTML, then collect both the
+// markup and the Emotion <style> tags. The fresh print window does not share
+// this document's styles, so without injecting them MUI layout (Grid flex
+// rows, table widths) collapses and everything stacks vertically.
+function renderPrintHtml(element: React.ReactElement): { html: string; styles: string } {
+  const container = document.createElement('div');
+  container.style.position = 'absolute';
+  container.style.left = '-9999px';
+  container.style.top = '0';
+  document.body.appendChild(container);
+
+  const root = createRoot(container);
+  // flushSync guarantees the DOM and Emotion styles are generated immediately.
+  flushSync(() => root.render(element));
+
+  const html = container.innerHTML;
+  const styles = Array.from(document.querySelectorAll('style[data-emotion]'))
+    .map((s) => s.outerHTML)
+    .join('\n');
+
+  root.unmount();
+  document.body.removeChild(container);
+  return { html, styles };
+}
 
 // Wait until every <img> in the print window has finished loading (or fails,
 // or a safety timeout elapses) before opening the print dialog, otherwise the
@@ -120,9 +147,9 @@ export async function printMaterialRequisition({ item, companyConfig, onPrintCom
     return;
   }
 
-  // Render the component to HTML string
-  const html = ReactDOMServer.renderToStaticMarkup(
-    React.createElement(MaterialRequisitionPrint, { 
+  // Render the component (with Emotion styles) and write to the new window
+  const { html, styles } = renderPrintHtml(
+    React.createElement(MaterialRequisitionPrint, {
       item,
       companyConfig,
     })
@@ -137,6 +164,7 @@ export async function printMaterialRequisition({ item, companyConfig, onPrintCom
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <base href="${window.location.origin}/">
       <title>Material Requisition - ${item.request_no || item.id}</title>
+      ${styles}
       <style>
         @media print {
           @page {
@@ -191,8 +219,8 @@ export async function printITRequirement({ item, companyConfig, onPrintComplete 
     return;
   }
 
-  const html = ReactDOMServer.renderToStaticMarkup(
-    React.createElement(ITRequirementPrint, { 
+  const { html, styles } = renderPrintHtml(
+    React.createElement(ITRequirementPrint, {
       item,
       companyConfig,
     })
@@ -206,6 +234,7 @@ export async function printITRequirement({ item, companyConfig, onPrintComplete 
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <base href="${window.location.origin}/">
       <title>IT Requirement - ${item.request_no || item.id}</title>
+      ${styles}
       <style>
         @media print {
           @page {
