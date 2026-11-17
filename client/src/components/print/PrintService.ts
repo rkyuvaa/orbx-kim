@@ -77,6 +77,7 @@ export async function printMaterialRequisition({ item, companyConfig, onPrintCom
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <base href="${window.location.origin}/">
       <title>Material Requisition - ${item.request_no || item.id}</title>
       <style>
         @media print {
@@ -145,6 +146,7 @@ export async function printITRequirement({ item, companyConfig, onPrintComplete 
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <base href="${window.location.origin}/">
       <title>IT Requirement - ${item.request_no || item.id}</title>
       <style>
         @media print {

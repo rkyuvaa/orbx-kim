@@ -31,11 +31,25 @@ interface PrintLayoutProps {
   companyConfig?: CompanyConfig;
 }
 
+// Fallback logo shown until the user uploads their own in
+// Settings > Company Configuration. Ships as a static asset so the printout
+// always renders the company mark.
+const DEFAULT_LOGO_SRC = '/company-logo.png';
+
 const renderCompanyHeader = (companyConfig: CompanyConfig) => {
   const logoSrc =
     companyConfig.logo_base64 && companyConfig.logo_mime_type
       ? `data:${companyConfig.logo_mime_type};base64,${companyConfig.logo_base64}`
-      : undefined;
+      : DEFAULT_LOGO_SRC;
+
+  const name = companyConfig.company_name || 'Konwert India Motors';
+  const hasAddress = Boolean(
+    companyConfig.address_line1 ||
+      companyConfig.address_line2 ||
+      companyConfig.city ||
+      companyConfig.state ||
+      companyConfig.pincode,
+  );
 
   return (
     <div style={{ marginBottom: 20 }}>
@@ -58,25 +72,23 @@ const renderCompanyHeader = (companyConfig: CompanyConfig) => {
             minWidth: 260,
           }}
         >
-          {logoSrc && (
-            <div
-              style={{
-                width: 90,
-                height: 90,
-                overflow: 'hidden',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}
-            >
-              <img
-                src={logoSrc}
-                alt={companyConfig.company_name || 'Company Logo'}
-                style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
-              />
-            </div>
-          )}
+          <div
+            style={{
+              width: 90,
+              height: 90,
+              overflow: 'hidden',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <img
+              src={logoSrc}
+              alt={name || 'Company Logo'}
+              style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+            />
+          </div>
           <div>
             <div
               style={{
@@ -87,7 +99,7 @@ const renderCompanyHeader = (companyConfig: CompanyConfig) => {
                 marginBottom: 4,
               }}
             >
-              {companyConfig.company_name || 'Company Name'}
+              {name}
             </div>
             {companyConfig.tagline && (
               <div
@@ -124,16 +136,16 @@ const renderCompanyHeader = (companyConfig: CompanyConfig) => {
               textAlign: 'right',
             }}
           >
-            <div style={{ fontWeight: 700, marginBottom: 4 }}>
-              {companyConfig.company_name || 'Company Name'}
-            </div>
+            <div style={{ fontWeight: 700, marginBottom: 4 }}>{name}</div>
             {companyConfig.address_line1 && (
               <div style={{ marginBottom: 4 }}>{companyConfig.address_line1}</div>
             )}
             {companyConfig.address_line2 && (
               <div style={{ marginBottom: 4 }}>{companyConfig.address_line2}</div>
             )}
-            {companyConfig.city || companyConfig.state || companyConfig.pincode && (
+            {(companyConfig.city ||
+              companyConfig.state ||
+              companyConfig.pincode) && (
               <div style={{ marginBottom: 8 }}>
                 {companyConfig.city ? `${companyConfig.city}, ` : ''}
                 {companyConfig.state ? `${companyConfig.state} ` : ''}
@@ -145,6 +157,16 @@ const renderCompanyHeader = (companyConfig: CompanyConfig) => {
             )}
             {companyConfig.gstin && (
               <div>GSTIN: {companyConfig.gstin}</div>
+            )}
+            {companyConfig.phone && <div>Phone: {companyConfig.phone}</div>}
+            {companyConfig.email && <div>Email: {companyConfig.email}</div>}
+            {companyConfig.website && (
+              <div>Website: {companyConfig.website}</div>
+            )}
+            {!hasAddress && (
+              <div style={{ color: '#94a3b8', fontStyle: 'italic' }}>
+                Set your company address in Settings &gt; Company Configuration
+              </div>
             )}
           </div>
         </div>
