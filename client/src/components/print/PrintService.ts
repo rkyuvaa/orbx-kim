@@ -22,7 +22,9 @@ function renderPrintHtml(element: React.ReactElement): { html: string; styles: s
   flushSync(() => root.render(element));
 
   const html = container.innerHTML;
-  const styles = Array.from(document.querySelectorAll('style[data-emotion]'))
+  // Copy every stylesheet from the main document (Emotion, Tailwind, fonts)
+  // so the print window has the full CSS, not just Emotion tags.
+  const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
     .map((s) => s.outerHTML)
     .join('\n');
 
