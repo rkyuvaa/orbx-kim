@@ -187,14 +187,8 @@ export function PrintHeader({
   );
 }
 
-// Format a Date as dd-mm-yyyy hh:mm
-const formatPrintDate = (date: Date = new Date()): string => {
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${pad(date.getDate())}-${pad(date.getMonth() + 1)}-${date.getFullYear()} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
-};
-
-// Shared footer with print date. Page numbers are rendered via CSS @page
-// margin boxes (counter(page) / counter(pages)) so they appear on every page.
+// Shared footer. Page numbers are rendered via CSS @page margin boxes
+// (counter(page) / counter(pages)) so they appear on every page.
 interface PrintFooterProps {
   footerText?: string;
 }
@@ -211,7 +205,7 @@ export function PrintFooter({ footerText }: PrintFooterProps) {
       }}
     >
       {footerText ? `${footerText} · ` : ''}
-      Printed on {formatPrintDate()}
+      This document has been digitally generated and approved. No signature is required.
     </div>
   );
 }
