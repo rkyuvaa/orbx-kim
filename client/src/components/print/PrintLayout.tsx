@@ -34,13 +34,16 @@ interface PrintLayoutProps {
 // Fallback logo shown until the user uploads their own in
 // Settings > Company Configuration. Ships as a static asset so the printout
 // always renders the company mark.
-const DEFAULT_LOGO_SRC = '/company-logo.png';
+export const DEFAULT_LOGO_SRC = '/company-logo.png';
 
-const renderCompanyHeader = (companyConfig: CompanyConfig) => {
-  const logoSrc =
-    companyConfig.logo_base64 && companyConfig.logo_mime_type
-      ? `data:${companyConfig.logo_mime_type};base64,${companyConfig.logo_base64}`
-      : DEFAULT_LOGO_SRC;
+export function resolveLogoSrc(companyConfig: CompanyConfig): string {
+  return companyConfig.logo_base64 && companyConfig.logo_mime_type
+    ? `data:${companyConfig.logo_mime_type};base64,${companyConfig.logo_base64}`
+    : DEFAULT_LOGO_SRC;
+}
+
+export const renderCompanyHeader = (companyConfig: CompanyConfig) => {
+  const logoSrc = resolveLogoSrc(companyConfig);
 
   const name = companyConfig.company_name || 'Konwert India Motors';
   const hasAddress = Boolean(
@@ -86,6 +89,7 @@ const renderCompanyHeader = (companyConfig: CompanyConfig) => {
             <img
               src={logoSrc}
               alt={name || 'Company Logo'}
+              loading="eager"
               style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
             />
           </div>

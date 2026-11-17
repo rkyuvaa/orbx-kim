@@ -2,7 +2,52 @@ import React from 'react';
 import ReactDOMServer from 'react-dom/server';
 import MaterialRequisitionPrint from './MaterialRequisitionPrint';
 import ITRequirementPrint from './ITRequirementPrint';
+import { DEFAULT_LOGO_SRC } from './PrintLayout';
 import { RequirementItem } from '@/types/requirements';
+
+// Wait until every <img> in the print window has finished loading (or fails,
+// or a safety timeout elapses) before opening the print dialog, otherwise the
+// logo can be missing from the printed output.
+function waitForImages(printWindow: Window, timeoutMs = 5000): Promise<void> {
+  return new Promise(resolve => {
+    const doc = printWindow.document;
+    if (!doc) {
+      return resolve();
+    }
+    const images = Array.from(doc.images || []);
+    if (images.length === 0) {
+      return resolve();
+    }
+    let settled = false;
+    const finish = () => {
+      if (!settled) {
+        settled = true;
+        resolve();
+      }
+    };
+    const timer = window.setTimeout(finish, timeoutMs);
+    let remaining = images.length;
+    images.forEach(img => {
+      if (img.complete && img.naturalWidth > 0) {
+        remaining -= 1;
+        if (remaining === 0) {
+          window.clearTimeout(timer);
+          finish();
+        }
+        return;
+      }
+      const done = () => {
+        remaining -= 1;
+        if (remaining === 0) {
+          window.clearTimeout(timer);
+          finish();
+        }
+      };
+      img.addEventListener('load', done, { once: true });
+      img.addEventListener('error', done, { once: true });
+    });
+  });
+}
 
 interface CompanyConfig {
   company_name?: string;
@@ -37,9 +82,9 @@ interface PrintServiceOptions {
 // Fetch company configuration from the API
 async function fetchCompanyConfig(): Promise<CompanyConfig> {
   try {
-    const response = await fetch('/api/v1/app-data/company_configuration');
+    const response = await fetch(`${window.location.origin}/api/v1/app-data/company_configuration`);
     if (!response.ok) {
-      console.warn('Failed to fetch company configuration');
+      console.warn('Failed to fetch company configuration:', response.status);
       return {};
     }
     const data = await response.json();
@@ -103,11 +148,11 @@ export async function printMaterialRequisition({ item, companyConfig, onPrintCom
   `);
   printWindow.document.close();
 
-  // Auto-trigger print
-  setTimeout(() => {
+  // Auto-trigger print once the logo (and any other images) have loaded
+  waitForImages(printWindow).then(() => {
     printWindow.focus();
     printWindow.print();
-  }, 100);
+  });
 
   // Handle window close
   printWindow.onafterprint = () => {
@@ -172,11 +217,11 @@ export async function printITRequirement({ item, companyConfig, onPrintComplete 
   `);
   printWindow.document.close();
 
-  // Auto-trigger print
-  setTimeout(() => {
+  // Auto-trigger print once the logo (and any other images) have loaded
+  waitForImages(printWindow).then(() => {
     printWindow.focus();
     printWindow.print();
-  }, 100);
+  });
 
   printWindow.onafterprint = () => {
     printWindow.close();
@@ -215,7 +260,7 @@ function printDirectly(renderFn: () => React.ReactElement) {
 export async function printRequirement(item: RequirementItem, onPrintComplete?: () => void) {
   // Fetch company configuration first
   const companyConfig = await fetchCompanyConfig();
-  
+
   if (item.type === 'MATERIAL') {
     await printMaterialRequisition({ item, companyConfig, onPrintComplete });
   } else {
