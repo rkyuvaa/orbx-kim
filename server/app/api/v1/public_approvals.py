@@ -3,16 +3,19 @@ import logging
 import secrets
 from datetime import datetime, timezone
 from typing import Any, Optional
+from urllib.parse import quote
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request, status
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import func, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db.session import get_db
 from app.models import (
     AppDataDocument,
+    Notification,
     RequirementApprovalAccessLog,
     RequirementApprovalToken,
     User,
@@ -72,8 +75,23 @@ def _update_requirement_in_db(
     """Update the requirements array in app_data with optimistic locking."""
     record = db.query(AppDataDocument).filter(AppDataDocument.key == _requirement_items_key()).first()
     if record is None:
-        return False, None
-    
+        # A non-admin requester cannot PUT app-data directly, so the first
+        # submitted requirement may also be the first persisted record.
+        record = AppDataDocument(
+            key=_requirement_items_key(),
+            value=requirements,
+            revision=1,
+        )
+        db.add(record)
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            latest = db.query(AppDataDocument).filter(AppDataDocument.key == _requirement_items_key()).first()
+            return False, latest
+        db.refresh(record)
+        return True, record
+
     if record.revision != expected_revision:
         return False, record
     
@@ -479,11 +497,16 @@ def submit_material_requirement(
             detail="No approver configured for your account. Please contact your administrator to set a reporting manager with a valid email.",
         )
 
-    # Get requirements array and check for existing pending token first
+    # Persist the submitted payload as well as its status. New requirements may
+    # exist only in the browser because non-admin users cannot PUT app-data.
     requirements = _get_requirements_array(db)
     req_item, idx = _find_requirement(requirements, req_id)
-    if not req_item:
-        raise HTTPException(status_code=404, detail="Requirement not found in database")
+    if req_item is None:
+        req_item = dict(req_data)
+        requirements.insert(0, req_item)
+        idx = 0
+    else:
+        req_item.update(req_data)
 
     # Check if there's already a pending token for this requirement (before any updates)
     existing_token = (
@@ -506,10 +529,8 @@ def submit_material_requirement(
     req_item["approver"] = approver_name
     
     record = db.query(AppDataDocument).filter(AppDataDocument.key == _requirement_items_key()).first()
-    if not record:
-        raise HTTPException(status_code=500, detail="Requirements store not initialized")
-    
-    success, updated_record = _update_requirement_in_db(db, requirements, idx, record.revision)
+    expected_revision = record.revision if record else 0
+    success, updated_record = _update_requirement_in_db(db, requirements, idx, expected_revision)
     if not success:
         raise HTTPException(status_code=409, detail="Concurrent modification, please try again and resubmit")
 
@@ -535,6 +556,14 @@ def submit_material_requirement(
         status="PENDING",
     )
     db.add(token_rec)
+    requirement_path = "/requirements/it" if req_type == "IT" else "/requirements/material"
+    db.add(
+        Notification(
+            user_id=approver.id,
+            message=f"{current_user.full_name} submitted {req_type} requirement {request_no} for your approval.",
+            link=f"{requirement_path}?requestNo={quote(request_no, safe='')}",
+        )
+    )
     db.commit()
     db.refresh(token_rec)
 
@@ -569,7 +598,7 @@ def submit_material_requirement(
         ok=True,
         request_no=request_no,
         approval_sent=True,
-        message=f"Requirement submitted for approval. Email sent to {approver_name} ({approver_email}).",
+        message=f"Requirement submitted for approval. {approver_name} has been notified in-app; approval email is being sent to {approver_email}.",
     )
 
 

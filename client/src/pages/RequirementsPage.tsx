@@ -503,20 +503,18 @@ export default function RequirementsPage() {
   // Save IT Requirement from modal
   const handleSaveITRequirement = async (payload: Partial<RequirementItem>, isDraft: boolean) => {
     const requestNo = formRequestNo.trim() || `REQ-IT-${requirements.length + 1}`;
+    let savedItem: RequirementItem | undefined;
     if (editingItem) {
-      setRequirements((prev) =>
-        prev.map((r) =>
-          r.id === editingItem.id
-            ? {
-                ...r,
-                ...payload,
-                request_no: requestNo,
-                title: payload.title || r.title,
-                status: isDraft ? 'DRAFT' : payload.status || r.status,
-              }
-            : r,
-        ),
-      );
+      const updated: RequirementItem = {
+        ...editingItem,
+        ...payload,
+        request_no: requestNo,
+        title: payload.title || editingItem.title,
+        status: isDraft ? 'DRAFT' : payload.status || editingItem.status,
+      };
+      const next = requirements.map((r) => (r.id === editingItem.id ? updated : r));
+      setRequirements(next);
+      savedItem = updated;
       showSuccess(`Updated ${editingItem.id} successfully`);
     } else {
       const newId = requestNo;
@@ -541,28 +539,23 @@ export default function RequirementsPage() {
         ...payload,
       };
 
-      setRequirements((prev) => [newItem, ...prev]);
+      const next = [newItem, ...requirements];
+      setRequirements(next);
+      savedItem = newItem;
       showSuccess(`${isDraft ? 'Saved draft' : 'Created request'} ${requestNo} successfully`);
     }
 
-    // If not a draft, submit for approval via API
-    if (!isDraft) {
-      const savedItems = requirements.filter(r => r.request_no === requestNo);
-      const savedItem = editingItem 
-        ? savedItems.find(r => r.id === editingItem.id) 
-        : savedItems[0];
-      
-      if (savedItem) {
-        try {
-          const result = await submitMaterialRequirement({ requirement: savedItem }).unwrap();
-          if (result.ok && result.approval_sent) {
-            showSuccess(`Approval email sent to ${savedItem.approver}`);
-          } else {
-            showError(result.message || 'Failed to send approval email');
-          }
-        } catch (err: any) {
-          showError(err?.data?.message || 'Failed to submit for approval. Please try again.');
+    // If not a draft, submit for approval via API using the freshly built item
+    if (!isDraft && savedItem) {
+      try {
+        const result = await submitMaterialRequirement({ requirement: savedItem }).unwrap();
+        if (result.ok) {
+          showSuccess(result.message || `Approval request sent to ${savedItem.approver}`);
+        } else {
+          showError(result.message || 'Failed to submit for approval');
         }
+      } catch (err: any) {
+        showError(err?.data?.detail || err?.data?.message || 'Failed to submit for approval. Please try again.');
       }
     }
 
@@ -679,40 +672,38 @@ export default function RequirementsPage() {
     }
 
     const calculatedTotal = formQuantity * formUnitCost;
+    let savedItem: RequirementItem;
 
     if (editingItem) {
-      setRequirements((prev) =>
-        prev.map((r) =>
-          r.id === editingItem.id
-            ? {
-                ...r,
-                title: requestNo,
-                category: formCategory || categoryOptions[0],
-                quantity: Number(formQuantity),
-                unit: formUnit.trim(),
-                estimated_unit_cost: Number(formUnitCost),
-                total_cost: calculatedTotal,
-                priority: formPriority,
-                status: formStatus,
-                department: formDepartment,
-                requested_by: formRequestedBy.trim(),
-                required_by_date: formRequiredByDate,
-                justification: formJustification.trim(),
-                specifications: formSpecifications.trim(),
-                vendor_suggestion: formVendorSuggestion.trim(),
-                request_no: requestNo,
-                request_date: formRequestDate,
-                requester_name: formRequesterName,
-                approver: formApprover,
-                project_code: formProjectCode.trim() || undefined,
-                project_name: formProjectName.trim() || undefined,
-                cost_centre: formCostCentre.trim() || undefined,
-                material_items: formItems,
-                attachments: formAttachments,
-              }
-            : r,
-        ),
-      );
+      const updated: RequirementItem = {
+        ...editingItem,
+        title: requestNo,
+        category: formCategory || categoryOptions[0],
+        quantity: Number(formQuantity),
+        unit: formUnit.trim(),
+        estimated_unit_cost: Number(formUnitCost),
+        total_cost: calculatedTotal,
+        priority: formPriority,
+        status: formStatus,
+        department: formDepartment,
+        requested_by: formRequestedBy.trim(),
+        required_by_date: formRequiredByDate,
+        justification: formJustification.trim(),
+        specifications: formSpecifications.trim(),
+        vendor_suggestion: formVendorSuggestion.trim(),
+        request_no: requestNo,
+        request_date: formRequestDate,
+        requester_name: formRequesterName,
+        approver: formApprover,
+        project_code: formProjectCode.trim() || undefined,
+        project_name: formProjectName.trim() || undefined,
+        cost_centre: formCostCentre.trim() || undefined,
+        material_items: formItems,
+        attachments: formAttachments,
+      };
+      const next = requirements.map((r) => (r.id === editingItem.id ? updated : r));
+      setRequirements(next);
+      savedItem = updated;
       showSuccess(`Updated ${requestNo} successfully`);
     } else {
       const prefix = 'REQ-MAT';
@@ -753,28 +744,22 @@ export default function RequirementsPage() {
         created_at: new Date().toISOString(),
       };
 
-      setRequirements((prev) => [newItem, ...prev]);
-      showSuccess(`Created requisition ${requestNo} and submitted for approval`);
+      const next = [newItem, ...requirements];
+      setRequirements(next);
+      savedItem = newItem;
+      showSuccess(`Created requisition ${requestNo}`);
     }
 
-    // After saving locally, submit for approval via API
-    // Find the saved item by request_no to get its full data including ID
-    const savedItems = requirements.filter(r => r.request_no === requestNo);
-    const savedItem = editingItem 
-      ? savedItems.find(r => r.id === editingItem.id) 
-      : savedItems[0];
-    
-    if (savedItem) {
-      try {
-        const result = await submitMaterialRequirement({ requirement: savedItem }).unwrap();
-        if (result.ok && result.approval_sent) {
-          showSuccess(`Approval email sent to ${savedItem.approver}`);
-        } else {
-          showError(result.message || 'Failed to send approval email');
-        }
-      } catch (err: any) {
-        showError(err?.data?.message || 'Failed to submit for approval. Please try again.');
+    // Submit the freshly constructed item; React state updates are asynchronous.
+    try {
+      const result = await submitMaterialRequirement({ requirement: savedItem }).unwrap();
+      if (result.ok) {
+        showSuccess(result.message || `Approval request sent to ${savedItem.approver}`);
+      } else {
+        showError(result.message || 'Failed to submit for approval');
       }
+    } catch (err: any) {
+      showError(err?.data?.detail || err?.data?.message || 'Failed to submit for approval. Please try again.');
     }
 
     setIsCreateOpen(false);

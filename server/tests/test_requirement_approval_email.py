@@ -15,6 +15,7 @@ from app.main import app
 from app.db.session import get_db
 from app.models import (
     AppDataDocument,
+    Notification,
     RequirementApprovalToken,
     RequirementApprovalAccessLog,
     User,
@@ -153,6 +154,10 @@ class TestRequirementApprovalEmail:
         assert "submitted_at" in req_item
         assert req_item["submitted_by"] == "John Requester"
 
+        notification = db.query(Notification).filter(Notification.user_id == approver.id).one()
+        assert "MR-2024-001" in notification.message
+        assert notification.link == "/requirements/material?requestNo=MR-2024-001"
+
     def test_submit_it_requirement_creates_token_and_sends_email(
         self, client: TestClient, db: Session
     ):
@@ -225,35 +230,55 @@ class TestRequirementApprovalEmail:
         assert response.status_code == 400
         assert "approver" in response.json()["detail"].lower()
 
-    def test_submit_requirement_not_found_fails(
-        self, client: TestClient, db: Session
+    @pytest.mark.parametrize("store_exists", [False, True])
+    def test_submit_creates_requirement_missing_from_app_data(
+        self, client: TestClient, db: Session, store_exists: bool
     ):
-        """Test submit fails when requirement ID doesn't exist in app_data."""
+        """A browser-only requirement is persisted before its approval is created."""
         requester = make_user(db, "finder@kim.com", UserRole.SALES_EXECUTIVE, "Finder")
         approver = make_user(db, "finderapprover@kim.com", UserRole.ADMIN, "Finder Approver")
         requester.reporting_manager_id = approver.id
         db.commit()
-        
+
         token = login(client, "finder@kim.com")
         headers = auth_headers(token)
-        
-        create_requirement_record(db, "REQ-MAT-3", "MR-2024-003", "MATERIAL")
-        
-        response = client.post(
-            "/api/v1/public/approvals/material-requirements/submit",
-            json={
-                "requirement": {
-                    "id": "REQ-MAT-999",  # Non-existent
-                    "request_no": "MR-2024-999",
-                    "type": "MATERIAL",
-                    "title": "MR-2024-999",
-                }
-            },
-            headers=headers,
-        )
-        
-        assert response.status_code == 404
-        assert "not found" in response.json()["detail"].lower()
+
+        if store_exists:
+            create_requirement_record(db, "REQ-MAT-3", "MR-2024-003", "MATERIAL")
+
+        with patch("app.services.email_service.dispatch_email_smtp") as mock_dispatch:
+            mock_dispatch.return_value = (True, None)
+            response = client.post(
+                "/api/v1/public/approvals/material-requirements/submit",
+                json={
+                    "requirement": {
+                        "id": "REQ-MAT-999",
+                        "request_no": "MR-00034/26-27",
+                        "type": "MATERIAL",
+                        "title": "MR-00034/26-27",
+                        "total_cost": 2500,
+                        "material_items": [
+                            {"item_description": "Printer", "qty": 1, "uom": "Nos", "rate": 2500, "amount": 2500}
+                        ],
+                    }
+                },
+                headers=headers,
+            )
+
+        assert response.status_code == 200, response.text
+        record = db.query(AppDataDocument).filter(AppDataDocument.key == REQUIREMENT_ITEMS_KEY).first()
+        created = next(item for item in record.value if item["id"] == "REQ-MAT-999")
+        assert created["status"] == "SUBMITTED"
+        assert created["total_cost"] == 2500
+        assert created["material_items"][0]["item_description"] == "Printer"
+
+        token_rec = db.query(RequirementApprovalToken).filter(
+            RequirementApprovalToken.requirement_id == "REQ-MAT-999"
+        ).one()
+        assert token_rec.status == "PENDING"
+        notification = db.query(Notification).filter(Notification.user_id == approver.id).one()
+        assert "MR-00034/26-27" in notification.message
+        assert notification.link.endswith("requestNo=MR-00034%2F26-27")
 
 
 class TestPublicApprovalEndpoints:
