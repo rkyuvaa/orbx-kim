@@ -387,6 +387,7 @@ export default function RequirementsPage() {
   // Material requisition item lines
   const [formItems, setFormItems] = useState<MaterialRequisitionItem[]>([]);
   const [formAttachments, setFormAttachments] = useState<AttachmentFile[]>([]);
+  const [pendingAttachments, setPendingAttachments] = useState<Array<AttachmentFile & { file: File }>>([]);
   const attachmentFileInputRef = useRef<HTMLInputElement>(null);
   const reservedRequestNumberRef = useRef<string | null>(null);
   const reservingRequestNumberRef = useRef<Promise<string> | null>(null);
@@ -472,6 +473,7 @@ export default function RequirementsPage() {
     reservedRequestNumberRef.current = null;
     setFormNotes('');
     setFormAttachments([]);
+    setPendingAttachments([]);
     setFormItems([]);
   };
 
@@ -494,6 +496,7 @@ export default function RequirementsPage() {
     reservedRequestNumberRef.current = item.request_no || null;
     setFormRequestNo(item.request_no || '');
     setFormAttachments([]);
+    setPendingAttachments([]);
     if (!isIT) {
       setFormCategory(item.category);
       setFormQuantity(item.quantity);
@@ -628,38 +631,53 @@ export default function RequirementsPage() {
     setFormItems(next);
   };
 
-  // Attachment upload handler
-  const handleAttachmentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Keep new files local until submit so cancelling never consumes a number.
+  const handleAttachmentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-    let requestNo: string;
-    try {
-      requestNo = await reserveRequestNumber();
-    } catch {
-      showError('Failed to generate a request number. Please try uploading the attachment again.');
-      e.target.value = '';
-      return;
-    }
-    for (const f of Array.from(files)) {
+    const selected = Array.from(files).map((file, index): AttachmentFile & { file: File } => ({
+      id: `pending-${Date.now()}-${index}-${Math.random().toString(36).slice(2)}`,
+      name: file.name,
+      size: file.size,
+      type: file.type || 'application/octet-stream',
+      uploaded_at: new Date().toISOString(),
+      file,
+    }));
+    setPendingAttachments((prev) => [...prev, ...selected]);
+    e.target.value = '';
+  };
+
+  const uploadPendingAttachments = async (requestNo: string): Promise<AttachmentFile[]> => {
+    const uploaded: AttachmentFile[] = [];
+    const remaining: Array<AttachmentFile & { file: File }> = [];
+    const failedNames: string[] = [];
+
+    for (const pending of pendingAttachments) {
       try {
-        const result = await uploadAttachment({ request_no: requestNo, file: f }).unwrap();
-        setFormAttachments((prev) => [
-          ...prev,
-          {
-            id: result.id || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-            name: f.name,
-            size: f.size,
-            type: f.type,
-            uploaded_at: result.uploaded_at || new Date().toISOString(),
-            uploaded_by: result.uploaded_by || 'Current User',
-            data_url: result.data_url || `/material-requirements/${encodeURIComponent(requestNo)}/attachments/${result.id}`,
-          },
-        ]);
+        const result = await uploadAttachment({ request_no: requestNo, file: pending.file }).unwrap();
+        uploaded.push({
+          id: result.id || pending.id,
+          name: pending.name,
+          size: pending.size,
+          type: pending.type,
+          uploaded_at: result.uploaded_at || new Date().toISOString(),
+          uploaded_by: result.uploaded_by || loggedUser?.full_name || 'Current User',
+          data_url: result.data_url || `/material-requirements/${encodeURIComponent(requestNo)}/attachments/${result.id}`,
+        });
       } catch {
-        showError(`Failed to upload ${f.name}.`);
+        remaining.push(pending);
+        failedNames.push(pending.name);
       }
     }
-    e.target.value = '';
+
+    if (uploaded.length > 0) {
+      setFormAttachments((prev) => [...prev, ...uploaded]);
+    }
+    setPendingAttachments(remaining);
+    if (failedNames.length > 0) {
+      throw new Error(`Failed to upload: ${failedNames.join(', ')}. Please try again.`);
+    }
+    return uploaded;
   };
 
   // Open file dialog for attachment
@@ -702,7 +720,7 @@ export default function RequirementsPage() {
       return;
     }
 
-    // Reuse a number reserved for attachments, or reserve it on first save.
+    // Reuse the existing/reserved number, or reserve it on first save.
     const documentType = isIT ? 'it_requirement' : 'mr';
     let requestNo: string;
     try {
@@ -711,6 +729,15 @@ export default function RequirementsPage() {
       showError(`Failed to generate request number. Please configure document numbering for ${documentType}.`);
       return;
     }
+
+    let newlyUploadedAttachments: AttachmentFile[];
+    try {
+      newlyUploadedAttachments = await uploadPendingAttachments(requestNo);
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Failed to upload attachments. Please try again.');
+      return;
+    }
+    const attachmentsForSave = [...formAttachments, ...newlyUploadedAttachments];
 
     const calculatedTotal = formQuantity * formUnitCost;
     let savedItem: RequirementItem;
@@ -740,7 +767,7 @@ export default function RequirementsPage() {
         project_name: formProjectName.trim() || undefined,
         cost_centre: formCostCentre.trim() || undefined,
         material_items: formItems,
-        attachments: formAttachments,
+        attachments: attachmentsForSave,
       };
       const next = requirements.map((r) => (r.id === editingItem.id ? updated : r));
       setRequirements(next);
@@ -781,7 +808,7 @@ export default function RequirementsPage() {
         project_name: formProjectName.trim() || undefined,
         cost_centre: formCostCentre.trim() || undefined,
         material_items: formItems,
-        attachments: formAttachments,
+        attachments: attachmentsForSave,
         created_at: new Date().toISOString(),
       };
 
@@ -1526,6 +1553,29 @@ export default function RequirementsPage() {
                             <a href={a.data_url || `#`} target="_blank" rel="noopener noreferrer" style={{ color: '#1976d2', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</a>
                           </Box>
                           <IconButton size="small" onClick={() => handleDeleteAttachment(a)} sx={{ p: 0.5, color: 'text.secondary', '&:hover': { color: '#DC2626' } }} title="Delete">
+                            <Trash2 size={14} />
+                          </IconButton>
+                        </Box>
+                      ))}
+                    </Box>
+                  )}
+                  {pendingAttachments.length > 0 && (
+                    <Box sx={{ mt: 1, maxHeight: 120, overflowY: 'auto', borderTop: '1px solid', borderColor: 'divider', pt: 0.5 }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ px: 1 }}>
+                        Pending upload — files will be attached when you submit
+                      </Typography>
+                      {pendingAttachments.map((attachment) => (
+                        <Box key={attachment.id} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 1, py: 0.5, fontSize: '0.75rem', borderBottom: '1px solid', borderColor: 'divider' }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1, minWidth: 0 }}>
+                            <Paperclip size={14} color="#04552B" />
+                            <Typography noWrap sx={{ fontSize: '0.75rem' }}>{attachment.name}</Typography>
+                          </Box>
+                          <IconButton
+                            size="small"
+                            onClick={() => setPendingAttachments((prev) => prev.filter((item) => item.id !== attachment.id))}
+                            sx={{ p: 0.5, color: 'text.secondary', '&:hover': { color: '#DC2626' } }}
+                            title="Remove pending file"
+                          >
                             <Trash2 size={14} />
                           </IconButton>
                         </Box>
