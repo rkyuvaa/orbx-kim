@@ -70,6 +70,7 @@ import {
   useUploadMaterialRequirementAttachmentMutation,
   useListMaterialRequirementAttachmentsQuery,
   useDeleteMaterialRequirementAttachmentMutation,
+  useSubmitMaterialRequirementMutation,
 } from '@/api/materialRequirementsApi';
 import { useMeQuery } from '@/api/authApi';
 import { useGetAllUsersQuery } from '@/api/rbacApi';
@@ -331,6 +332,7 @@ export default function RequirementsPage() {
 
   const [generateDocumentNumber] = useGenerateDocumentNumberMutation();
   const [previewDocumentNumber] = usePreviewDocumentNumberMutation();
+  const [submitMaterialRequirement] = useSubmitMaterialRequirementMutation();
 
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState('');
@@ -492,7 +494,7 @@ export default function RequirementsPage() {
   }, [savedAttachments, formRequestNo]);
 
   // Save IT Requirement from modal
-  const handleSaveITRequirement = (payload: Partial<RequirementItem>, isDraft: boolean) => {
+  const handleSaveITRequirement = async (payload: Partial<RequirementItem>, isDraft: boolean) => {
     const requestNo = formRequestNo.trim() || `REQ-IT-${requirements.length + 1}`;
     if (editingItem) {
       setRequirements((prev) =>
@@ -534,6 +536,27 @@ export default function RequirementsPage() {
 
       setRequirements((prev) => [newItem, ...prev]);
       showSuccess(`${isDraft ? 'Saved draft' : 'Created request'} ${requestNo} successfully`);
+    }
+
+    // If not a draft, submit for approval via API
+    if (!isDraft) {
+      const savedItems = requirements.filter(r => r.request_no === requestNo);
+      const savedItem = editingItem 
+        ? savedItems.find(r => r.id === editingItem.id) 
+        : savedItems[0];
+      
+      if (savedItem) {
+        try {
+          const result = await submitMaterialRequirement({ requirement: savedItem }).unwrap();
+          if (result.ok && result.approval_sent) {
+            showSuccess(`Approval email sent to ${savedItem.approver}`);
+          } else {
+            showError(result.message || 'Failed to send approval email');
+          }
+        } catch (err: any) {
+          showError(err?.data?.message || 'Failed to submit for approval. Please try again.');
+        }
+      }
     }
 
     setIsCreateOpen(false);
@@ -725,6 +748,26 @@ export default function RequirementsPage() {
 
       setRequirements((prev) => [newItem, ...prev]);
       showSuccess(`Created requisition ${requestNo} and submitted for approval`);
+    }
+
+    // After saving locally, submit for approval via API
+    // Find the saved item by request_no to get its full data including ID
+    const savedItems = requirements.filter(r => r.request_no === requestNo);
+    const savedItem = editingItem 
+      ? savedItems.find(r => r.id === editingItem.id) 
+      : savedItems[0];
+    
+    if (savedItem) {
+      try {
+        const result = await submitMaterialRequirement({ requirement: savedItem }).unwrap();
+        if (result.ok && result.approval_sent) {
+          showSuccess(`Approval email sent to ${savedItem.approver}`);
+        } else {
+          showError(result.message || 'Failed to send approval email');
+        }
+      } catch (err: any) {
+        showError(err?.data?.message || 'Failed to submit for approval. Please try again.');
+      }
     }
 
     setIsCreateOpen(false);

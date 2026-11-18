@@ -17,6 +17,7 @@ from app.api.v1 import (
     personal_tasks,
     planned_activities,
     projects,
+    public_approvals,
     public_financier,
     push_notifications,
     rbac_admin,
@@ -35,6 +36,7 @@ api_router.include_router(dashboard.router)
 api_router.include_router(applications.router)
 api_router.include_router(final_submission.router)
 api_router.include_router(public_financier.router)
+api_router.include_router(public_approvals.router)
 api_router.include_router(smtp.router)
 api_router.include_router(sms.router)
 api_router.include_router(document_numbering.router)

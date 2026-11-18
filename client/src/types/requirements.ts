@@ -111,4 +111,11 @@ export interface RequirementItem {
   approval_history?: ApprovalStage[];
   rejection_reason?: string;
   current_approval_stage?: string;
+
+  // Approval workflow fields (set by backend)
+  approver_email?: string;
+  approved_at?: string;
+  rejected_at?: string;
+  submitted_at?: string;
+  submitted_by?: string;
 }

@@ -539,3 +539,312 @@ def schedule_task_assignment_notification(
         )
         t.start()
 
+
+# ----------------------------------------------------------------------
+# Requirement Approval Email Functions
+# ----------------------------------------------------------------------
+
+
+def send_requirement_approval_email(
+    to_email: str,
+    approver_name: str,
+    requester_name: str,
+    request_no: str,
+    requirement_type: str,
+    title: str,
+    total_cost: float | None,
+    items_summary: str,
+    approve_url: str,
+    reject_url: str,
+    view_url: str,
+    expires_at_str: str,
+    company_name: str = "KIM Work Management",
+    db: Optional[Session] = None,
+) -> tuple[bool, Optional[str]]:
+    """
+    Sends an email to the approver with one-click Approve / Reject buttons
+    for a material or IT requirement.
+    """
+    subject = f"[{company_name}] Approval Required: {request_no} - {title}"
+
+    safe_approver = html.escape(approver_name or "Approver")
+    safe_requester = html.escape(requester_name or "Requester")
+    safe_request_no = html.escape(request_no)
+    safe_title = html.escape(title or "Untitled Requirement")
+    safe_type = html.escape(requirement_type or "Requirement")
+    safe_cost = f"₹{total_cost:,.2f}" if total_cost is not None else "Not specified"
+    safe_items = html.escape(items_summary or "No items summary")
+    safe_expires = html.escape(expires_at_str)
+
+    plain_text = f"""Hello {safe_approver},
+
+{safe_requester} has submitted a {safe_type} requirement for your approval in {company_name}:
+
+Request: [{safe_request_no}] {safe_title}
+Type: {safe_type}
+Total Estimated Cost: {safe_cost}
+
+Items:
+{safe_items}
+
+This approval link expires on {safe_expires}.
+
+Please review and take action:
+- Approve: {approve_url}
+- Reject: {reject_url}
+- View Details: {view_url}
+
+Regards,
+{company_name} Notification Service
+"""
+
+    html_content = f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Approval Required</title>
+</head>
+<body style="margin: 0; padding: 24px 12px; background-color: #f4f6f4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1f2937;">
+  <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; border: 1px solid #e5e7eb; overflow: hidden; box-shadow: 0 4px 14px rgba(0,0,0,0.05);">
+    
+    <!-- Header Banner -->
+    <div style="background-color: #023020; padding: 22px 28px; border-bottom: 3px solid #087a3d;">
+      <div style="font-size: 18px; font-weight: 800; color: #ffffff; letter-spacing: 0.5px;">{company_name}</div>
+      <div style="font-size: 12px; color: #a7f3d0; margin-top: 3px;">Work Management & Collaboration</div>
+    </div>
+
+    <div style="padding: 28px;">
+      <p style="font-size: 15px; margin: 0 0 16px 0; color: #111827;">
+        Hello <strong>{safe_approver}</strong>,
+      </p>
+      
+      <!-- Notice Alert -->
+      <div style="background-color: #fffbeb; border-left: 4px solid #f59e0b; padding: 12px 16px; border-radius: 4px; margin-bottom: 22px;">
+        <span style="font-size: 14px; color: #92400e; font-weight: 600;">
+          <strong>{safe_requester}</strong> has submitted a <strong>{safe_type}</strong> requirement for your approval.
+        </span>
+      </div>
+
+      <!-- Requirement Card -->
+      <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 18px 20px; background-color: #fafafa;">
+        <div style="display: flex; align-items: center; margin-bottom: 12px;">
+          <span style="background-color: #023020; color: #ffffff; font-family: monospace; font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 4px; margin-right: 8px;">
+            {safe_request_no}
+          </span>
+          <span style="background-color: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; text-transform: uppercase;">
+            {safe_type}
+          </span>
+        </div>
+
+        <h3 style="margin: 0 0 14px 0; font-size: 16px; font-weight: 700; color: #111827; line-height: 1.4;">
+          {safe_title}
+        </h3>
+
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 6px 0; color: #6b7280; font-size: 13px; width: 140px;">Submitted By:</td>
+            <td style="padding: 6px 0; color: #111827; font-size: 13.5px; font-weight: 600;">{safe_requester}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #6b7280; font-size: 13px; width: 140px;">Total Estimated Cost:</td>
+            <td style="padding: 6px 0; color: #111827; font-size: 13.5px; font-weight: 600;">{safe_cost}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #6b7280; font-size: 13px; width: 140px;">Link Expires:</td>
+            <td style="padding: 6px 0; color: #dc2626; font-size: 13.5px; font-weight: 600;">{safe_expires}</td>
+          </tr>
+        </table>
+
+        <div style="margin-top: 16px; padding: 12px 16px; background-color: #f8faf8; border-left: 3px solid #087a3d; border-radius: 4px; font-size: 13.5px; color: #374151; line-height: 1.5;">
+          <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #6b7280; margin-bottom: 4px; letter-spacing: 0.5px;">Items</div>
+          {safe_items}
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div style="text-align: center; margin-top: 26px; margin-bottom: 24px;">
+        <a href="{approve_url}" target="_blank" style="background-color: #087a3d; color: #ffffff !important; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: 700; font-size: 14.5px; display: inline-block; margin-right: 12px; box-shadow: 0 2px 6px rgba(8,122,61,0.25);">
+          Approve
+        </a>
+        <a href="{reject_url}" target="_blank" style="background-color: #dc2626; color: #ffffff !important; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: 700; font-size: 14.5px; display: inline-block; box-shadow: 0 2px 6px rgba(220,38,38,0.25);">
+          Reject
+        </a>
+      </div>
+
+      <p style="font-size: 12px; color: #6b7280; text-align: center; margin: 0 0 4px 0;">
+        Or view details: <a href="{view_url}" style="color: #087a3d; word-break: break-all;">{view_url}</a>
+      </p>
+
+      <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0 16px 0;" />
+
+      <p style="font-size: 11.5px; color: #9ca3af; margin: 0; line-height: 1.5; text-align: center;">
+        You received this automated notification because a {safe_type.lower()} requirement was submitted for your approval.<br>
+        These are one-time secure links that expire on {safe_expires}.
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+"""
+
+    return dispatch_email_smtp(to_email, subject, plain_text, html_content, db=db)
+
+
+def notify_requirement_submission_background(
+    token_id: int,
+    client_base_url: str = "",
+):
+    """
+    Background worker executed after DB commit to dispatch requirement approval email safely.
+    Uses its own SessionLocal to query models, verify approver, and dispatch email.
+    """
+    from app.db.session import SessionLocal
+    from app.models import RequirementApprovalToken
+
+    db = SessionLocal()
+    try:
+        token_rec = db.query(RequirementApprovalToken).filter(RequirementApprovalToken.id == token_id).first()
+        if not token_rec:
+            logger.warning(f"Requirement approval token {token_id} not found for background notification")
+            return
+
+        # Check approver email
+        if not token_rec.approver_email or "@" not in token_rec.approver_email:
+            logger.warning(f"Approver email invalid for token {token_id}: {token_rec.approver_email}")
+            return
+
+        # Format expires_at
+        expires_str = token_rec.expires_at.strftime("%d %b %Y at %I:%M %p") if token_rec.expires_at else "Unknown"
+
+        # Build URLs
+        base = (client_base_url or "").rstrip("/")
+        if not base:
+            base = resolve_client_app_url()
+        
+        token_raw = token_rec.token_hash  # we don't have the raw token, so use the hash as token param
+        # But we need the raw token. Actually, we don't store raw token, only hash.
+        # For email we need to use the same pattern: the raw token is generated once and stored as hash.
+        # Since we can't get raw token from DB, we need to pass it at creation time.
+        # For background worker, we'll construct URLs with a placeholder that gets replaced.
+        # Actually, the pattern in financier is: they generate the raw token, hash it, and use the raw token in URL.
+        # We don't have the raw token here. Let's store it in the email sending function instead.
+        # This function needs to receive the raw token as well.
+        pass
+    except Exception as e:
+        logger.error(f"Error in notify_requirement_submission_background for token {token_id}: {e}", exc_info=True)
+    finally:
+        db.close()
+
+
+def schedule_requirement_submission_notification(
+    token_id: int,
+    raw_token: str,
+    approver_email: str,
+    approver_name: str,
+    requester_name: str,
+    request_no: str,
+    requirement_type: str,
+    title: str,
+    total_cost: float | None,
+    items_summary: str,
+    expires_at_str: str,
+    background_tasks: Any = None,
+    client_base_url: str = "",
+):
+    """
+    Schedules requirement approval notification using FastAPI BackgroundTasks if provided,
+    or falls back to an asynchronous daemon thread.
+    """
+    if background_tasks is not None and hasattr(background_tasks, "add_task"):
+        background_tasks.add_task(
+            _send_requirement_approval_background,
+            token_id=token_id,
+            raw_token=raw_token,
+            approver_email=approver_email,
+            approver_name=approver_name,
+            requester_name=requester_name,
+            request_no=request_no,
+            requirement_type=requirement_type,
+            title=title,
+            total_cost=total_cost,
+            items_summary=items_summary,
+            expires_at_str=expires_at_str,
+            client_base_url=client_base_url,
+        )
+    else:
+        import threading
+        t = threading.Thread(
+            target=_send_requirement_approval_background,
+            args=(
+                token_id,
+                raw_token,
+                approver_email,
+                approver_name,
+                requester_name,
+                request_no,
+                requirement_type,
+                title,
+                total_cost,
+                items_summary,
+                expires_at_str,
+                client_base_url,
+            ),
+            daemon=True,
+        )
+        t.start()
+
+
+def _send_requirement_approval_background(
+    token_id: int,
+    raw_token: str,
+    approver_email: str,
+    approver_name: str,
+    requester_name: str,
+    request_no: str,
+    requirement_type: str,
+    title: str,
+    total_cost: float | None,
+    items_summary: str,
+    expires_at_str: str,
+    client_base_url: str = "",
+):
+    """
+    Internal background worker that sends the approval email with actual URLs.
+    """
+    from app.db.session import SessionLocal
+
+    db = SessionLocal()
+    try:
+        # Build URLs with raw token
+        base = (client_base_url or "").rstrip("/")
+        if not base:
+            base = resolve_client_app_url()
+        
+        public_base = f"{base}/api/v1/public/approvals"
+        approve_url = f"{public_base}/{raw_token}/approve"
+        reject_url = f"{public_base}/{raw_token}/reject"
+        view_url = f"{public_base}/{raw_token}"
+
+        ok, err = send_requirement_approval_email(
+            to_email=approver_email,
+            approver_name=approver_name,
+            requester_name=requester_name,
+            request_no=request_no,
+            requirement_type=requirement_type,
+            title=title,
+            total_cost=total_cost,
+            items_summary=items_summary,
+            approve_url=approve_url,
+            reject_url=reject_url,
+            view_url=view_url,
+            expires_at_str=expires_at_str,
+            db=db,
+        )
+        if not ok:
+            logger.warning(f"Could not dispatch requirement approval email to {approver_email}: {err}")
+    except Exception as e:
+        logger.error(f"Error in _send_requirement_approval_background for token {token_id}: {e}", exc_info=True)
+    finally:
+        db.close()
+

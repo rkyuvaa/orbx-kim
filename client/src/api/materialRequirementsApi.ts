@@ -39,6 +39,16 @@ export const materialRequirementsApi = baseApi.injectEndpoints({
         { type: 'MaterialRequirementAttachment', id: request_no },
       ],
     }),
+    submitMaterialRequirement: build.mutation<
+      { ok: boolean; request_no: string; approval_sent: boolean; message?: string },
+      { requirement: any }
+    >({
+      query: ({ requirement }) => ({
+        url: `/public/approvals/material-requirements/submit`,
+        method: 'POST',
+        body: { requirement },
+      }),
+    }),
   }),
 });
 
@@ -46,4 +56,5 @@ export const {
   useUploadMaterialRequirementAttachmentMutation,
   useListMaterialRequirementAttachmentsQuery,
   useDeleteMaterialRequirementAttachmentMutation,
+  useSubmitMaterialRequirementMutation,
 } = materialRequirementsApi;
