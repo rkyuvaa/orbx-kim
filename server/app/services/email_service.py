@@ -562,8 +562,8 @@ def send_requirement_approval_email(
     db: Optional[Session] = None,
 ) -> tuple[bool, Optional[str]]:
     """
-    Sends an email to the approver with one-click Approve / Reject buttons
-    for a material or IT requirement.
+    Sends an email to the approver with a link to review and respond to
+    a material or IT requirement.
     """
     subject = f"[{company_name}] Approval Required: {request_no} - {title}"
 
@@ -589,10 +589,8 @@ Items:
 
 This approval link expires on {safe_expires}.
 
-Please review and take action:
-- Approve: {approve_url}
-- Reject: {reject_url}
-- View Details: {view_url}
+Please review and respond to this requirement:
+{view_url}
 
 Regards,
 {company_name} Notification Service
@@ -662,25 +660,22 @@ Regards,
         </div>
       </div>
 
-      <!-- Action Buttons -->
+      <!-- Response Link -->
       <div style="text-align: center; margin-top: 26px; margin-bottom: 24px;">
-        <a href="{approve_url}" target="_blank" style="background-color: #087a3d; color: #ffffff !important; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: 700; font-size: 14.5px; display: inline-block; margin-right: 12px; box-shadow: 0 2px 6px rgba(8,122,61,0.25);">
-          Approve
-        </a>
-        <a href="{reject_url}" target="_blank" style="background-color: #dc2626; color: #ffffff !important; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: 700; font-size: 14.5px; display: inline-block; box-shadow: 0 2px 6px rgba(220,38,38,0.25);">
-          Reject
+        <a href="{view_url}" target="_blank" style="background-color: #087a3d; color: #ffffff !important; text-decoration: none; padding: 13px 36px; border-radius: 8px; font-weight: 700; font-size: 15px; display: inline-block; box-shadow: 0 2px 6px rgba(8,122,61,0.25);">
+          Respond
         </a>
       </div>
 
-      <p style="font-size: 12px; color: #6b7280; text-align: center; margin: 0 0 4px 0;">
-        Or view details: <a href="{view_url}" style="color: #087a3d; word-break: break-all;">{view_url}</a>
+      <p style="font-size: 12px; color: #6b7280; text-align: center; margin: 0;">
+        Review the requirement and choose Approve or Reject on the response page.
       </p>
 
       <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0 16px 0;" />
 
       <p style="font-size: 11.5px; color: #9ca3af; margin: 0; line-height: 1.5; text-align: center;">
         You received this automated notification because a {safe_type.lower()} requirement was submitted for your approval.<br>
-        These are one-time secure links that expire on {safe_expires}.
+        This secure response link expires on {safe_expires}.
       </p>
     </div>
   </div>

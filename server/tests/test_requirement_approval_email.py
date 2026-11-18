@@ -536,7 +536,7 @@ class TestEmailTemplate:
     def test_send_requirement_approval_email_contains_urls(
         self, db: Session
     ):
-        """Test email HTML contains approve, reject, and view URLs."""
+        """Test email links to the response page without direct-action URLs."""
         with patch("app.services.email_service.dispatch_email_smtp") as mock_dispatch:
             mock_dispatch.return_value = (True, None)
             
@@ -568,10 +568,15 @@ class TestEmailTemplate:
             call_args = mock_dispatch.call_args
             html_content = call_args.kwargs.get("html_content", "") or call_args.args[3]
             
-            # Verify URLs present in email
-            assert approve_url in html_content
-            assert reject_url in html_content
+            # Only the working response page is linked from the email.
             assert view_url in html_content
+            assert "Respond" in html_content
+            assert approve_url not in html_content
+            assert reject_url not in html_content
+            plain_text = call_args.args[2]
+            assert view_url in plain_text
+            assert approve_url not in plain_text
+            assert reject_url not in plain_text
             
             # Verify key content
             assert "MR-2024-999" in html_content
