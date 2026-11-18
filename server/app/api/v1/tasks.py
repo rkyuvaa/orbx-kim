@@ -899,7 +899,7 @@ def list_tasks(
     query = db.query(Task).filter(Task.is_deleted.is_(False))
 
     if not is_archived:
-        query = query.filter(Task.is_archived.is_(False))
+        query = query.filter(or_(Task.is_archived.is_(False), Task.is_archived.is_(None)))
 
     if project_id:
         query = query.filter(Task.project_id == project_id)
@@ -932,24 +932,42 @@ def list_tasks(
         )
 
     if my_tasks_only:
-        # My Tasks scope: Show ONLY personal tasks created by this user
-        query = query.filter(Task.is_personal == True, Task.created_by == current_user.id)
-    else:
-        # Projects Tasks scope: Show ONLY project tasks
-        query = query.filter(Task.is_personal == False)
-        
-        # Mandatory security: Normal users can only see project tasks assigned to or created by them
-        from app.services.rbac_service import get_user_active_roles
-        _roles = get_user_active_roles(db, current_user)
-        _is_admin = current_user.role == UserRole.ADMIN or any(r.code in ("super_admin", "admin") for r in _roles if r and r.code)
-        if not _is_admin:
-            query = query.filter(
-                or_(
-                    Task.assignee_id == current_user.id,
-                    Task.created_by == current_user.id,
-                    Task.id.in_(db.query(TaskAssignee.task_id).filter(TaskAssignee.user_id == current_user.id))
-                )
+        # My Tasks scope: Show tasks assigned to or created by this user
+        query = query.filter(
+            or_(
+                Task.created_by == current_user.id,
+                Task.assignee_id == current_user.id,
+                Task.id.in_(db.query(TaskAssignee.task_id).filter(TaskAssignee.user_id == current_user.id))
             )
+        )
+    else:
+        # Projects Tasks scope: Show project tasks (exclude standalone personal tasks without project)
+        if not project_id:
+            query = query.filter(or_(Task.is_personal.is_(False), Task.is_personal.is_(None)))
+        else:
+            # When viewing a specific project, tasks linked to this project are project tasks
+            query = query.filter(or_(Task.is_personal.is_(False), Task.is_personal.is_(None)))
+        
+        # When browsing the global task board (no project_id), normal users without project/task view permissions only see their own tasks
+        if not project_id:
+            from app.services.rbac_service import get_user_active_roles, can_user
+            _roles = get_user_active_roles(db, current_user)
+            _user_role_str = (current_user.role.value if hasattr(current_user.role, 'value') else str(current_user.role or '')).upper()
+            _role_codes = {r.code.lower() for r in _roles if r and r.code}
+            _is_admin = (
+                _user_role_str in ("ADMIN", "USERROLE.ADMIN")
+                or any(c in ("super_admin", "admin", "administrator", "management") for c in _role_codes)
+                or can_user(db, current_user, "view", "projects")
+                or can_user(db, current_user, "view", "tasks")
+            )
+            if not _is_admin:
+                query = query.filter(
+                    or_(
+                        Task.assignee_id == current_user.id,
+                        Task.created_by == current_user.id,
+                        Task.id.in_(db.query(TaskAssignee.task_id).filter(TaskAssignee.user_id == current_user.id))
+                    )
+                )
 
     if cost_center_id:
         query = query.filter(Task.cost_center_id == cost_center_id)
@@ -1042,18 +1060,31 @@ def _get_task_or_404_with_auth(db: Session, task_id: int, current_user: User) ->
     if not task or task.is_deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
         
-    from app.services.rbac_service import get_user_active_roles
+    from app.services.rbac_service import get_user_active_roles, can_user
     _roles = get_user_active_roles(db, current_user)
-    _is_admin = current_user.role == UserRole.ADMIN or any(r.code in ("super_admin", "admin") for r in _roles if r and r.code)
+    _user_role_str = (current_user.role.value if hasattr(current_user.role, 'value') else str(current_user.role or '')).upper()
+    _role_codes = {r.code.lower() for r in _roles if r and r.code}
+    _is_admin = (
+        _user_role_str in ("ADMIN", "USERROLE.ADMIN")
+        or any(c in ("super_admin", "admin", "administrator", "management") for c in _role_codes)
+        or can_user(db, current_user, "view", "projects")
+        or can_user(db, current_user, "view", "tasks")
+    )
     if not _is_admin:
         if task.is_personal:
-            if task.created_by != current_user.id:
+            is_personal_owner = (
+                task.created_by == current_user.id
+                or task.assignee_id == current_user.id
+                or any(a.user_id == current_user.id for a in task.assignees)
+            )
+            if not is_personal_owner:
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to access this personal task")
         else:
             is_assigned = (
                 task.assignee_id == current_user.id
                 or task.created_by == current_user.id
                 or any(a.user_id == current_user.id for a in task.assignees)
+                or (task.project and task.project.owner_id == current_user.id)
             )
             if not is_assigned:
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to access this project task")

@@ -145,13 +145,17 @@ export default function ProjectTasksList({ projectId }: ProjectTasksListProps) {
   const [addingSubtaskId, setAddingSubtaskId] = useState<number | null>(null);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
 
-  const { data: tasks = [], isLoading } = useGetTasksQuery({
-    project_id: numericProjectId,
-    q: searchQ || undefined,
-    include_subtasks: true,
-  });
+  const { data: tasks = [], isLoading, isError, error, refetch } = useGetTasksQuery(
+    {
+      project_id: numericProjectId,
+      q: searchQ || undefined,
+      include_subtasks: true,
+    },
+    { skip: !numericProjectId || isNaN(numericProjectId) }
+  );
 
   const safeTasks = Array.isArray(tasks) ? tasks : [];
+  const allTaskIds = React.useMemo(() => new Set(safeTasks.map((t) => t.id)), [safeTasks]);
 
   const filteredTasks = safeTasks.filter((t) => {
     if (!t) return false;
@@ -1994,6 +1998,22 @@ export default function ProjectTasksList({ projectId }: ProjectTasksListProps) {
     );
   }
 
+  if (isError) {
+    return (
+      <Paper elevation={0} sx={{ p: 4, textAlign: 'center', border: '1px solid', borderColor: 'divider', borderRadius: '8px' }}>
+        <Typography variant="body1" color="error" sx={{ fontWeight: 600, mb: 1 }}>
+          Failed to load project tasks
+        </Typography>
+        <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+          {(error as any)?.data?.detail || 'An error occurred while fetching tasks for this project.'}
+        </Typography>
+        <Button variant="outlined" size="small" onClick={() => refetch()} sx={{ textTransform: 'none' }}>
+          Retry
+        </Button>
+      </Paper>
+    );
+  }
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       {/* ── CLICKUP STYLE TOOLBAR (Top Bar) ────────────────────────────── */}
@@ -2135,7 +2155,7 @@ export default function ProjectTasksList({ projectId }: ProjectTasksListProps) {
         >
           {activeStatuses.map((st) => {
             // Filter top-level tasks only (exclude standalone subtasks)
-            const statusTasks = filteredTasks.filter((t) => !t.parent_task_id && (t.status_id || 1) === st.id);
+            const statusTasks = filteredTasks.filter((t) => (!t.parent_task_id || !allTaskIds.has(t.parent_task_id)) && (t.status_id || 1) === st.id);
 
             return (
               <Box
@@ -2472,9 +2492,28 @@ export default function ProjectTasksList({ projectId }: ProjectTasksListProps) {
                     </Button>
                   </TableCell>
                 </TableRow>
+              ) : filteredTasks.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={11} align="center" sx={{ py: 6 }}>
+                    <Typography color="textSecondary" variant="body2" sx={{ mb: 1 }}>
+                      No tasks match the active filters.
+                    </Typography>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => {
+                        setPriorityFilter('ALL');
+                        setSearchQ('');
+                      }}
+                      sx={{ textTransform: 'none', color: isDark ? '#16C47F' : '#203020', borderColor: isDark ? '#16C47F' : '#203020' }}
+                    >
+                      Reset Filters
+                    </Button>
+                  </TableCell>
+                </TableRow>
               ) : groupBy === 'status' ? (
                 activeStatuses.map((status) => {
-                  const statusTasks = filteredTasks.filter((t) => !t.parent_task_id && (t.status_id || 1) === status.id);
+                  const statusTasks = filteredTasks.filter((t) => (!t.parent_task_id || !allTaskIds.has(t.parent_task_id)) && (t.status_id || 1) === status.id);
                   if (statusTasks.length === 0) return null;
                   const isExpanded = expandedGroups[status.id] !== false; // default true
 
@@ -2522,7 +2561,15 @@ export default function ProjectTasksList({ projectId }: ProjectTasksListProps) {
                   ...milestones.map((m) => ({ id: m.id, name: m.title })),
                   { id: null, name: 'Unassigned Milestone' }
                 ].map((milestone) => {
-                  const mTasks = filteredTasks.filter((t) => !t.parent_task_id && (t.milestone_id || null) === milestone.id);
+                  const knownMilestoneIds = new Set(milestones.map((m) => m.id));
+                  const mTasks = filteredTasks.filter((t) => {
+                    const isRoot = !t.parent_task_id || !allTaskIds.has(t.parent_task_id);
+                    if (!isRoot) return false;
+                    if (milestone.id === null) {
+                      return !t.milestone_id || !knownMilestoneIds.has(t.milestone_id);
+                    }
+                    return t.milestone_id === milestone.id;
+                  });
                   const mTaskLists = milestone.id
                     ? [...taskLists.filter((tl) => tl.milestone_id === milestone.id)].sort(
                         (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.id - b.id
