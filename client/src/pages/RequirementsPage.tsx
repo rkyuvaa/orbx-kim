@@ -60,7 +60,7 @@ import ITRequirementFormModal from '@/components/requirements/ITRequirementFormM
 import ITRequirementDetailDrawer from '@/components/requirements/ITRequirementDetailDrawer';
 import { printRequirement } from '@/components/print';
 import { usePermission } from '@/context/AuthPermissionContext';
-import { useDatabaseStoredState } from '@/hooks/useDatabaseStoredState';
+// Removed useDatabaseStoredState - using local state + server submit only
 import {
   useGenerateDocumentNumberMutation,
   usePreviewDocumentNumberMutation,
@@ -72,6 +72,7 @@ import {
   useDeleteMaterialRequirementAttachmentMutation,
   useSubmitMaterialRequirementMutation,
 } from '@/api/materialRequirementsApi';
+import { useGetAppDataQuery } from '@/api/appDataApi';
 import { useMeQuery } from '@/api/authApi';
 import { useGetAllUsersQuery } from '@/api/rbacApi';
 import { setUser } from '../auth/authSlice';
@@ -325,10 +326,16 @@ export default function RequirementsPage() {
   const canDelete = isSuperAdmin || can('delete', resourceCode);
   const canApprove = isSuperAdmin || can('approve', resourceCode);
 
-  const [requirements, setRequirements] = useDatabaseStoredState<RequirementItem[]>(
-    'crm_requirements_items_data',
-    [],
-  );
+  // Fetch initial requirements data from server (read-only, no auto-save)
+  const { data: requirementsData } = useGetAppDataQuery('crm_requirements_items_data');
+  const [requirements, setRequirements] = useState<RequirementItem[]>([]);
+
+  // Initialize local state from server data once
+  useEffect(() => {
+    if (requirementsData?.value) {
+      setRequirements(requirementsData.value as RequirementItem[]);
+    }
+  }, [requirementsData]);
 
   const [generateDocumentNumber] = useGenerateDocumentNumberMutation();
   const [previewDocumentNumber] = usePreviewDocumentNumberMutation();
