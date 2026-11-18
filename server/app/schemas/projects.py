@@ -28,8 +28,8 @@ class BranchBrief(BaseModel):
 # --- User Brief for Task Assignees / Followers ---
 class UserBriefOut(BaseModel):
     id: int
-    full_name: str
-    email: str
+    full_name: Optional[str] = ""
+    email: Optional[str] = ""
     initials: Optional[str] = None
     profile_photo: Optional[str] = None
 
@@ -42,7 +42,7 @@ class TaskAssigneeOut(BaseModel):
     task_id: int
     user_id: int
     user: Optional[UserBriefOut] = None
-    assigned_at: datetime
+    assigned_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -52,7 +52,7 @@ class TaskFollowerOut(BaseModel):
     task_id: int
     user_id: int
     user: Optional[UserBriefOut] = None
-    created_at: datetime
+    created_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -88,7 +88,7 @@ class TaskSubtaskCreate(TaskSubtaskBase):
 class TaskSubtaskOut(TaskSubtaskBase):
     id: int
     task_id: int
-    created_at: datetime
+    created_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -112,7 +112,8 @@ class TaskChecklistItemOut(TaskChecklistItemBase):
     completed_at: Optional[datetime] = None
     completed_by: Optional[int] = None
     assignee: Optional[UserBriefOut] = None
-    created_at: datetime
+    assignee_name: Optional[str] = None
+    created_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -132,7 +133,7 @@ class TaskChecklistOut(TaskChecklistBase):
     items: List[TaskChecklistItemOut] = []
     completed_count: int = 0
     total_count: int = 0
-    created_at: datetime
+    created_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -153,7 +154,7 @@ class TaskTimeLogOut(TaskTimeLogBase):
     task_id: int
     user_id: int
     user_name: Optional[str] = None
-    created_at: datetime
+    created_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -174,7 +175,7 @@ class TaskTimeEntryOut(TaskTimeEntryBase):
     task_id: int
     user_id: int
     user_name: Optional[str] = None
-    created_at: datetime
+    created_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -291,7 +292,7 @@ class TaskRelationshipOut(BaseModel):
     related_task_number: Optional[str] = None
     related_task_title: Optional[str] = None
     relationship_type: RelationshipType
-    created_at: datetime
+    created_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -306,25 +307,25 @@ class TaskActivityOut(BaseModel):
     field_name: Optional[str] = None
     old_value: Optional[str] = None
     new_value: Optional[str] = None
-    created_at: datetime
+    created_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
 
 # --- Task ---
 class TaskBase(BaseModel):
-    title: str
+    title: str = ""
     description: Optional[str] = None
     type_id: Optional[int] = None
     status_id: Optional[int] = None
-    priority: TaskPriority = TaskPriority.NORMAL
+    priority: Optional[TaskPriority] = TaskPriority.NORMAL
     assignee_id: Optional[int] = None
     start_date: Optional[date] = None
     start_time: Optional[str] = None
     due_date: Optional[date] = None
     due_time: Optional[str] = None
-    estimated_minutes: int = 0
-    estimated_hours: float = 0.0
+    estimated_minutes: Optional[int] = 0
+    estimated_hours: Optional[float] = 0.0
     tags: Optional[str] = None
     company_id: Optional[int] = None
     branch_id: Optional[int] = None
@@ -342,6 +343,40 @@ class TaskBase(BaseModel):
     cancellation_reason: Optional[str] = None
     blocked_reason: Optional[str] = None
     parent_due_follows_subtasks: Optional[bool] = True
+
+    @field_validator("priority", mode="before")
+    @classmethod
+    def normalize_priority(cls, v):
+        if not v:
+            return TaskPriority.NORMAL
+        if isinstance(v, str):
+            v_upper = v.strip().upper()
+            if v_upper in ("MEDIUM", "MED"):
+                return TaskPriority.NORMAL
+            if v_upper in TaskPriority.__members__:
+                return TaskPriority[v_upper]
+            return TaskPriority.NORMAL
+        return v
+
+    @field_validator("estimated_minutes", mode="before")
+    @classmethod
+    def normalize_estimated_minutes(cls, v):
+        if v is None or v == "":
+            return 0
+        try:
+            return int(v)
+        except (ValueError, TypeError):
+            return 0
+
+    @field_validator("estimated_hours", mode="before")
+    @classmethod
+    def normalize_estimated_hours(cls, v):
+        if v is None or v == "":
+            return 0.0
+        try:
+            return float(v)
+        except (ValueError, TypeError):
+            return 0.0
 
 
 class PersonalTaskAssignCreate(BaseModel):
@@ -442,22 +477,22 @@ class TaskUpdate(BaseModel):
 
 class TaskOut(TaskBase):
     id: int
-    task_number: str
+    task_number: Optional[str] = ""
     project_id: Optional[int] = None
     project_name: Optional[str] = None
     parent_task_id: Optional[int] = None
     milestone_id: Optional[int] = None
     task_list_id: Optional[int] = None
     task_list_name: Optional[str] = None
-    sort_order: int = 0
-    actual_minutes: int = 0
-    actual_hours: float = 0.0
-    progress_percentage: float = 0.0
-    is_completed: bool = False
-    is_archived: bool = False
-    is_deleted: bool = False
-    is_blocked: bool = False
-    is_personal: bool = False
+    sort_order: Optional[int] = 0
+    actual_minutes: Optional[int] = 0
+    actual_hours: Optional[float] = 0.0
+    progress_percentage: Optional[float] = 0.0
+    is_completed: Optional[bool] = False
+    is_archived: Optional[bool] = False
+    is_deleted: Optional[bool] = False
+    is_blocked: Optional[bool] = False
+    is_personal: Optional[bool] = False
     completed_at: Optional[datetime] = None
     completed_by: Optional[int] = None
 
@@ -469,18 +504,18 @@ class TaskOut(TaskBase):
     completion_date: Optional[date] = None
     completion_time: Optional[str] = None
 
-    is_parent: bool = False
+    is_parent: Optional[bool] = False
     is_date_controlled_by: Optional[int] = None
     controlled_by_task_number: Optional[str] = None
     controlled_by_dep_type: Optional[str] = None
-    start_date_locked: bool = False
-    end_date_locked: bool = False
+    start_date_locked: Optional[bool] = False
+    end_date_locked: Optional[bool] = False
     dependency_conflict: Optional[dict] = None
 
     rollup_start_date: Optional[date] = None
     rollup_end_date: Optional[date] = None
-    rollup_estimated_cost: float = 0.0
-    rollup_actual_cost: float = 0.0
+    rollup_estimated_cost: Optional[float] = 0.0
+    rollup_actual_cost: Optional[float] = 0.0
 
     assignee_name: Optional[str] = None
     assigned_at: Optional[datetime] = None
@@ -501,14 +536,60 @@ class TaskOut(TaskBase):
     dependents: List[TaskDependencyOut] = []
     relationships: List[TaskRelationshipOut] = []
     tags_list: List[TaskTagOut] = []
-    subtask_count: int = 0
-    completed_subtask_count: int = 0
+    subtask_count: Optional[int] = 0
+    completed_subtask_count: Optional[int] = 0
     nested_subtasks: List["TaskOut"] = []
 
     created_by: Optional[int] = None
     created_by_name: Optional[str] = None
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    @field_validator(
+        "sort_order", "actual_minutes", "duration_working_days", "duration_working_hours",
+        "subtask_count", "completed_subtask_count",
+        mode="before"
+    )
+    @classmethod
+    def normalize_task_out_ints(cls, v):
+        if v is None or v == "":
+            return 0
+        try:
+            return int(v)
+        except (ValueError, TypeError):
+            return 0
+
+    @field_validator(
+        "actual_hours", "progress_percentage", "estimated_cost", "actual_cost",
+        "rollup_estimated_cost", "rollup_actual_cost",
+        mode="before"
+    )
+    @classmethod
+    def normalize_task_out_floats(cls, v):
+        if v is None or v == "":
+            return 0.0
+        try:
+            return float(v)
+        except (ValueError, TypeError):
+            return 0.0
+
+    @field_validator(
+        "is_completed", "is_archived", "is_deleted", "is_blocked", "is_personal",
+        "is_parent", "start_date_locked", "end_date_locked",
+        mode="before"
+    )
+    @classmethod
+    def normalize_task_out_bools(cls, v):
+        if v is None:
+            return False
+        return bool(v)
+
+    @field_validator("auto_schedule", mode="before")
+    @classmethod
+    def normalize_task_out_auto_schedule(cls, v):
+        if v is None:
+            return True
+        return bool(v)
 
     model_config = ConfigDict(from_attributes=True)
 

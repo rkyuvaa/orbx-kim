@@ -843,3 +843,292 @@ def _send_requirement_approval_background(
     finally:
         db.close()
 
+
+def _send_requirement_update_email(
+    to_email: str,
+    subject: str,
+    recipient_name: str,
+    heading: str,
+    message: str,
+    request_no: str,
+    requirement_type: str,
+    requester_name: str,
+    total_cost: float | None,
+    items_summary: str,
+    requirement_url: str,
+    status_color: str,
+    decision_reason: str = "",
+    company_name: str = "KIM Work Management",
+    db: Optional[Session] = None,
+) -> tuple[bool, Optional[str]]:
+    """Send a requirement status or processing notification."""
+    safe_recipient = html.escape(recipient_name or "User")
+    safe_heading = html.escape(heading)
+    safe_message = html.escape(message)
+    safe_request_no = html.escape(request_no)
+    safe_type = html.escape(requirement_type)
+    safe_requester = html.escape(requester_name or "Requester")
+    safe_cost = f"₹{total_cost:,.2f}" if total_cost is not None else "Not specified"
+    safe_items = html.escape(items_summary or "No items summary").replace("\n", "<br>")
+    safe_url = html.escape(requirement_url, quote=True)
+    safe_reason = html.escape(decision_reason or "")
+
+    reason_text = f"\nReason: {decision_reason}" if decision_reason else ""
+    plain_text = f"""Hello {recipient_name or 'User'},
+
+{message}
+
+Request: {request_no}
+Type: {requirement_type}
+Submitted By: {requester_name}
+Total Estimated Cost: {safe_cost}{reason_text}
+
+Items:
+{items_summary or 'No items summary'}
+
+View requirement:
+{requirement_url}
+
+Regards,
+{company_name} Notification Service
+"""
+
+    reason_html = ""
+    if safe_reason:
+        reason_html = f"""
+        <div style="margin-top: 14px; padding: 12px 16px; background-color: #fef2f2; border-left: 3px solid #dc2626; border-radius: 4px; font-size: 13px; color: #7f1d1d;">
+          <strong>Reason:</strong> {safe_reason}
+        </div>"""
+
+    html_content = f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{safe_heading}</title>
+</head>
+<body style="margin: 0; padding: 24px 12px; background-color: #f4f6f4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1f2937;">
+  <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; border: 1px solid #e5e7eb; overflow: hidden; box-shadow: 0 4px 14px rgba(0,0,0,0.05);">
+    <div style="background-color: #023020; padding: 22px 28px; border-bottom: 3px solid #087a3d;">
+      <div style="font-size: 18px; font-weight: 800; color: #ffffff;">{company_name}</div>
+      <div style="font-size: 12px; color: #a7f3d0; margin-top: 3px;">Work Management &amp; Collaboration</div>
+    </div>
+    <div style="padding: 28px;">
+      <p style="font-size: 15px; margin: 0 0 16px 0;">Hello <strong>{safe_recipient}</strong>,</p>
+      <div style="background-color: {status_color}; color: #ffffff; border-radius: 7px; padding: 13px 16px; font-size: 15px; font-weight: 700; margin-bottom: 18px;">
+        {safe_heading}
+      </div>
+      <p style="font-size: 14px; line-height: 1.6; color: #374151; margin: 0 0 18px 0;">{safe_message}</p>
+      <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 18px 20px; background-color: #fafafa;">
+        <div style="font-family: monospace; font-size: 15px; font-weight: 700; color: #023020; margin-bottom: 12px;">{safe_request_no}</div>
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+          <tr><td style="padding: 5px 0; color: #6b7280; width: 145px;">Type:</td><td style="padding: 5px 0; font-weight: 600;">{safe_type}</td></tr>
+          <tr><td style="padding: 5px 0; color: #6b7280;">Submitted By:</td><td style="padding: 5px 0; font-weight: 600;">{safe_requester}</td></tr>
+          <tr><td style="padding: 5px 0; color: #6b7280;">Total Estimated Cost:</td><td style="padding: 5px 0; font-weight: 600;">{safe_cost}</td></tr>
+        </table>
+        <div style="margin-top: 14px; padding: 12px 16px; background-color: #f8faf8; border-left: 3px solid #087a3d; border-radius: 4px; font-size: 13px; color: #374151; line-height: 1.55;">
+          <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #6b7280; margin-bottom: 4px;">Items</div>
+          {safe_items}
+        </div>
+        {reason_html}
+      </div>
+      <div style="text-align: center; margin-top: 24px;">
+        <a href="{safe_url}" target="_blank" style="background-color: #087a3d; color: #ffffff !important; text-decoration: none; padding: 12px 30px; border-radius: 8px; font-weight: 700; font-size: 14px; display: inline-block;">View Requirement</a>
+      </div>
+      <p style="font-size: 11.5px; color: #9ca3af; margin: 24px 0 0; text-align: center;">This is an automated requirement notification from {company_name}.</p>
+    </div>
+  </div>
+</body>
+</html>
+"""
+    return dispatch_email_smtp(to_email, subject, plain_text, html_content, db=db)
+
+
+def send_requirement_requester_decision_email(
+    to_email: str,
+    requester_name: str,
+    request_no: str,
+    requirement_type: str,
+    title: str,
+    decision: str,
+    decided_by: str,
+    total_cost: float | None,
+    items_summary: str,
+    requirement_url: str,
+    decision_reason: str = "",
+    company_name: str = "KIM Work Management",
+    db: Optional[Session] = None,
+) -> tuple[bool, Optional[str]]:
+    """Notify the requester that their requirement was approved or rejected."""
+    decision = decision.upper()
+    status = "Approved" if decision == "APPROVED" else "Rejected"
+    type_label = "Material" if requirement_type.upper() == "MATERIAL" else "IT"
+    return _send_requirement_update_email(
+        to_email=to_email,
+        subject=f"[{company_name}] Your {type_label} Request {request_no} was {status}",
+        recipient_name=requester_name,
+        heading=f"Your {type_label} Request was {status}",
+        message=f"Your {type_label} request {request_no} ({title}) has been {status.lower()} by {decided_by}.",
+        request_no=request_no,
+        requirement_type=requirement_type,
+        requester_name=requester_name,
+        total_cost=total_cost,
+        items_summary=items_summary,
+        requirement_url=requirement_url,
+        status_color="#087a3d" if decision == "APPROVED" else "#dc2626",
+        decision_reason=decision_reason,
+        company_name=company_name,
+        db=db,
+    )
+
+
+def send_store_incharge_processing_email(
+    to_email: str,
+    incharge_name: str,
+    requester_name: str,
+    approver_name: str,
+    request_no: str,
+    title: str,
+    total_cost: float | None,
+    items_summary: str,
+    requirement_url: str,
+    company_name: str = "KIM Work Management",
+    db: Optional[Session] = None,
+) -> tuple[bool, Optional[str]]:
+    """Notify a store incharge that an approved material request needs processing."""
+    return _send_requirement_update_email(
+        to_email=to_email,
+        subject=f"[{company_name}] Approved Material Request {request_no} Waiting for Processing",
+        recipient_name=incharge_name,
+        heading="Approved Material Request Waiting for Processing",
+        message=f"Material request {request_no} ({title}), submitted by {requester_name} and approved by {approver_name}, is waiting for your processing.",
+        request_no=request_no,
+        requirement_type="MATERIAL",
+        requester_name=requester_name,
+        total_cost=total_cost,
+        items_summary=items_summary,
+        requirement_url=requirement_url,
+        status_color="#087a3d",
+        company_name=company_name,
+        db=db,
+    )
+
+
+def schedule_requirement_decision_notifications(
+    token_id: int,
+    decision: str,
+    title: str,
+    total_cost: float | None,
+    items_summary: str,
+    client_base_url: str = "",
+    decision_reason: str = "",
+    background_tasks: Any = None,
+):
+    """Queue requester and store notifications without blocking the decision response."""
+    kwargs = {
+        "token_id": token_id,
+        "decision": decision,
+        "title": title,
+        "total_cost": total_cost,
+        "items_summary": items_summary,
+        "client_base_url": client_base_url,
+        "decision_reason": decision_reason,
+    }
+    if background_tasks is not None and hasattr(background_tasks, "add_task"):
+        background_tasks.add_task(_send_requirement_decision_background, **kwargs)
+    else:
+        import threading
+        threading.Thread(
+            target=_send_requirement_decision_background,
+            kwargs=kwargs,
+            daemon=True,
+        ).start()
+
+
+def _send_requirement_decision_background(
+    token_id: int,
+    decision: str,
+    title: str,
+    total_cost: float | None,
+    items_summary: str,
+    client_base_url: str = "",
+    decision_reason: str = "",
+):
+    """Send post-decision emails using committed token and configuration data."""
+    from urllib.parse import quote
+
+    from app.db.session import SessionLocal
+    from app.models import AppDataDocument, RequirementApprovalToken
+    from app.models.user import User, UserStatus
+
+    db = SessionLocal()
+    try:
+        token_rec = db.get(RequirementApprovalToken, token_id)
+        if not token_rec or token_rec.status != decision:
+            logger.warning(f"Skipping decision emails for token {token_id}: matching {decision} decision not found")
+            return
+
+        base = (client_base_url or "").rstrip("/") or resolve_client_app_url()
+        requirement_path = "/requirements/it" if token_rec.requirement_type.upper() == "IT" else "/requirements/material"
+        requirement_url = f"{base}{requirement_path}?requestNo={quote(token_rec.request_no, safe='')}"
+
+        requester = db.get(User, token_rec.submitted_by_user_id) if token_rec.submitted_by_user_id else None
+        if requester and requester.email:
+            ok, err = send_requirement_requester_decision_email(
+                to_email=requester.email,
+                requester_name=requester.full_name,
+                request_no=token_rec.request_no,
+                requirement_type=token_rec.requirement_type,
+                title=title,
+                decision=decision,
+                decided_by=token_rec.approver_name,
+                total_cost=total_cost,
+                items_summary=items_summary,
+                requirement_url=requirement_url,
+                decision_reason=decision_reason,
+                db=db,
+            )
+            if not ok:
+                logger.warning(f"Could not dispatch requester decision email to {requester.email}: {err}")
+        else:
+            logger.warning(f"No requester email available for requirement {token_rec.request_no}")
+
+        if decision != "APPROVED" or token_rec.requirement_type.upper() != "MATERIAL":
+            return
+
+        config = db.query(AppDataDocument).filter(
+            AppDataDocument.key == "crm_requirements_store_incharges"
+        ).first()
+        value = config.value if config else None
+        raw_ids = value if isinstance(value, list) else (value or {}).get("user_ids", [])
+        user_ids = list({user_id for user_id in raw_ids if isinstance(user_id, int)})
+        if not user_ids:
+            logger.info(f"No store incharges configured for approved requirement {token_rec.request_no}")
+            return
+
+        incharges = db.query(User).filter(
+            User.id.in_(user_ids),
+            User.status == UserStatus.ACTIVE,
+        ).all()
+        for incharge in incharges:
+            if not incharge.email:
+                continue
+            ok, err = send_store_incharge_processing_email(
+                to_email=incharge.email,
+                incharge_name=incharge.full_name,
+                requester_name=token_rec.submitted_by_name or "Requester",
+                approver_name=token_rec.approver_name,
+                request_no=token_rec.request_no,
+                title=title,
+                total_cost=total_cost,
+                items_summary=items_summary,
+                requirement_url=requirement_url,
+                db=db,
+            )
+            if not ok:
+                logger.warning(f"Could not dispatch store processing email to {incharge.email}: {err}")
+    except Exception as e:
+        logger.error(f"Error sending decision notifications for token {token_id}: {e}", exc_info=True)
+    finally:
+        db.close()
+

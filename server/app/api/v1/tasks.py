@@ -1,8 +1,11 @@
 import os
 import re
 import uuid
+import logging
 from datetime import datetime, timezone, date, timedelta
 from typing import List, Optional
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile, File, Form, status, Response, BackgroundTasks
 from sqlalchemy.orm import Session, joinedload, selectinload
@@ -783,89 +786,98 @@ def _format_task_out(
             out.completed_subtask_count = sum(1 for st in subtasks if st.is_completed)
             out.nested_subtasks = [_format_task_out(st, db, skip_nested=False) for st in subtasks]
 
-    from app.services.scheduling_engine import check_dependency_conflict
-    out.dependency_conflict = check_dependency_conflict(db, t)
+    try:
+        from app.services.scheduling_engine import check_dependency_conflict
+        out.dependency_conflict = check_dependency_conflict(db, t)
+    except Exception as exc:
+        logger.warning(f"Failed to check dependency conflict for task {t.id}: {exc}")
+        out.dependency_conflict = None
+
     raw_auto = getattr(t, 'auto_schedule', True)
     out.auto_schedule = True if raw_auto is None else bool(raw_auto)
-    out.is_parent = out.subtask_count > 0
+    out.is_parent = (out.subtask_count or 0) > 0
     if out.is_parent:
-        # Dynamically derive missing start_time, due_time, start_date, or due_date from child subtasks
-        if not out.start_time or not out.due_time or not out.start_date or not out.due_date:
-            child_tasks = out.nested_subtasks or []
-            if not child_tasks:
-                child_tasks = db.query(Task).filter(Task.parent_task_id == t.id, Task.is_deleted.is_(False)).all()
+        try:
+            # Dynamically derive missing start_time, due_time, start_date, or due_date from child subtasks
+            if not out.start_time or not out.due_time or not out.start_date or not out.due_date:
+                child_tasks = out.nested_subtasks or []
+                if not child_tasks:
+                    child_tasks = db.query(Task).filter(Task.parent_task_id == t.id, Task.is_deleted.is_(False)).all()
 
-            if child_tasks:
-                from app.services.calendar_service import get_working_calendar as get_cal, parse_hhmm_time
-                from datetime import datetime
-                cal = get_cal(db)
+                if child_tasks:
+                    from app.services.calendar_service import get_working_calendar as get_cal, parse_hhmm_time
+                    cal = get_cal(db)
 
-                if not out.start_time or not out.start_date:
-                    s_candidates = []
-                    for ct in child_tasks:
-                        c_sdate = getattr(ct, 'start_date', None)
-                        c_stime = getattr(ct, 'start_time', None)
-                        if c_sdate:
-                            st_time = parse_hhmm_time(c_stime, cal.work_start_time)
-                            s_candidates.append((datetime.combine(c_sdate, st_time), c_stime))
-                    if s_candidates:
-                        min_s_dt, min_raw = min(s_candidates, key=lambda x: x[0])
-                        if not out.start_date:
-                            out.start_date = min_s_dt.date()
-                        if not out.start_time:
-                            out.start_time = min_raw or min_s_dt.strftime("%H:%M")
+                    if not out.start_time or not out.start_date:
+                        s_candidates = []
+                        for ct in child_tasks:
+                            c_sdate = getattr(ct, 'start_date', None)
+                            c_stime = getattr(ct, 'start_time', None)
+                            if c_sdate:
+                                st_time = parse_hhmm_time(c_stime, cal.work_start_time)
+                                s_candidates.append((datetime.combine(c_sdate, st_time), c_stime))
+                        if s_candidates:
+                            min_s_dt, min_raw = min(s_candidates, key=lambda x: x[0])
+                            if not out.start_date:
+                                out.start_date = min_s_dt.date()
+                            if not out.start_time:
+                                out.start_time = min_raw or min_s_dt.strftime("%H:%M")
 
-                if not out.due_time or not out.due_date:
-                    d_candidates = []
-                    for ct in child_tasks:
-                        c_ddate = getattr(ct, 'due_date', None)
-                        c_dtime = getattr(ct, 'due_time', None)
-                        if c_ddate:
-                            dt_time = parse_hhmm_time(c_dtime, cal.work_end_time)
-                            d_candidates.append((datetime.combine(c_ddate, dt_time), c_dtime))
-                    if d_candidates:
-                        max_d_dt, max_raw = max(d_candidates, key=lambda x: x[0])
-                        if not out.due_date:
-                            out.due_date = max_d_dt.date()
-                        if not out.due_time:
-                            out.due_time = max_raw or max_d_dt.strftime("%H:%M")
+                    if not out.due_time or not out.due_date:
+                        d_candidates = []
+                        for ct in child_tasks:
+                            c_ddate = getattr(ct, 'due_date', None)
+                            c_dtime = getattr(ct, 'due_time', None)
+                            if c_ddate:
+                                dt_time = parse_hhmm_time(c_dtime, cal.work_end_time)
+                                d_candidates.append((datetime.combine(c_ddate, dt_time), c_dtime))
+                        if d_candidates:
+                            max_d_dt, max_raw = max(d_candidates, key=lambda x: x[0])
+                            if not out.due_date:
+                                out.due_date = max_d_dt.date()
+                            if not out.due_time:
+                                out.due_time = max_raw or max_d_dt.strftime("%H:%M")
+        except Exception as exc:
+            logger.warning(f"Failed to derive parent task schedule for task {t.id}: {exc}")
 
     effective_start_date = out.start_date or t.start_date
     effective_due_date = out.due_date or t.due_date
     effective_start_time = out.start_time or t.start_time
     effective_due_time = out.due_time or t.due_time
 
-    if out.is_parent and effective_start_date and effective_due_date:
-        from app.services.calendar_service import get_working_calendar as get_cal, count_working_hours, parse_hhmm_time
-        from datetime import datetime
-        cal = get_cal(db)
-        s_time = parse_hhmm_time(effective_start_time, cal.work_start_time)
-        d_time = parse_hhmm_time(effective_due_time, cal.work_end_time)
-        s_dt = datetime.combine(effective_start_date, s_time)
-        d_dt = datetime.combine(effective_due_date, d_time)
-        if s_dt <= d_dt:
-            c_days, c_hours = count_working_hours(s_dt, d_dt, cal)
-            out.duration_working_days = c_days
-            out.duration_working_hours = c_hours
+    try:
+        if out.is_parent and effective_start_date and effective_due_date:
+            from app.services.calendar_service import get_working_calendar as get_cal, count_working_hours, parse_hhmm_time
+            cal = get_cal(db)
+            s_time = parse_hhmm_time(effective_start_time, cal.work_start_time)
+            d_time = parse_hhmm_time(effective_due_time, cal.work_end_time)
+            s_dt = datetime.combine(effective_start_date, s_time)
+            d_dt = datetime.combine(effective_due_date, d_time)
+            if s_dt <= d_dt:
+                c_days, c_hours = count_working_hours(s_dt, d_dt, cal)
+                out.duration_working_days = c_days
+                out.duration_working_hours = c_hours
+            else:
+                out.duration_working_days = 0
+                out.duration_working_hours = 0
+        elif not out.is_parent and t.duration_working_days is None and getattr(t, 'duration_working_hours', None) is None and t.start_date and t.due_date:
+            from app.services.calendar_service import get_working_calendar as get_cal, count_working_hours, parse_hhmm_time
+            cal = get_cal(db)
+            s_time = parse_hhmm_time(t.start_time, cal.work_start_time)
+            d_time = parse_hhmm_time(t.due_time, cal.work_end_time)
+            s_dt = datetime.combine(t.start_date, s_time)
+            d_dt = datetime.combine(t.due_date, d_time)
+            if s_dt <= d_dt:
+                c_days, c_hours = count_working_hours(s_dt, d_dt, cal)
+                out.duration_working_days = c_days
+                out.duration_working_hours = c_hours
+            else:
+                out.duration_working_days = 0
+                out.duration_working_hours = 0
         else:
-            out.duration_working_days = 0
-            out.duration_working_hours = 0
-    elif not out.is_parent and t.duration_working_days is None and getattr(t, 'duration_working_hours', None) is None and t.start_date and t.due_date:
-        from app.services.calendar_service import get_working_calendar as get_cal, count_working_hours, parse_hhmm_time
-        from datetime import datetime
-        cal = get_cal(db)
-        s_time = parse_hhmm_time(t.start_time, cal.work_start_time)
-        d_time = parse_hhmm_time(t.due_time, cal.work_end_time)
-        s_dt = datetime.combine(t.start_date, s_time)
-        d_dt = datetime.combine(t.due_date, d_time)
-        if s_dt <= d_dt:
-            c_days, c_hours = count_working_hours(s_dt, d_dt, cal)
-            out.duration_working_days = c_days
-            out.duration_working_hours = c_hours
-        else:
-            out.duration_working_days = 0
-            out.duration_working_hours = 0
-    else:
+            out.duration_working_hours = getattr(t, 'duration_working_hours', 0) or 0
+    except Exception as exc:
+        logger.warning(f"Failed to calculate duration working hours for task {t.id}: {exc}")
         out.duration_working_hours = getattr(t, 'duration_working_hours', 0) or 0
 
     return out
@@ -1011,21 +1023,47 @@ def list_tasks(
     task_ids = [t.id for t in tasks]
     deps_map, dependents_map, blocked_map, rels_map, subtask_counts_map, subtasks_by_parent_map = _batch_load_task_metadata(db, task_ids)
 
-    return [
-        _format_task_out(
-            t,
-            db,
-            batch_deps=deps_map.get(t.id, []),
-            batch_dependents=dependents_map.get(t.id, []),
-            batch_is_blocked=blocked_map.get(t.id, False),
-            batch_rels=rels_map.get(t.id, []),
-            batch_subtask_counts=subtask_counts_map.get(t.id),
-            batch_subtasks=subtasks_by_parent_map.get(t.id, []),
-            batch_subtasks_map=subtasks_by_parent_map,
-            skip_nested=False,
-        )
-        for t in tasks
-    ]
+    results: List[TaskOut] = []
+    for t in tasks:
+        try:
+            formatted = _format_task_out(
+                t,
+                db,
+                batch_deps=deps_map.get(t.id, []),
+                batch_dependents=dependents_map.get(t.id, []),
+                batch_is_blocked=blocked_map.get(t.id, False),
+                batch_rels=rels_map.get(t.id, []),
+                batch_subtask_counts=subtask_counts_map.get(t.id),
+                batch_subtasks=subtasks_by_parent_map.get(t.id, []),
+                batch_subtasks_map=subtasks_by_parent_map,
+                skip_nested=False,
+            )
+            results.append(formatted)
+        except Exception as ex:
+            logger.error(f"Error formatting task {t.id} ({getattr(t, 'task_number', 'unknown')}): {ex}", exc_info=True)
+            try:
+                fallback_out = TaskOut(
+                    id=t.id,
+                    task_number=str(t.task_number or f"TSK-{t.id}"),
+                    title=str(t.title or "Untitled Task"),
+                    project_id=t.project_id,
+                    project_name=t.project.name if t.project else None,
+                    parent_task_id=t.parent_task_id,
+                    milestone_id=t.milestone_id,
+                    task_list_id=t.task_list_id,
+                    status_id=t.status_id,
+                    priority=TaskPriority.NORMAL,
+                    start_date=t.start_date,
+                    due_date=t.due_date,
+                    is_completed=bool(t.is_completed),
+                    created_at=t.created_at or datetime.utcnow(),
+                    updated_at=t.updated_at or datetime.utcnow(),
+                )
+                results.append(fallback_out)
+            except Exception as ex2:
+                logger.error(f"Critical fallback failure for task {t.id}: {ex2}")
+
+    return results
 
 
 def _validate_task_dates(data: TaskCreate | TaskUpdate):
