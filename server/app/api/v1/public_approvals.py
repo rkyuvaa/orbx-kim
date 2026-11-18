@@ -21,7 +21,11 @@ from app.models import (
     User,
 )
 from app.models.enums import UserRole
-from app.services.email_service import schedule_requirement_submission_notification
+from app.services.email_service import (
+    resolve_client_app_url,
+    schedule_requirement_decision_notifications,
+    schedule_requirement_submission_notification,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -160,6 +164,27 @@ def _generate_items_summary(item: dict) -> str:
         if biz_problem:
             details.append(f"Problem: {biz_problem[:150]}...")
         return "\n".join(details) if details else "No details provided"
+
+
+def _queue_requirement_decision_notifications(
+    token_rec: RequirementApprovalToken,
+    req_item: Optional[dict],
+    decision: str,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    decision_reason: str = "",
+):
+    """Queue decision emails after the token and requirement updates commit."""
+    schedule_requirement_decision_notifications(
+        token_id=token_rec.id,
+        decision=decision,
+        title=(req_item.get("title") if req_item else "") or token_rec.request_no,
+        total_cost=req_item.get("total_cost") if req_item else None,
+        items_summary=_generate_items_summary(req_item) if req_item else "No items",
+        client_base_url=resolve_client_app_url(request),
+        decision_reason=decision_reason,
+        background_tasks=background_tasks,
+    )
 
 
 def _resolve_active_token(token: str, db: Session, request: Request, action: str) -> tuple[RequirementApprovalToken, str]:
@@ -334,6 +359,7 @@ def get_public_approval_page(
 def approve_requirement(
     token: str,
     request: Request,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
     """Approve a requirement via email link."""
@@ -361,6 +387,13 @@ def approve_requirement(
                 raise HTTPException(status_code=409, detail="Concurrent modification, please try again")
 
     db.commit()
+    _queue_requirement_decision_notifications(
+        token_rec=token_rec,
+        req_item=req_item,
+        decision="APPROVED",
+        request=request,
+        background_tasks=background_tasks,
+    )
 
     # Success page
     html_content = f"""<!DOCTYPE html>
@@ -393,6 +426,7 @@ def approve_requirement(
 def reject_requirement(
     token: str,
     request: Request,
+    background_tasks: BackgroundTasks,
     reason: str = Form(default=""),
     db: Session = Depends(get_db),
 ):
@@ -422,6 +456,14 @@ def reject_requirement(
                 raise HTTPException(status_code=409, detail="Concurrent modification, please try again")
 
     db.commit()
+    _queue_requirement_decision_notifications(
+        token_rec=token_rec,
+        req_item=req_item,
+        decision="REJECTED",
+        request=request,
+        background_tasks=background_tasks,
+        decision_reason=token_rec.decision_reason or "",
+    )
 
     # Success page
     html_content = f"""<!DOCTYPE html>

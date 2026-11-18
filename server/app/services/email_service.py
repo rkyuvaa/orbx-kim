@@ -1100,7 +1100,14 @@ def _send_requirement_decision_background(
             AppDataDocument.key == "crm_requirements_store_incharges"
         ).first()
         value = config.value if config else None
-        raw_ids = value if isinstance(value, list) else (value or {}).get("user_ids", [])
+        if isinstance(value, list):
+            raw_ids = value
+        elif isinstance(value, dict):
+            raw_ids = value.get("user_ids", [])
+        else:
+            raw_ids = []
+        if not isinstance(raw_ids, list):
+            raw_ids = []
         user_ids = list({user_id for user_id in raw_ids if isinstance(user_id, int)})
         if not user_ids:
             logger.info(f"No store incharges configured for approved requirement {token_rec.request_no}")

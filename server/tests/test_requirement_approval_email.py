@@ -9,7 +9,7 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.main import app
 from app.db.session import get_db
@@ -28,6 +28,7 @@ from app.services.email_service import send_requirement_approval_email
 # Test setup
 DEFAULT_PASSWORD = "testpass123"
 REQUIREMENT_ITEMS_KEY = "crm_requirements_items_data"
+STORE_INCHARGE_CONFIG_KEY = "crm_requirements_store_incharges"
 
 
 def make_user(db: Session, email: str, role: UserRole, name: str = "Test User") -> User:
@@ -284,8 +285,23 @@ class TestRequirementApprovalEmail:
 class TestPublicApprovalEndpoints:
     """Test the public approval page and approve/reject endpoints."""
 
+    @pytest.fixture(autouse=True)
+    def mock_email_dispatch(self, db: Session):
+        test_session_local = sessionmaker(autocommit=False, autoflush=False, bind=db.get_bind())
+        with (
+            patch("app.db.session.SessionLocal", test_session_local),
+            patch("app.services.email_service.dispatch_email_smtp", return_value=(True, None)) as mock,
+        ):
+            yield mock
+
     def create_token_for_test(
-        self, db: Session, requirement_id: str, request_no: str, approver: User, requester: User
+        self,
+        db: Session,
+        requirement_id: str,
+        request_no: str,
+        approver: User,
+        requester: User,
+        requirement_type: str = "MATERIAL",
     ) -> str:
         """Helper to create a token and return the raw token."""
         raw_token = secrets.token_urlsafe(32)
@@ -296,7 +312,7 @@ class TestPublicApprovalEndpoints:
             token_hash=token_hash,
             requirement_id=requirement_id,
             request_no=request_no,
-            requirement_type="MATERIAL",
+            requirement_type=requirement_type,
             approver_id=approver.id,
             approver_name=approver.full_name,
             approver_email=approver.email,
@@ -494,6 +510,99 @@ class TestPublicApprovalEndpoints:
             RequirementApprovalToken.token_hash == hashlib.sha256(raw_token.encode()).hexdigest()
         ).first()
         assert token_rec.decision_reason == "No reason provided"
+
+    def test_material_approval_emails_requester_and_store_incharges(
+        self, client: TestClient, db: Session, mock_email_dispatch: MagicMock
+    ):
+        requester = make_user(db, "decision@kim.com", UserRole.SALES_EXECUTIVE, "Decision Requester")
+        approver = make_user(db, "decisionapprover@kim.com", UserRole.ADMIN, "Decision Approver")
+        store_one = make_user(db, "store1@kim.com", UserRole.DELIVERY_TEAM, "Store One")
+        store_two = make_user(db, "store2@kim.com", UserRole.DELIVERY_TEAM, "Store Two")
+        db.add(AppDataDocument(
+            key=STORE_INCHARGE_CONFIG_KEY,
+            value={"user_ids": [store_one.id, store_two.id]},
+            revision=1,
+        ))
+        db.commit()
+
+        create_requirement_record(db, "REQ-MAT-DECISION", "MR-2024-DECISION", "MATERIAL")
+        raw_token = self.create_token_for_test(
+            db, "REQ-MAT-DECISION", "MR-2024-DECISION", approver, requester
+        )
+
+        response = client.post(f"/api/v1/public/approvals/{raw_token}/approve")
+
+        assert response.status_code == 200, response.text
+        calls = mock_email_dispatch.call_args_list
+        recipients = {call.args[0] for call in calls}
+        subjects = {call.args[0]: call.args[1] for call in calls}
+        assert recipients == {requester.email, store_one.email, store_two.email}
+        assert "Approved" in subjects[requester.email]
+        assert "Waiting for Processing" in subjects[store_one.email]
+        assert "Waiting for Processing" in subjects[store_two.email]
+
+    def test_rejection_emails_only_requester_with_reason(
+        self, client: TestClient, db: Session, mock_email_dispatch: MagicMock
+    ):
+        requester = make_user(db, "rejectedrequester@kim.com", UserRole.SALES_EXECUTIVE, "Rejected Requester")
+        approver = make_user(db, "rejectedapprover@kim.com", UserRole.ADMIN, "Rejected Approver")
+        store = make_user(db, "rejectedstore@kim.com", UserRole.DELIVERY_TEAM, "Rejected Store")
+        db.add(AppDataDocument(
+            key=STORE_INCHARGE_CONFIG_KEY,
+            value={"user_ids": [store.id]},
+            revision=1,
+        ))
+        db.commit()
+
+        create_requirement_record(db, "REQ-MAT-REJECTED", "MR-2024-REJECTED", "MATERIAL")
+        raw_token = self.create_token_for_test(
+            db, "REQ-MAT-REJECTED", "MR-2024-REJECTED", approver, requester
+        )
+
+        response = client.post(
+            f"/api/v1/public/approvals/{raw_token}/reject",
+            data={"reason": "Budget not approved"},
+        )
+
+        assert response.status_code == 200, response.text
+        assert mock_email_dispatch.call_count == 1
+        call = mock_email_dispatch.call_args
+        assert call.args[0] == requester.email
+        assert "Rejected" in call.args[1]
+        assert "Budget not approved" in call.args[2]
+        assert "Budget not approved" in call.args[3]
+
+    def test_it_approval_does_not_email_store_incharges(
+        self, client: TestClient, db: Session, mock_email_dispatch: MagicMock
+    ):
+        requester = make_user(db, "itdecision@kim.com", UserRole.SALES_EXECUTIVE, "IT Decision Requester")
+        approver = make_user(db, "itdecisionapprover@kim.com", UserRole.ADMIN, "IT Decision Approver")
+        store = make_user(db, "itdecisionstore@kim.com", UserRole.DELIVERY_TEAM, "IT Decision Store")
+        db.add(AppDataDocument(
+            key=STORE_INCHARGE_CONFIG_KEY,
+            value={"user_ids": [store.id]},
+            revision=1,
+        ))
+        db.commit()
+
+        create_requirement_record(db, "REQ-IT-DECISION", "IT-2024-DECISION", "IT")
+        raw_token = self.create_token_for_test(
+            db,
+            "REQ-IT-DECISION",
+            "IT-2024-DECISION",
+            approver,
+            requester,
+            requirement_type="IT",
+        )
+
+        response = client.post(f"/api/v1/public/approvals/{raw_token}/approve")
+
+        assert response.status_code == 200, response.text
+        assert mock_email_dispatch.call_count == 1
+        call = mock_email_dispatch.call_args
+        assert call.args[0] == requester.email
+        assert "IT Request" in call.args[1]
+        assert "Approved" in call.args[1]
 
     def test_access_log_created_on_page_view(
         self, client: TestClient, db: Session
