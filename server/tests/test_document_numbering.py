@@ -69,6 +69,45 @@ def test_generate_next_document_number(db):
     assert seq.next_number == 3
 
 
+def test_current_number_preview_does_not_require_admin_or_consume_number(db, client):
+    requester = User(
+        email="requester@kim.com",
+        full_name="Material Requester",
+        role=UserRole.SALES_EXECUTIVE,
+        password_hash=hash_password("testpass123"),
+    )
+    db.add(requester)
+    db.add(DocumentSequence(
+        document_type="mr",
+        name="Material Requisition",
+        prefix="MR-",
+        padding=5,
+        next_number=34,
+        suffix="/26-27",
+        is_active=True,
+    ))
+    db.commit()
+    headers = auth_headers(client, "requester@kim.com", "testpass123")
+
+    first = client.post("/api/v1/document-numbering/current/mr", headers=headers)
+    second = client.post("/api/v1/document-numbering/current/mr", headers=headers)
+
+    assert first.status_code == 200, first.text
+    assert second.status_code == 200, second.text
+    assert first.json()["document_number"] == "MR-00034/26-27"
+    assert second.json()["document_number"] == "MR-00034/26-27"
+    assert first.json()["is_preview"] is True
+    seq = db.query(DocumentSequence).filter_by(document_type="mr").first()
+    db.refresh(seq)
+    assert seq.next_number == 34
+
+    generated = client.post("/api/v1/document-numbering/generate/mr", headers=headers)
+    assert generated.status_code == 200, generated.text
+    assert generated.json()["document_number"] == "MR-00034/26-27"
+    db.refresh(seq)
+    assert seq.next_number == 35
+
+
 def test_document_numbering_api_and_complaint_integration(db, client):
     # Create admin user
     admin = User(

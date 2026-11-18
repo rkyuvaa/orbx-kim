@@ -59,6 +59,15 @@ export const documentNumberingApi = baseApi.injectEndpoints({
         method: 'POST',
       }),
     }),
+    previewCurrentDocumentNumber: build.mutation<
+      { document_type: string; document_number: string; is_preview: boolean },
+      { document_type: string }
+    >({
+      query: ({ document_type }) => ({
+        url: `/document-numbering/current/${document_type}`,
+        method: 'POST',
+      }),
+    }),
     previewDocumentNumber: build.mutation<
       { preview: string },
       { prefix: string; padding: number; next_number: number; suffix?: string }
@@ -79,5 +88,6 @@ export const {
   useUpdateDocumentSequenceMutation,
   useDeleteDocumentSequenceMutation,
   usePreviewDocumentNumberMutation,
+  usePreviewCurrentDocumentNumberMutation,
   useGenerateDocumentNumberMutation,
 } = documentNumberingApi;

@@ -63,7 +63,7 @@ import { usePermission } from '@/context/AuthPermissionContext';
 // Removed useDatabaseStoredState - using local state + server submit only
 import {
   useGenerateDocumentNumberMutation,
-  usePreviewDocumentNumberMutation,
+  usePreviewCurrentDocumentNumberMutation,
 } from '@/api/documentNumberingApi';
 import { useDropdownOptionsQuery } from '@/api/mastersApi';
 import {
@@ -338,7 +338,8 @@ export default function RequirementsPage() {
   }, [requirementsData]);
 
   const [generateDocumentNumber] = useGenerateDocumentNumberMutation();
-  const [previewDocumentNumber] = usePreviewDocumentNumberMutation();
+  const [previewCurrentDocumentNumber, { isLoading: requestNumberPreviewLoading }] =
+    usePreviewCurrentDocumentNumberMutation();
   const [submitMaterialRequirement] = useSubmitMaterialRequirementMutation();
 
   // Filters & Search
@@ -387,6 +388,8 @@ export default function RequirementsPage() {
   const [formItems, setFormItems] = useState<MaterialRequisitionItem[]>([]);
   const [formAttachments, setFormAttachments] = useState<AttachmentFile[]>([]);
   const attachmentFileInputRef = useRef<HTMLInputElement>(null);
+  const reservedRequestNumberRef = useRef<string | null>(null);
+  const reservingRequestNumberRef = useRef<Promise<string> | null>(null);
 
   // Categories list
   const materialCategories = ['Raw Materials', 'Consumables', 'Safety Equipment', 'Tools & Machinery', 'Office Supplies', 'Packaging'];
@@ -425,6 +428,29 @@ export default function RequirementsPage() {
   const fulfilledCount = typeFiltered.filter((i) => i.status === 'FULFILLED' || i.status === 'COMPLETED').length;
   const totalCostEstimate = typeFiltered.reduce((acc, curr) => acc + (curr.total_cost || 0), 0);
 
+  const reserveRequestNumber = (): Promise<string> => {
+    if (reservedRequestNumberRef.current) {
+      return Promise.resolve(reservedRequestNumberRef.current);
+    }
+    if (reservingRequestNumberRef.current) {
+      return reservingRequestNumberRef.current;
+    }
+
+    const documentType = isIT ? 'it_requirement' : 'mr';
+    const reservation = generateDocumentNumber({ document_type: documentType })
+      .unwrap()
+      .then((result) => {
+        reservedRequestNumberRef.current = result.document_number;
+        setFormRequestNo(result.document_number);
+        return result.document_number;
+      })
+      .finally(() => {
+        reservingRequestNumberRef.current = null;
+      });
+    reservingRequestNumberRef.current = reservation;
+    return reservation;
+  };
+
   // Form Reset for Material
   const resetForm = () => {
     setEditingItem(null);
@@ -443,6 +469,7 @@ export default function RequirementsPage() {
     setFormProjectName('');
     setFormCostCentre('');
     setFormRequestNo('');
+    reservedRequestNumberRef.current = null;
     setFormNotes('');
     setFormAttachments([]);
     setFormItems([]);
@@ -451,13 +478,21 @@ export default function RequirementsPage() {
   const handleOpenCreate = async () => {
     resetForm();
     setIsCreateOpen(true);
-    // Document number is generated only on save (not on open),
-    // so no numbers are wasted if the user cancels, and admin
-    // changes to the current number are respected.
+    const documentType = isIT ? 'it_requirement' : 'mr';
+    try {
+      const result = await previewCurrentDocumentNumber({ document_type: documentType }).unwrap();
+      if (!reservedRequestNumberRef.current) {
+        setFormRequestNo(result.document_number);
+      }
+    } catch {
+      showError('Failed to load the current request number. It will be generated when you save.');
+    }
   };
 
   const handleOpenEdit = async (item: RequirementItem) => {
     setEditingItem(item);
+    reservedRequestNumberRef.current = item.request_no || null;
+    setFormRequestNo(item.request_no || '');
     setFormAttachments([]);
     if (!isIT) {
       setFormCategory(item.category);
@@ -502,7 +537,13 @@ export default function RequirementsPage() {
 
   // Save IT Requirement from modal
   const handleSaveITRequirement = async (payload: Partial<RequirementItem>, isDraft: boolean) => {
-    const requestNo = formRequestNo.trim() || `REQ-IT-${requirements.length + 1}`;
+    let requestNo: string;
+    try {
+      requestNo = await reserveRequestNumber();
+    } catch {
+      showError('Failed to generate request number. Please configure document numbering for it_requirement.');
+      return;
+    }
     let savedItem: RequirementItem | undefined;
     if (editingItem) {
       const updated: RequirementItem = {
@@ -591,9 +632,11 @@ export default function RequirementsPage() {
   const handleAttachmentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-    const requestNo = formRequestNo.trim();
-    if (!requestNo || requestNo === '—') {
-      showError('Please save the request first to generate a request number before uploading attachments.');
+    let requestNo: string;
+    try {
+      requestNo = await reserveRequestNumber();
+    } catch {
+      showError('Failed to generate a request number. Please try uploading the attachment again.');
       e.target.value = '';
       return;
     }
@@ -659,13 +702,11 @@ export default function RequirementsPage() {
       return;
     }
 
-    // Generate document number on save (respects admin changes to current number)
+    // Reuse a number reserved for attachments, or reserve it on first save.
     const documentType = isIT ? 'it_requirement' : 'mr';
-    let requestNo = formRequestNo.trim();
+    let requestNo: string;
     try {
-      const result = await generateDocumentNumber({ document_type: documentType }).unwrap();
-      requestNo = result.document_number;
-      setFormRequestNo(requestNo);
+      requestNo = await reserveRequestNumber();
     } catch {
       showError(`Failed to generate request number. Please configure document numbering for ${documentType}.`);
       return;
@@ -1117,7 +1158,7 @@ export default function RequirementsPage() {
                   Material / Service Request No
                 </Typography>
                 <Typography variant="h6" sx={{ color: 'text.primary', fontWeight: 700 }}>
-                  {formRequestNo || '—'}
+                  {formRequestNo || (requestNumberPreviewLoading ? 'Loading…' : '—')}
                 </Typography>
               </Box>
               <Box sx={{ display: 'flex', gap: 1 }}>

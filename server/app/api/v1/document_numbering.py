@@ -14,7 +14,12 @@ from app.schemas.document_sequence import (
     DocumentSequenceOut,
     DocumentSequenceUpdate,
 )
-from app.services.document_numbering import format_document_number, generate_next_document_number, preview_document_number
+from app.services.document_numbering import (
+    format_document_number,
+    generate_next_document_number,
+    get_or_create_sequence,
+    preview_document_number,
+)
 
 router = APIRouter(prefix="/document-numbering", tags=["document-numbering"])
 
@@ -75,6 +80,37 @@ def list_document_sequences(
     """List all configured document numbering sequences with live sample previews."""
     sequences = db.query(DocumentSequence).order_by(DocumentSequence.name.asc()).all()
     return [_to_out_schema(s) for s in sequences]
+
+
+@router.post("/current/{document_type}", response_model=dict)
+def get_current_document_number(
+    document_type: str,
+    db: Session = Depends(get_db),
+    _current_user: User = Depends(get_current_user),
+):
+    """Return the current formatted number without consuming a sequence value."""
+    clean_type = document_type.strip().lower()
+    seq = get_or_create_sequence(
+        db,
+        document_type=clean_type,
+        default_prefix="MR",
+        default_padding=4,
+        default_name="Material / Service Requisition",
+        default_description="Auto-generated material & service request numbers",
+    )
+    db.commit()
+    db.refresh(seq)
+    number = format_document_number(
+        prefix=seq.prefix,
+        padding=seq.padding,
+        number=seq.next_number,
+        suffix=seq.suffix,
+    )
+    return {
+        "document_type": clean_type,
+        "document_number": number,
+        "is_preview": True,
+    }
 
 
 @router.get("/{document_type}", response_model=DocumentSequenceOut)
