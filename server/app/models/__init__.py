@@ -57,6 +57,10 @@ from app.models.smtp_setting import SmtpSetting
 from app.models.sms_setting import SmsSetting
 from app.models.user import User
 from app.models.app_data import AppDataDocument
+from app.models.requirement_approval_token import (
+    RequirementApprovalAccessLog,
+    RequirementApprovalToken,
+)
 from app.models.automove_rule import StageAutomoveRule
 from app.models.vehicle_model import VehicleModel
 from app.models.hr import (
@@ -208,6 +212,8 @@ __all__ = [
     "SmsSetting",
     "User",
     "AppDataDocument",
+    "RequirementApprovalToken",
+    "RequirementApprovalAccessLog",
     "UserPermission",
     "UserRole",
     "RbacUserRole",
