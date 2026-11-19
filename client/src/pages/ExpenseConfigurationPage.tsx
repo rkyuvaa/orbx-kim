@@ -176,7 +176,7 @@ export default function ExpenseConfigurationPage() {
       setProvEndpoint('https://integrate.api.nvidia.com/v1/chat/completions');
     } else if (type === 'OPENROUTER') {
       setProvLabel('OpenRouter');
-      setProvModel('google/gemini-flash-1.5');
+      setProvModel('openrouter/free');
       setProvEndpoint('https://openrouter.ai/api/v1/chat/completions');
     } else if (type === 'KILO') {
       setProvLabel('Kilo AI');

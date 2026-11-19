@@ -1,4 +1,5 @@
 import base64
+import io
 import json
 import logging
 import os
@@ -80,6 +81,40 @@ def _safe_float(val: Any, default: float = 0.0) -> float:
         return default
 
 
+def _process_pdf_file(file_bytes: bytes) -> tuple[Optional[str], Optional[bytes], str, Optional[str]]:
+    """
+    Extracts text and any embedded receipt image from PDF using pypdf.
+    Returns: (extracted_text, embedded_image_bytes, image_mime, error)
+    """
+    try:
+        from pypdf import PdfReader
+        reader = PdfReader(io.BytesIO(file_bytes))
+        pages_text = []
+        found_image_bytes = None
+        found_mime = "image/jpeg"
+
+        for page in reader.pages:
+            t = page.extract_text()
+            if t:
+                pages_text.append(t)
+            if not found_image_bytes and page.images:
+                img = page.images[0]
+                found_image_bytes = img.data
+                name = getattr(img, "name", "").lower()
+                if name.endswith(".png"):
+                    found_mime = "image/png"
+                elif name.endswith(".webp"):
+                    found_mime = "image/webp"
+                else:
+                    found_mime = "image/jpeg"
+
+        full_text = "\n".join(pages_text).strip()
+        return (full_text if full_text else None), found_image_bytes, found_mime, None
+    except Exception as exc:
+        logger.warning(f"Failed to process PDF with pypdf: {exc}")
+        return None, None, "application/pdf", str(exc)
+
+
 class AIVisionExtractor:
     @staticmethod
     async def extract_from_file(
@@ -102,16 +137,25 @@ class AIVisionExtractor:
         elif clean_mime not in ["image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf"]:
             clean_mime = "image/jpeg"
 
+        # Check if PDF: extract text and embedded image
+        pdf_text: Optional[str] = None
+        if clean_mime == "application/pdf":
+            extracted_text, img_bytes, img_mime, _ = _process_pdf_file(file_bytes)
+            if img_bytes:
+                b64_data = base64.b64encode(img_bytes).decode("utf-8")
+                clean_mime = img_mime
+            pdf_text = extracted_text
+
         provider = (provider_type or "GOOGLE").upper()
 
         try:
             if provider == "GOOGLE":
                 return await AIVisionExtractor._extract_google(
-                    b64_data, clean_mime, model_name, api_key, api_endpoint
+                    b64_data, clean_mime, model_name, api_key, api_endpoint, pdf_text
                 )
             elif provider in ("NVIDIA", "OPENROUTER", "KILO"):
                 return await AIVisionExtractor._extract_openai_compatible(
-                    b64_data, clean_mime, provider, model_name, api_key, api_endpoint
+                    b64_data, clean_mime, provider, model_name, api_key, api_endpoint, pdf_text
                 )
             elif provider == "LOCAL":
                 return await AIVisionExtractor._extract_local_ollama(
@@ -119,7 +163,7 @@ class AIVisionExtractor:
                 )
             else:
                 return await AIVisionExtractor._extract_google(
-                    b64_data, clean_mime, model_name, api_key, api_endpoint
+                    b64_data, clean_mime, model_name, api_key, api_endpoint, pdf_text
                 )
         except Exception as exc:
             logger.exception(f"Error during AI vision extraction ({provider}): {exc}")
@@ -137,6 +181,7 @@ class AIVisionExtractor:
         model_name: str,
         api_key: Optional[str],
         api_endpoint: Optional[str],
+        pdf_text: Optional[str] = None,
     ) -> ExtractedBillData:
         key = (api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") or "").strip()
         if not key:
@@ -160,11 +205,15 @@ class AIVisionExtractor:
         else:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
 
+        prompt = EXTRACTION_PROMPT
+        if pdf_text:
+            prompt += f"\n\n=== DOCUMENT TEXT FROM PDF ===\n{pdf_text[:8000]}"
+
         payload = {
             "contents": [
                 {
                     "parts": [
-                        {"text": EXTRACTION_PROMPT},
+                        {"text": prompt},
                         {
                             "inlineData": {
                                 "mimeType": mime_type,
@@ -205,6 +254,7 @@ class AIVisionExtractor:
         model_name: str,
         api_key: Optional[str],
         api_endpoint: Optional[str],
+        pdf_text: Optional[str] = None,
     ) -> ExtractedBillData:
         default_endpoints = {
             "NVIDIA": "https://integrate.api.nvidia.com/v1/chat/completions",
@@ -234,16 +284,35 @@ class AIVisionExtractor:
             "Content-Type": "application/json",
         }
 
-        data_url = f"data:{mime_type};base64,{b64_data}"
+        # Resolve model name: if user had old deprecated google/gemini-flash-1.5 on OpenRouter, fallback to openrouter/free
+        resolved_model = model_name
+        if provider == "OPENROUTER":
+            if not resolved_model or resolved_model == "google/gemini-flash-1.5":
+                resolved_model = "openrouter/free"
+        elif provider == "NVIDIA":
+            resolved_model = resolved_model or "meta/llama-3.2-11b-vision-instruct"
+
+        prompt = EXTRACTION_PROMPT
+        if pdf_text:
+            prompt += f"\n\n=== DOCUMENT TEXT FROM PDF INVOICE ===\n{pdf_text[:8000]}"
+
+        # Prepare message content
+        user_content: list[dict[str, Any]] = [{"type": "text", "text": prompt}]
+
+        if mime_type.startswith("image/"):
+            data_url = f"data:{mime_type};base64,{b64_data}"
+            user_content.append({"type": "image_url", "image_url": {"url": data_url}})
+        elif not pdf_text:
+            # Scanned PDF where image could not be extracted directly
+            data_url = f"data:{mime_type};base64,{b64_data}"
+            user_content.append({"type": "image_url", "image_url": {"url": data_url}})
+
         payload = {
-            "model": model_name or ("meta/llama-3.2-11b-vision-instruct" if provider == "NVIDIA" else "google/gemini-flash-1.5"),
+            "model": resolved_model,
             "messages": [
                 {
                     "role": "user",
-                    "content": [
-                        {"type": "text", "text": EXTRACTION_PROMPT},
-                        {"type": "image_url", "image_url": {"url": data_url}},
-                    ],
+                    "content": user_content,
                 }
             ],
             "temperature": 0.1,

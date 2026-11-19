@@ -763,7 +763,7 @@ def list_ai_providers(db: Session = Depends(get_db)):
             AIProviderConfig(
                 provider=AIProviderType.OPENROUTER,
                 label="OpenRouter",
-                model_name="google/gemini-flash-1.5",
+                model_name="openrouter/free",
                 api_endpoint="https://openrouter.ai/api/v1/chat/completions",
                 api_key_env_var="OPENROUTER_API_KEY",
                 is_default=False,
