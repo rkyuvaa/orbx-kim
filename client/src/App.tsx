@@ -26,6 +26,8 @@ import VehicleServicePage from '@/pages/VehicleServicePage';
 import RequirementsPage from '@/pages/RequirementsPage';
 import RequirementsConfigurationPage from '@/pages/RequirementsConfigurationPage';
 import PolicyCompliancePage from '@/pages/PolicyCompliancePage';
+import ExpensesPage from '@/pages/ExpensesPage';
+import ExpenseConfigurationPage from '@/pages/ExpenseConfigurationPage';
 import GenericStagePage from '@/pages/GenericStagePage';
 import ReportsPage from '@/pages/ReportsPage';
 import NotificationsPage from '@/pages/NotificationsPage';
@@ -147,6 +149,10 @@ export default function App() {
                 <Route path="/compliance/audit" element={<PolicyCompliancePage />} />
                 <Route path="/compliance/sops" element={<PolicyCompliancePage />} />
                 <Route path="/compliance/acknowledgements" element={<PolicyCompliancePage />} />
+                
+                {/* Expenses & Claims */}
+                <Route path="/expenses" element={<ExpensesPage />} />
+                <Route path="/expenses/configuration" element={<ExpenseConfigurationPage />} />
                 
                 {/* Administration / Access Control */}
                 <Route path="/admin/users" element={<UserManagementPage />} />

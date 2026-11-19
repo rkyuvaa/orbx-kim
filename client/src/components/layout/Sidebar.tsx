@@ -34,6 +34,7 @@ import {
   X,
   Wrench,
   ClipboardType,
+  Receipt,
 } from 'lucide-react';
 
 import type { LucideIcon } from 'lucide-react';
@@ -173,6 +174,16 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
           { key: 'compliance_audit', label: 'Compliance Audit', path: '/compliance/audit', icon: ClipboardCheck, badge: null },
           { key: 'compliance_sops', label: 'SOPs', path: '/compliance/sops', icon: BookOpen, badge: null },
           { key: 'compliance_acknowledgements', label: 'Acknowledgements', path: '/compliance/acknowledgements', icon: CheckCircle2, badge: null },
+        ],
+      },
+      {
+        key: 'expenses_group',
+        label: 'Expenses & Claim',
+        icon: Receipt,
+        badge: null,
+        children: [
+          { key: 'expenses', label: 'Expenses', path: '/expenses', icon: Receipt, badge: null },
+          { key: 'expense_configuration', label: 'Configuration', path: '/expenses/configuration', icon: Settings2, badge: null },
         ],
       },
     ],

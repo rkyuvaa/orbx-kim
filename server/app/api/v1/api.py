@@ -8,6 +8,7 @@ from app.api.v1 import (
     calendar,
     dashboard,
     document_numbering,
+    expenses,
     final_submission,
     hr,
     masters,
@@ -53,6 +54,7 @@ api_router.include_router(personal_tasks.router)
 api_router.include_router(tasks.router)
 api_router.include_router(calendar.router)
 api_router.include_router(vehicle_service.router)
+api_router.include_router(expenses.router, prefix="/expenses", tags=["expenses"])
 api_router.include_router(rbac_admin.router, prefix="/admin", tags=["admin"])
 api_router.include_router(backup_admin.router, prefix="/admin/backup", tags=["backup"])
 api_router.include_router(stubs.router)

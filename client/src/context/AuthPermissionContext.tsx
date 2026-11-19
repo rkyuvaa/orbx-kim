@@ -188,6 +188,11 @@ export const AuthPermissionProvider: React.FC<{ children: React.ReactNode }> = (
       return can('view', 'compliance_policies');
     }
 
+    if (path.startsWith('/expenses')) {
+      if (path === '/expenses/configuration') return can('view', 'expense_configuration') || user?.role === 'ADMIN';
+      return can('view', 'expenses') || true;
+    }
+
     if (path.startsWith('/admin')) {
       if (path.startsWith('/admin/users')) return can('view', 'users');
       if (path.startsWith('/admin/roles')) return can('view', 'roles');
