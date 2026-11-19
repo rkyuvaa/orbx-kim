@@ -196,10 +196,95 @@ class ExpenseService:
         bill.gst_total = extracted.gst_total
         bill.total_amount = extracted.total_amount
         bill.extraction_confidence = extracted.confidence
-        bill.extraction_raw = extracted.raw_response
+        bill.extraction_raw = extracted.raw_response or ({"error": extracted.error_message} if extracted.error_message else None)
         bill.extraction_status = ExtractionStatus(extracted.status)
 
         # Check secondary duplicate by bill_number + supplier
+        is_dup_sec, dup_sec_id = ExpenseService.check_duplicate_bill(
+            db, None, bill.bill_number, bill.supplier_name, exclude_bill_id=bill.id
+        )
+        if is_dup_sec:
+            bill.is_duplicate = True
+            bill.duplicate_of_bill_id = dup_sec_id
+
+        # Try auto-matching category if category_id not provided
+        if not bill.category_id and extracted.category_hint:
+            cat = db.scalar(
+                select(ExpenseCategory).where(
+                    and_(
+                        ExpenseCategory.is_active == True,
+                        ExpenseCategory.name.ilike(f"%{extracted.category_hint}%"),
+                    )
+                )
+            )
+            if cat:
+                bill.category_id = cat.id
+
+        db.commit()
+        db.refresh(bill)
+        return bill
+
+    @staticmethod
+    async def re_extract_bill(db: Session, bill_id: int) -> Bill:
+        """Re-reads stored receipt file and re-runs AI extraction using active default provider."""
+        bill = db.scalar(select(Bill).where(Bill.id == bill_id))
+        if not bill:
+            raise ValueError("Bill not found")
+
+        full_path = UPLOAD_DIR / bill.source_file_path
+        if not full_path.exists():
+            raise ValueError(f"Receipt file not found on disk: {bill.source_file_path}")
+
+        file_bytes = full_path.read_bytes()
+
+        # Get active AI Provider
+        active_provider = db.scalar(
+            select(AIProviderConfig).where(
+                and_(AIProviderConfig.is_active == True, AIProviderConfig.is_default == True)
+            )
+        )
+        if not active_provider:
+            active_provider = db.scalar(
+                select(AIProviderConfig).where(AIProviderConfig.is_active == True).order_by(AIProviderConfig.id.asc())
+            )
+
+        provider_type = active_provider.provider.value if active_provider else "GOOGLE"
+        model_name = active_provider.model_name if active_provider else "gemini-1.5-flash"
+        api_endpoint = active_provider.api_endpoint if active_provider else None
+        api_key = active_provider.api_key_override if active_provider else None
+
+        extracted = await AIVisionExtractor.extract_from_file(
+            file_bytes=file_bytes,
+            mime_type=bill.source_mime,
+            provider_type=provider_type,
+            model_name=model_name,
+            api_endpoint=api_endpoint,
+            api_key=api_key,
+        )
+
+        bill.bill_number = extracted.bill_number or bill.bill_number
+        if extracted.bill_date:
+            try:
+                bill.bill_date = datetime.strptime(extracted.bill_date, "%Y-%m-%d").date()
+            except Exception:
+                pass
+        bill.supplier_name = extracted.supplier_name or bill.supplier_name
+        if extracted.taxable_amount > 0 or extracted.total_amount > 0:
+            bill.taxable_amount = extracted.taxable_amount
+            bill.cgst_pct = extracted.cgst_pct
+            bill.cgst_amount = extracted.cgst_amount
+            bill.sgst_pct = extracted.sgst_pct
+            bill.sgst_amount = extracted.sgst_amount
+            bill.igst_pct = extracted.igst_pct
+            bill.igst_amount = extracted.igst_amount
+            bill.gst_total = extracted.gst_total
+            bill.total_amount = extracted.total_amount
+
+        bill.extraction_confidence = extracted.confidence
+        bill.extraction_raw = extracted.raw_response or ({"error": extracted.error_message} if extracted.error_message else None)
+        bill.extraction_status = ExtractionStatus(extracted.status)
+
+        # Re-check secondary duplicate
         is_dup_sec, dup_sec_id = ExpenseService.check_duplicate_bill(
             db, None, bill.bill_number, bill.supplier_name, exclude_bill_id=bill.id
         )

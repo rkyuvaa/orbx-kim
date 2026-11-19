@@ -57,11 +57,14 @@ Return ONLY a valid JSON object with this exact structure:
 
 
 def _clean_json_text(text: str) -> str:
-    """Strip markdown code blocks and whitespace."""
-    text = text.strip()
-    if text.startswith("```"):
-        text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.IGNORECASE)
-        text = re.sub(r"\s*```$", "", text)
+    """Strip markdown code blocks, prefixes, suffixes, and whitespace."""
+    text = (text or "").strip()
+    code_match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", text, flags=re.IGNORECASE)
+    if code_match:
+        return code_match.group(1).strip()
+    brace_match = re.search(r"(\{[\s\S]*\})", text)
+    if brace_match:
+        return brace_match.group(1).strip()
     return text.strip()
 
 
@@ -93,8 +96,10 @@ class AIVisionExtractor:
         Does not perform calculations; returns extracted fields directly.
         """
         b64_data = base64.b64encode(file_bytes).decode("utf-8")
-        clean_mime = mime_type.lower()
-        if clean_mime not in ["image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf"]:
+        clean_mime = (mime_type or "image/jpeg").split(";")[0].strip().lower()
+        if clean_mime in ["image/jpg", "image/pjpeg"]:
+            clean_mime = "image/jpeg"
+        elif clean_mime not in ["image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf"]:
             clean_mime = "image/jpeg"
 
         provider = (provider_type or "GOOGLE").upper()
@@ -133,18 +138,27 @@ class AIVisionExtractor:
         api_key: Optional[str],
         api_endpoint: Optional[str],
     ) -> ExtractedBillData:
-        key = api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY", "")
+        key = (api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") or "").strip()
         if not key:
-            logger.warning("No Google API Key provided. Returning fallback extraction.")
+            err_msg = "Google Gemini API key not configured. Please enter your API key in Expenses -> Configuration -> AI Vision Providers."
+            logger.warning(err_msg)
             return ExtractedBillData(
                 status="NEEDS_REVIEW",
                 confidence=0.0,
-                error_message="Google API Key not configured in environment or settings.",
+                error_message=err_msg,
+                raw_response={"error": err_msg},
             )
 
-        model = model_name or "gemini-1.5-flash"
-        endpoint = api_endpoint or f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-        url = f"{endpoint}?key={key}"
+        model = (model_name or "gemini-1.5-flash").strip()
+        if model.startswith("models/"):
+            model = model.replace("models/", "")
+
+        if api_endpoint and ":generateContent" in api_endpoint:
+            url = f"{api_endpoint.rstrip('/')}?key={key}"
+        elif api_endpoint:
+            url = f"{api_endpoint.rstrip('/')}/models/{model}:generateContent?key={key}"
+        else:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
 
         payload = {
             "contents": [
@@ -152,8 +166,8 @@ class AIVisionExtractor:
                     "parts": [
                         {"text": EXTRACTION_PROMPT},
                         {
-                            "inline_data": {
-                                "mime_type": mime_type,
+                            "inlineData": {
+                                "mimeType": mime_type,
                                 "data": b64_data,
                             }
                         },
@@ -162,19 +176,23 @@ class AIVisionExtractor:
             ],
             "generationConfig": {
                 "temperature": 0.1,
-                "response_mime_type": "application/json",
+                "responseMimeType": "application/json",
             },
         }
 
         async with httpx.AsyncClient(timeout=45.0) as client:
             resp = await client.post(url, json=payload)
             if resp.status_code != 200:
-                raise RuntimeError(f"Google Gemini API error {resp.status_code}: {resp.text}")
+                raise RuntimeError(f"Google Gemini API error ({resp.status_code}): {resp.text}")
 
             data = resp.json()
             candidates = data.get("candidates", [])
             if not candidates:
-                return ExtractedBillData(status="FAILED", error_message="Empty response from Gemini")
+                return ExtractedBillData(
+                    status="FAILED",
+                    error_message=f"Empty response from Gemini: {data}",
+                    raw_response=data,
+                )
 
             part_text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "{}")
             return AIVisionExtractor._parse_json_result(part_text, data)
@@ -200,13 +218,15 @@ class AIVisionExtractor:
         }
 
         endpoint = api_endpoint or default_endpoints.get(provider, "https://openrouter.ai/api/v1/chat/completions")
-        key = api_key or default_keys.get(provider, "")
+        key = (api_key or default_keys.get(provider, "") or "").strip()
 
         if not key:
+            err_msg = f"{provider} API key not configured. Please enter your API key in Expenses -> Configuration -> AI Vision Providers."
             return ExtractedBillData(
                 status="NEEDS_REVIEW",
                 confidence=0.0,
-                error_message=f"{provider} API Key not configured.",
+                error_message=err_msg,
+                raw_response={"error": err_msg},
             )
 
         headers = {
@@ -237,6 +257,83 @@ class AIVisionExtractor:
             data = resp.json()
             content = data.get("choices", [{}])[0].get("message", {}).get("content", "{}")
             return AIVisionExtractor._parse_json_result(content, data)
+
+    @staticmethod
+    async def test_connection(
+        provider_type: str,
+        model_name: str,
+        api_endpoint: Optional[str] = None,
+        api_key: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """Tests live connectivity and credentials for the specified provider."""
+        provider = (provider_type or "GOOGLE").upper()
+        key = (api_key or "").strip()
+
+        if not key and provider != "LOCAL":
+            return {"success": False, "message": f"API key is required to test {provider}."}
+
+        try:
+            if provider == "GOOGLE":
+                model = (model_name or "gemini-1.5-flash").strip()
+                if model.startswith("models/"):
+                    model = model.replace("models/", "")
+                if api_endpoint and ":generateContent" in api_endpoint:
+                    url = f"{api_endpoint.rstrip('/')}?key={key}"
+                elif api_endpoint:
+                    url = f"{api_endpoint.rstrip('/')}/models/{model}:generateContent?key={key}"
+                else:
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
+
+                payload = {
+                    "contents": [{"parts": [{"text": "Reply with 'OK' only."}]}],
+                    "generationConfig": {"temperature": 0.1, "maxOutputTokens": 10},
+                }
+                async with httpx.AsyncClient(timeout=15.0) as client:
+                    resp = await client.post(url, json=payload)
+                    if resp.status_code == 200:
+                        return {"success": True, "message": f"Successfully connected to Google Gemini ({model})!"}
+                    else:
+                        error_detail = resp.text
+                        try:
+                            err_json = resp.json()
+                            error_detail = err_json.get("error", {}).get("message", resp.text)
+                        except Exception:
+                            pass
+                        return {"success": False, "message": f"Google Gemini API error ({resp.status_code}): {error_detail}"}
+
+            elif provider in ("NVIDIA", "OPENROUTER", "KILO"):
+                default_endpoints = {
+                    "NVIDIA": "https://integrate.api.nvidia.com/v1/chat/completions",
+                    "OPENROUTER": "https://openrouter.ai/api/v1/chat/completions",
+                    "KILO": "https://api.kilo.ai/v1/chat/completions",
+                }
+                endpoint = api_endpoint or default_endpoints.get(provider, "https://openrouter.ai/api/v1/chat/completions")
+                model = model_name or ("meta/llama-3.2-11b-vision-instruct" if provider == "NVIDIA" else "google/gemini-flash-1.5")
+                headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
+                payload = {
+                    "model": model,
+                    "messages": [{"role": "user", "content": "Reply with 'OK' only."}],
+                    "max_tokens": 10,
+                }
+                async with httpx.AsyncClient(timeout=15.0) as client:
+                    resp = await client.post(endpoint, json=payload, headers=headers)
+                    if resp.status_code == 200:
+                        return {"success": True, "message": f"Successfully connected to {provider} ({model})!"}
+                    else:
+                        return {"success": False, "message": f"{provider} API error ({resp.status_code}): {resp.text}"}
+
+            elif provider == "LOCAL":
+                endpoint = api_endpoint or "http://localhost:11434/api/tags"
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    resp = await client.get(endpoint)
+                    if resp.status_code == 200:
+                        return {"success": True, "message": "Successfully connected to local Ollama!"}
+                    else:
+                        return {"success": False, "message": f"Ollama connection error ({resp.status_code}): {resp.text}"}
+
+            return {"success": False, "message": f"Unsupported provider: {provider}"}
+        except Exception as exc:
+            return {"success": False, "message": f"Connection failed: {str(exc)}"}
 
     @staticmethod
     async def _extract_local_ollama(

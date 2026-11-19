@@ -43,6 +43,8 @@ from app.schemas.expenses import (
     AIProviderConfigCreate,
     AIProviderConfigResponse,
     AIProviderConfigUpdate,
+    AIProviderTestRequest,
+    AIProviderTestResponse,
     BillResponse,
     BillUpdate,
     ClaimApprovalAction,
@@ -284,6 +286,22 @@ def confirm_bill_ready(
     db.commit()
     db.refresh(bill)
     return _bill_to_response(bill)
+
+
+@router.post("/bills/{bill_id}/re-extract", response_model=BillResponse)
+async def re_extract_bill(
+    bill_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Re-runs AI Vision extraction on the bill's stored document file."""
+    try:
+        bill = await ExpenseService.re_extract_bill(db, bill_id)
+        return _bill_to_response(bill)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"AI Extraction failed: {str(e)}")
 
 
 @router.delete("/bills/{bill_id}")
@@ -800,6 +818,20 @@ def update_ai_provider(provider_id: int, payload: AIProviderConfigUpdate, db: Se
     db.commit()
     db.refresh(prov)
     return prov
+
+
+@router.post("/configuration/ai-providers/test", response_model=AIProviderTestResponse)
+async def test_ai_provider(payload: AIProviderTestRequest, db: Session = Depends(get_db)):
+    result = await AIVisionExtractor.test_connection(
+        provider_type=payload.provider,
+        model_name=payload.model_name,
+        api_endpoint=payload.api_endpoint,
+        api_key=payload.api_key,
+    )
+    return AIProviderTestResponse(
+        success=result.get("success", False),
+        message=result.get("message", "Test completed"),
+    )
 
 
 # 4. Policies

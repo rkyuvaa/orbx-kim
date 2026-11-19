@@ -243,6 +243,24 @@ export const expensesApi = {
     return res.json();
   },
 
+  async reExtractBill(billId: number): Promise<Bill> {
+    const res = await fetch(`${API_BASE}/bills/${billId}/re-extract`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) {
+      const errText = await res.text();
+      try {
+        const parsed = JSON.parse(errText);
+        throw new Error(parsed.detail || errText);
+      } catch (e: any) {
+        throw new Error(e.message || errText);
+      }
+    }
+    return res.json();
+  },
+
   async deleteBill(billId: number): Promise<void> {
     const res = await fetch(`${API_BASE}/bills/${billId}`, {
       method: 'DELETE',
@@ -470,6 +488,22 @@ export const expensesApi = {
   async updateAIProvider(providerId: number, data: Partial<AIProviderConfig>): Promise<AIProviderConfig> {
     const res = await fetch(`${API_BASE}/configuration/ai-providers/${providerId}`, {
       method: 'PUT',
+      credentials: 'include',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+
+  async testAIProvider(data: {
+    provider: string;
+    model_name: string;
+    api_endpoint?: string | null;
+    api_key?: string | null;
+  }): Promise<{ success: boolean; message: string }> {
+    const res = await fetch(`${API_BASE}/configuration/ai-providers/test`, {
+      method: 'POST',
       credentials: 'include',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),

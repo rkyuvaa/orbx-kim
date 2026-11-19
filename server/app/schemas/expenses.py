@@ -265,6 +265,18 @@ class AIProviderConfigResponse(AIProviderConfigBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class AIProviderTestRequest(BaseModel):
+    provider: str
+    model_name: str
+    api_endpoint: Optional[str] = None
+    api_key: Optional[str] = None
+
+
+class AIProviderTestResponse(BaseModel):
+    success: bool
+    message: str
+
+
 # Policy Schemas
 class ExpensePolicyResponse(BaseModel):
     id: int

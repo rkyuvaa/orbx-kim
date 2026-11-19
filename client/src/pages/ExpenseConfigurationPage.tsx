@@ -195,12 +195,17 @@ export default function ExpenseConfigurationPage() {
     setTestResult(null);
     try {
       if (!provApiKey && provType !== 'LOCAL') {
-        throw new Error(`API key is required for ${provLabel}.`);
+        throw new Error(`API key is required for ${provLabel}. Please enter an API key to test.`);
       }
-      await new Promise((r) => setTimeout(r, 600));
+      const res = await expensesApi.testAIProvider({
+        provider: provType,
+        model_name: provModel,
+        api_endpoint: provEndpoint || null,
+        api_key: provApiKey || null,
+      });
       setTestResult({
-        success: true,
-        message: `Successfully connected to ${provLabel} (${provModel}). Ready for bill vision extraction!`,
+        success: res.success,
+        message: res.message,
       });
     } catch (err: any) {
       setTestResult({
@@ -420,6 +425,36 @@ export default function ExpenseConfigurationPage() {
               Add / Configure Provider
             </Button>
           </Box>
+
+          {(() => {
+            const defaultProv = aiProviders.find((p) => p.is_default);
+            if (defaultProv && !defaultProv.api_key_override && defaultProv.provider !== 'LOCAL') {
+              return (
+                <Alert
+                  severity="warning"
+                  sx={{ mb: 2.5, borderRadius: 2 }}
+                  action={
+                    <Button
+                      color="inherit"
+                      size="small"
+                      onClick={() => handleOpenProviderModal(defaultProv)}
+                      sx={{ fontWeight: 700 }}
+                    >
+                      Configure Key
+                    </Button>
+                  }
+                >
+                  <Typography sx={{ fontSize: 13, fontWeight: 700 }}>
+                    Default Vision Provider ({defaultProv.label}) requires an API Key
+                  </Typography>
+                  <Typography sx={{ fontSize: 12 }}>
+                    Uploaded bills will not be automatically parsed by AI until a valid API key is entered. Click "Configure Key" to set your API key.
+                  </Typography>
+                </Alert>
+              );
+            }
+            return null;
+          })()}
 
           <Grid container spacing={2.5}>
             {aiProviders.length === 0 && (

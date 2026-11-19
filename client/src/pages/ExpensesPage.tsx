@@ -27,6 +27,7 @@ import {
   Drawer,
   Checkbox,
   Divider,
+  Alert,
 } from '@mui/material';
 import {
   Receipt,
@@ -46,6 +47,7 @@ import {
   CreditCard,
   Plus,
   Check,
+  Sparkles,
 } from 'lucide-react';
 import { expensesApi, Bill, Claim, Payout, PayoutEmployeeStatus, ExpenseCategory } from '@/api/expensesApi';
 import { useToast } from '@/components/ui/ToastHost';
@@ -210,6 +212,45 @@ export default function ExpensesPage() {
       showToast(err?.message || 'Failed to confirm bill.', 'error');
     } finally {
       setSavingBill(false);
+    }
+  };
+
+  // Re-run AI Vision Extraction on Bill
+  const [reExtracting, setReExtracting] = useState(false);
+  const handleReExtractBill = async (billId: number) => {
+    setReExtracting(true);
+    try {
+      const updated = await expensesApi.reExtractBill(billId);
+      setMyBills((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
+      if (selectedBill?.id === updated.id) {
+        setSelectedBill(updated);
+        setEditBillData({
+          bill_number: updated.bill_number || '',
+          bill_date: updated.bill_date || '',
+          supplier_name: updated.supplier_name || '',
+          category_id: updated.category_id || undefined,
+          taxable_amount: updated.taxable_amount,
+          cgst_pct: updated.cgst_pct,
+          cgst_amount: updated.cgst_amount,
+          sgst_pct: updated.sgst_pct,
+          sgst_amount: updated.sgst_amount,
+          igst_pct: updated.igst_pct,
+          igst_amount: updated.igst_amount,
+          gst_total: updated.gst_total,
+          total_amount: updated.total_amount,
+          notes: updated.notes || '',
+        });
+      }
+      if (updated.extraction_status === 'EXTRACTED' || updated.total_amount > 0 || updated.supplier_name) {
+        showToast('Receipt details extracted successfully by AI!', 'success');
+      } else {
+        const errMsg = updated.extraction_raw?.error || 'AI could not extract fields. Check provider API key.';
+        showToast(errMsg, 'warning');
+      }
+    } catch (err: any) {
+      showToast(err?.message || 'Failed to re-extract bill.', 'error');
+    } finally {
+      setReExtracting(false);
     }
   };
 
@@ -928,28 +969,114 @@ export default function ExpensesPage() {
         {selectedBill && (
           <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 2, borderBottom: '1px solid #E4EBE1' }}>
-              <Typography sx={{ fontWeight: 800, fontSize: 17, color: '#023020' }}>
-                Review Bill #{selectedBill.id}
-              </Typography>
-              <IconButton onClick={() => setBillDrawerOpen(false)} size="small">
-                <X size={18} />
-              </IconButton>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <Typography sx={{ fontWeight: 800, fontSize: 17, color: '#023020' }}>
+                  Review Bill #{selectedBill.id}
+                </Typography>
+                {selectedBill.extraction_status === 'READY' && (
+                  <Chip label="Ready" size="small" sx={{ bgcolor: '#DCFCE7', color: '#166534', fontWeight: 700, fontSize: 11 }} />
+                )}
+                {selectedBill.extraction_status === 'EXTRACTED' && (
+                  <Chip label="AI Extracted" size="small" sx={{ bgcolor: '#DBEAFE', color: '#1E40AF', fontWeight: 700, fontSize: 11 }} />
+                )}
+                {selectedBill.extraction_status === 'NEEDS_REVIEW' && (
+                  <Chip label="Needs Review" size="small" sx={{ bgcolor: '#FEF3C7', color: '#92400E', fontWeight: 700, fontSize: 11 }} />
+                )}
+                {selectedBill.extraction_status === 'FAILED' && (
+                  <Chip label="Extraction Failed" size="small" sx={{ bgcolor: '#FEE2E2', color: '#991B1B', fontWeight: 700, fontSize: 11 }} />
+                )}
+              </Box>
+
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => handleReExtractBill(selectedBill.id)}
+                  disabled={reExtracting}
+                  startIcon={<RefreshCw size={13} className={reExtracting ? 'animate-spin' : ''} />}
+                  sx={{
+                    textTransform: 'none',
+                    fontSize: 12,
+                    borderColor: '#023020',
+                    color: '#023020',
+                    '&:hover': { borderColor: '#2A402A', bgcolor: 'rgba(2, 48, 32, 0.04)' },
+                  }}
+                >
+                  {reExtracting ? 'Extracting...' : 'Retry AI'}
+                </Button>
+                <IconButton onClick={() => setBillDrawerOpen(false)} size="small">
+                  <X size={18} />
+                </IconButton>
+              </Box>
             </Box>
 
             <Box sx={{ flex: 1, overflowY: 'auto', py: 2.5, display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <Paper variant="outlined" sx={{ p: 2, bgcolor: '#F8FAF8', borderColor: '#E4EBE1', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Typography sx={{ fontSize: 13, color: '#526356', fontWeight: 600 }}>
-                  Receipt Document
-                </Typography>
-                <Button
-                  size="small"
-                  startIcon={<ExternalLink size={14} />}
-                  href={expensesApi.getFileUrl(selectedBill.id)}
-                  target="_blank"
-                  sx={{ textTransform: 'none', color: '#023020', fontWeight: 600 }}
+              {/* Extraction Alert if Incomplete / Needs Review / Failed */}
+              {(selectedBill.extraction_status === 'FAILED' ||
+                (selectedBill.extraction_status === 'NEEDS_REVIEW' && !selectedBill.total_amount)) && (
+                <Alert
+                  severity="warning"
+                  sx={{ borderRadius: 2 }}
+                  action={
+                    <Button
+                      color="inherit"
+                      size="small"
+                      onClick={() => handleReExtractBill(selectedBill.id)}
+                      disabled={reExtracting}
+                      sx={{ fontWeight: 700, textTransform: 'none' }}
+                    >
+                      {reExtracting ? 'Extracting...' : 'Retry AI'}
+                    </Button>
+                  }
                 >
-                  Open Receipt
-                </Button>
+                  <Typography sx={{ fontSize: 13, fontWeight: 700 }}>
+                    AI Extraction Incomplete / API Key Required
+                  </Typography>
+                  <Typography sx={{ fontSize: 12, mt: 0.25 }}>
+                    {selectedBill.extraction_raw?.error ||
+                      'No values could be extracted. Please make sure your Gemini or Vision API Key is entered in Expenses -> Configuration -> AI Vision Providers, then click Retry AI.'}
+                  </Typography>
+                </Alert>
+              )}
+
+              {/* Receipt Preview */}
+              <Paper variant="outlined" sx={{ p: 2, bgcolor: '#F8FAF8', borderColor: '#E4EBE1' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+                  <Typography sx={{ fontSize: 12, color: '#526356', fontWeight: 700, textTransform: 'uppercase' }}>
+                    Receipt Document Preview
+                  </Typography>
+                  <Button
+                    size="small"
+                    startIcon={<ExternalLink size={13} />}
+                    href={expensesApi.getFileUrl(selectedBill.id)}
+                    target="_blank"
+                    sx={{ textTransform: 'none', color: '#023020', fontWeight: 600, fontSize: 12, p: 0 }}
+                  >
+                    Open in New Tab
+                  </Button>
+                </Box>
+                {selectedBill.source_mime.startsWith('image/') ? (
+                  <Box
+                    component="img"
+                    src={expensesApi.getFileUrl(selectedBill.id)}
+                    alt="Receipt preview"
+                    sx={{
+                      maxHeight: 260,
+                      width: '100%',
+                      objectFit: 'contain',
+                      borderRadius: 1.5,
+                      bgcolor: '#FFFFFF',
+                      border: '1px solid #E2E8F0',
+                    }}
+                  />
+                ) : (
+                  <Box sx={{ p: 2.5, textAlign: 'center', bgcolor: '#FFFFFF', borderRadius: 1.5, border: '1px solid #E2E8F0' }}>
+                    <FileText size={32} color="#023020" style={{ margin: '0 auto 6px' }} />
+                    <Typography sx={{ fontSize: 12, color: '#64748B' }}>
+                      PDF Receipt Document ({selectedBill.source_file_path.split('/').pop()})
+                    </Typography>
+                  </Box>
+                )}
               </Paper>
 
               <Grid container spacing={2}>
