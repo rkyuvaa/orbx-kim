@@ -275,6 +275,7 @@ class AIProviderTestRequest(BaseModel):
 class AIProviderTestResponse(BaseModel):
     success: bool
     message: str
+    recommended_model: Optional[str] = None
 
 
 # Policy Schemas

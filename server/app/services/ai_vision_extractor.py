@@ -194,16 +194,9 @@ class AIVisionExtractor:
                 raw_response={"error": err_msg},
             )
 
-        model = (model_name or "gemini-1.5-flash").strip()
+        model = (model_name or "gemini-2.0-flash").strip()
         if model.startswith("models/"):
             model = model.replace("models/", "")
-
-        if api_endpoint and ":generateContent" in api_endpoint:
-            url = f"{api_endpoint.rstrip('/')}?key={key}"
-        elif api_endpoint:
-            url = f"{api_endpoint.rstrip('/')}/models/{model}:generateContent?key={key}"
-        else:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
 
         prompt = EXTRACTION_PROMPT
         if pdf_text:
@@ -229,22 +222,40 @@ class AIVisionExtractor:
             },
         }
 
+        models_to_try = [model]
+        for m in ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash-latest", "gemini-1.5-flash"]:
+            if m not in models_to_try:
+                models_to_try.append(m)
+
+        last_error = ""
         async with httpx.AsyncClient(timeout=45.0) as client:
-            resp = await client.post(url, json=payload)
-            if resp.status_code != 200:
-                raise RuntimeError(f"Google Gemini API error ({resp.status_code}): {resp.text}")
+            for current_model in models_to_try:
+                if api_endpoint and ":generateContent" in api_endpoint:
+                    url = f"{api_endpoint.rstrip('/')}?key={key}"
+                elif api_endpoint:
+                    url = f"{api_endpoint.rstrip('/')}/models/{current_model}:generateContent?key={key}"
+                else:
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{current_model}:generateContent?key={key}"
 
-            data = resp.json()
-            candidates = data.get("candidates", [])
-            if not candidates:
-                return ExtractedBillData(
-                    status="FAILED",
-                    error_message=f"Empty response from Gemini: {data}",
-                    raw_response=data,
-                )
+                resp = await client.post(url, json=payload)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    candidates = data.get("candidates", [])
+                    if not candidates:
+                        return ExtractedBillData(
+                            status="FAILED",
+                            error_message=f"Empty response from Gemini: {data}",
+                            raw_response=data,
+                        )
+                    part_text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "{}")
+                    return AIVisionExtractor._parse_json_result(part_text, data)
+                elif resp.status_code == 404:
+                    last_error = resp.text
+                    continue
+                else:
+                    raise RuntimeError(f"Google Gemini API error ({resp.status_code}): {resp.text}")
 
-            part_text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "{}")
-            return AIVisionExtractor._parse_json_result(part_text, data)
+            raise RuntimeError(f"Google Gemini API error: {last_error or 'No available Gemini model found.'}")
 
     @staticmethod
     async def _extract_openai_compatible(
@@ -343,24 +354,52 @@ class AIVisionExtractor:
 
         try:
             if provider == "GOOGLE":
-                model = (model_name or "gemini-1.5-flash").strip()
+                model = (model_name or "gemini-2.0-flash").strip()
                 if model.startswith("models/"):
                     model = model.replace("models/", "")
-                if api_endpoint and ":generateContent" in api_endpoint:
-                    url = f"{api_endpoint.rstrip('/')}?key={key}"
-                elif api_endpoint:
-                    url = f"{api_endpoint.rstrip('/')}/models/{model}:generateContent?key={key}"
-                else:
-                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
 
-                payload = {
-                    "contents": [{"parts": [{"text": "Reply with 'OK' only."}]}],
-                    "generationConfig": {"temperature": 0.1, "maxOutputTokens": 10},
-                }
+                # Step 1: Query Google's ListModels endpoint to verify API key and discover active models
+                list_url = f"https://generativelanguage.googleapis.com/v1beta/models?key={key}"
                 async with httpx.AsyncClient(timeout=15.0) as client:
-                    resp = await client.post(url, json=payload)
+                    list_resp = await client.get(list_url)
+                    if list_resp.status_code != 200:
+                        error_detail = list_resp.text
+                        try:
+                            err_json = list_resp.json()
+                            error_detail = err_json.get("error", {}).get("message", list_resp.text)
+                        except Exception:
+                            pass
+                        return {"success": False, "message": f"Google API error ({list_resp.status_code}): {error_detail}"}
+
+                    list_data = list_resp.json()
+                    available_models = [
+                        m.get("name", "").replace("models/", "")
+                        for m in list_data.get("models", [])
+                        if "generateContent" in m.get("supportedGenerationMethods", [])
+                    ]
+
+                    # Pick model: either user's model or best matching available model
+                    target_model = model
+                    note = ""
+                    if available_models and target_model not in available_models:
+                        preferred = ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash-latest", "gemini-1.5-flash", "gemini-1.5-pro"]
+                        best = next((p for p in preferred if p in available_models), available_models[0])
+                        note = f" (Switched from retired '{model}' to active '{best}')"
+                        target_model = best
+
+                    # Step 2: Test generateContent with target_model
+                    test_url = f"https://generativelanguage.googleapis.com/v1beta/models/{target_model}:generateContent?key={key}"
+                    payload = {
+                        "contents": [{"parts": [{"text": "Reply with 'OK' only."}]}],
+                        "generationConfig": {"temperature": 0.1, "maxOutputTokens": 10},
+                    }
+                    resp = await client.post(test_url, json=payload)
                     if resp.status_code == 200:
-                        return {"success": True, "message": f"Successfully connected to Google Gemini ({model})!"}
+                        return {
+                            "success": True,
+                            "message": f"Successfully connected to Google Gemini ({target_model})!{note}",
+                            "recommended_model": target_model,
+                        }
                     else:
                         error_detail = resp.text
                         try:

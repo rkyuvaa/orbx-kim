@@ -154,8 +154,8 @@ export default function ExpenseConfigurationPage() {
       setEditingProvider(null);
       setProvType('GOOGLE');
       setProvLabel('Google Gemini API');
-      setProvModel('gemini-1.5-flash');
-      setProvEndpoint('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent');
+      setProvModel('gemini-2.0-flash');
+      setProvEndpoint('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent');
       setProvApiKey('');
       setProvIsDefault(aiProviders.length === 0);
       setProvIsActive(true);
@@ -168,8 +168,8 @@ export default function ExpenseConfigurationPage() {
     setProvType(type);
     if (type === 'GOOGLE') {
       setProvLabel('Google Gemini API');
-      setProvModel('gemini-1.5-flash');
-      setProvEndpoint('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent');
+      setProvModel('gemini-2.0-flash');
+      setProvEndpoint('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent');
     } else if (type === 'NVIDIA') {
       setProvLabel('Nvidia NIM');
       setProvModel('meta/llama-3.2-11b-vision-instruct');
@@ -203,6 +203,9 @@ export default function ExpenseConfigurationPage() {
         api_endpoint: provEndpoint || null,
         api_key: provApiKey || null,
       });
+      if (res.recommended_model && res.recommended_model !== provModel) {
+        setProvModel(res.recommended_model);
+      }
       setTestResult({
         success: res.success,
         message: res.message,

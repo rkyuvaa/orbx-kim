@@ -745,8 +745,8 @@ def list_ai_providers(db: Session = Depends(get_db)):
             AIProviderConfig(
                 provider=AIProviderType.GOOGLE,
                 label="Google Gemini API",
-                model_name="gemini-1.5-flash",
-                api_endpoint="https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent",
+                model_name="gemini-2.0-flash",
+                api_endpoint="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
                 api_key_env_var="GEMINI_API_KEY",
                 is_default=True,
                 is_active=True,
@@ -831,6 +831,7 @@ async def test_ai_provider(payload: AIProviderTestRequest, db: Session = Depends
     return AIProviderTestResponse(
         success=result.get("success", False),
         message=result.get("message", "Test completed"),
+        recommended_model=result.get("recommended_model"),
     )
 
 

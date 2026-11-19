@@ -501,7 +501,7 @@ export const expensesApi = {
     model_name: string;
     api_endpoint?: string | null;
     api_key?: string | null;
-  }): Promise<{ success: boolean; message: string }> {
+  }): Promise<{ success: boolean; message: string; recommended_model?: string | null }> {
     const res = await fetch(`${API_BASE}/configuration/ai-providers/test`, {
       method: 'POST',
       credentials: 'include',
