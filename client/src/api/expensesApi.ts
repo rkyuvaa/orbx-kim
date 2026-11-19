@@ -271,7 +271,8 @@ export const expensesApi = {
   },
 
   getFileUrl(billId: number): string {
-    return `${API_BASE}/files/${billId}`;
+    const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+    return `${API_BASE}/files/${billId}${token ? `?token=${encodeURIComponent(token)}` : ''}`;
   },
 
   // Claims

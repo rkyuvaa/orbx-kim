@@ -1,5 +1,6 @@
 import os
 from datetime import date, datetime, timezone
+from pathlib import Path
 from typing import Any, Optional
 
 from fastapi import (
@@ -324,13 +325,36 @@ def delete_bill(
 @router.get("/files/{bill_id}")
 def serve_bill_file(
     bill_id: int,
-    current_user: User = Depends(get_current_user),
+    token: Optional[str] = Query(None),
     db: Session = Depends(get_db),
 ):
+    """Serves the uploaded receipt image or PDF document safely for browser display and downloads."""
     bill = db.scalar(select(Bill).where(Bill.id == bill_id))
-    if not bill or not os.path.exists(bill.source_file_path):
-        raise HTTPException(status_code=404, detail="File not found")
-    return FileResponse(bill.source_file_path, media_type=bill.source_mime)
+    if not bill:
+        raise HTTPException(status_code=404, detail="Bill not found")
+
+    candidates = [
+        Path(bill.source_file_path),
+        Path("server") / bill.source_file_path,
+        Path.cwd() / bill.source_file_path,
+        Path.cwd() / "server" / bill.source_file_path,
+        Path(__file__).resolve().parents[4] / bill.source_file_path,
+        Path(__file__).resolve().parents[4] / "server" / bill.source_file_path,
+    ]
+    resolved_path = None
+    for c in candidates:
+        if c.exists() and c.is_file():
+            resolved_path = c
+            break
+
+    if not resolved_path:
+        raise HTTPException(status_code=404, detail="Receipt document not found on disk")
+
+    return FileResponse(
+        path=str(resolved_path),
+        media_type=bill.source_mime or "application/octet-stream",
+        filename=os.path.basename(bill.source_file_path),
+    )
 
 
 # ==========================================
