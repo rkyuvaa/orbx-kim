@@ -19,6 +19,7 @@ venv/
 dev.db
 *.log
 *vapid_keys.json
+server/uploads/
 
 
 # Editor / OS

@@ -1,5 +1,34 @@
 import React, { useState, useEffect } from 'react';
 import {
+  Box,
+  Paper,
+  Typography,
+  Tabs,
+  Tab,
+  Button,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  IconButton,
+  Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  CircularProgress,
+  Grid,
+  Drawer,
+  Checkbox,
+  Divider,
+} from '@mui/material';
+import {
   Receipt,
   Upload,
   CheckCircle2,
@@ -7,33 +36,41 @@ import {
   AlertCircle,
   FileText,
   DollarSign,
-  ArrowRight,
-  Eye,
   Edit2,
-  Trash2,
-  Check,
   X,
-  Building,
   RefreshCw,
-  Send,
-  Calendar,
   Layers,
   ChevronRight,
   ExternalLink,
   ShieldCheck,
   CreditCard,
+  Plus,
+  Check,
 } from 'lucide-react';
 import { expensesApi, Bill, Claim, Payout, PayoutEmployeeStatus, ExpenseCategory } from '@/api/expensesApi';
-import { useAppSelector } from '@/app/hooks';
+import { useToast } from '@/components/ui/ToastHost';
+
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
+
+function CustomTabPanel(props: TabPanelProps) {
+  const { children, value, index, ...other } = props;
+  return (
+    <div role="tabpanel" hidden={value !== index} {...other}>
+      {value === index && <Box sx={{ pt: 2 }}>{children}</Box>}
+    </div>
+  );
+}
 
 export default function ExpensesPage() {
-  const { user } = useAppSelector((state) => state.auth);
-  const [activeTab, setActiveTab] = useState<'bills' | 'claims' | 'approvals' | 'payouts' | 'confirmations'>('bills');
+  const { showToast } = useToast();
+  const [tab, setTab] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Data states (Rule: Empty arrays by default, no mock data)
+  // Data states (Zero Demo Data rule: empty arrays by default)
   const [myBills, setMyBills] = useState<Bill[]>([]);
   const [myClaims, setMyClaims] = useState<Claim[]>([]);
   const [pendingApprovals, setPendingApprovals] = useState<Claim[]>([]);
@@ -73,15 +110,6 @@ export default function ExpensesPage() {
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
   const [bankRef, setBankRef] = useState('');
 
-  // Auto-clear toast
-  useEffect(() => {
-    if (successMsg) {
-      const timer = setTimeout(() => setSuccessMsg(null), 4000);
-      return () => clearTimeout(timer);
-    }
-  }, [successMsg]);
-
-  // Initial fetch
   useEffect(() => {
     loadData();
     expensesApi.getCategories().then(setCategories).catch(console.error);
@@ -89,11 +117,10 @@ export default function ExpensesPage() {
 
   const loadData = async () => {
     setLoading(true);
-    setError(null);
     try {
       const [bills, claims, approvals, payoutList, confs] = await Promise.all([
-        expensesApi.getMyBills(),
-        expensesApi.getMyClaims(),
+        expensesApi.getMyBills().catch(() => []),
+        expensesApi.getMyClaims().catch(() => []),
         expensesApi.getPendingApprovals().catch(() => []),
         expensesApi.getPayouts().catch(() => []),
         expensesApi.getMyConfirmations().catch(() => []),
@@ -104,18 +131,17 @@ export default function ExpensesPage() {
       setPayouts(payoutList);
       setMyConfirmations(confs);
     } catch (err: any) {
-      setError(err?.message || 'Failed to load expense data');
+      showToast(err?.message || 'Failed to load expense records.', 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  // Upload handler
+  // Upload bill
   const handleUploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!uploadFile) return;
     setUploading(true);
-    setError(null);
     try {
       const newBill = await expensesApi.uploadBill(uploadFile, uploadCategory, uploadNotes);
       setMyBills((prev) => [newBill, ...prev]);
@@ -123,11 +149,10 @@ export default function ExpensesPage() {
       setUploadFile(null);
       setUploadNotes('');
       setUploadCategory(undefined);
-      setSuccessMsg('Bill uploaded successfully and processed by AI vision.');
-      // Auto open review drawer
+      showToast('Bill uploaded and processed by Vision AI.', 'success');
       openBillDrawer(newBill);
     } catch (err: any) {
-      setError(err?.message || 'Failed to upload bill.');
+      showToast(err?.message || 'Failed to upload bill.', 'error');
     } finally {
       setUploading(false);
     }
@@ -159,20 +184,19 @@ export default function ExpensesPage() {
   const handleSaveBill = async () => {
     if (!selectedBill) return;
     setSavingBill(true);
-    setError(null);
     try {
       const updated = await expensesApi.updateBill(selectedBill.id, editBillData);
       setMyBills((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
       setSelectedBill(updated);
-      setSuccessMsg('Bill details saved successfully.');
+      showToast('Bill details updated successfully.', 'success');
     } catch (err: any) {
-      setError(err?.message || 'Failed to save bill details.');
+      showToast(err?.message || 'Failed to update bill.', 'error');
     } finally {
       setSavingBill(false);
     }
   };
 
-  // Confirm Bill Ready
+  // Confirm Bill as Ready
   const handleConfirmReady = async () => {
     if (!selectedBill) return;
     setSavingBill(true);
@@ -180,10 +204,10 @@ export default function ExpensesPage() {
       const updated = await expensesApi.confirmBillReady(selectedBill.id);
       setMyBills((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
       setSelectedBill(updated);
-      setSuccessMsg('Bill confirmed as Ready for claim grouping.');
       setBillDrawerOpen(false);
+      showToast('Bill marked as Ready for claim cycle bundling.', 'success');
     } catch (err: any) {
-      setError(err?.message || 'Failed to confirm bill.');
+      showToast(err?.message || 'Failed to confirm bill.', 'error');
     } finally {
       setSavingBill(false);
     }
@@ -196,7 +220,7 @@ export default function ExpensesPage() {
       setSelectedClaim(fullClaim);
       setClaimDrawerOpen(true);
     } catch (err: any) {
-      setError(err?.message || 'Failed to load claim detail.');
+      showToast(err?.message || 'Failed to load claim detail.', 'error');
     }
   };
 
@@ -205,10 +229,10 @@ export default function ExpensesPage() {
     try {
       await expensesApi.approveClaim(claimId);
       setPendingApprovals((prev) => prev.filter((c) => c.id !== claimId));
-      setSuccessMsg('Claim approved successfully.');
+      showToast('Claim approved successfully.', 'success');
       loadData();
     } catch (err: any) {
-      setError(err?.message || 'Failed to approve claim.');
+      showToast(err?.message || 'Failed to approve claim.', 'error');
     }
   };
 
@@ -222,10 +246,10 @@ export default function ExpensesPage() {
       setRejectModalOpen(false);
       setRejectTargetClaim(null);
       setRejectReason('');
-      setSuccessMsg('Claim rejected and bills returned to claimant for revision.');
+      showToast('Claim rejected and bills returned to claimant for revision.', 'info');
       loadData();
     } catch (err: any) {
-      setError(err?.message || 'Failed to reject claim.');
+      showToast(err?.message || 'Failed to reject claim.', 'error');
     }
   };
 
@@ -237,11 +261,11 @@ export default function ExpensesPage() {
       setSelectedClaimIdsForBatch(approved.map((c) => c.id));
       setPayoutBatchModalOpen(true);
     } catch (err: any) {
-      setError(err?.message || 'Failed to load approved claims.');
+      showToast(err?.message || 'Failed to load approved claims.', 'error');
     }
   };
 
-  // Submit Payout Batch
+  // Create Payout Batch Submit
   const handleCreateBatchSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedClaimIdsForBatch.length === 0) return;
@@ -251,14 +275,14 @@ export default function ExpensesPage() {
       setPayoutBatchModalOpen(false);
       setPayoutBatchNotes('');
       setSelectedClaimIdsForBatch([]);
-      setSuccessMsg(`Payout batch ${newBatch.batch_no} created successfully.`);
+      showToast(`Payout batch ${newBatch.batch_no} created successfully.`, 'success');
       loadData();
     } catch (err: any) {
-      setError(err?.message || 'Failed to create payout batch.');
+      showToast(err?.message || 'Failed to create payout batch.', 'error');
     }
   };
 
-  // Record Bank Transfer (UTR)
+  // Record Bank Transfer Submit
   const handleRecordTransferSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!transferTargetPayout || !utrNumber.trim()) return;
@@ -273,10 +297,10 @@ export default function ExpensesPage() {
       setTransferTargetPayout(null);
       setUtrNumber('');
       setBankRef('');
-      setSuccessMsg('Bank transfer UTR recorded and employees notified.');
+      showToast('Bank transfer UTR recorded and claimants notified.', 'success');
       loadData();
     } catch (err: any) {
-      setError(err?.message || 'Failed to record bank transfer.');
+      showToast(err?.message || 'Failed to record bank transfer.', 'error');
     }
   };
 
@@ -287,1098 +311,904 @@ export default function ExpensesPage() {
       setMyConfirmations((prev) =>
         prev.map((c) => (c.payout_id === payoutId ? { ...c, status: 'CONFIRMED' } : c))
       );
-      setSuccessMsg('Thank you! Receipt of reimbursement confirmed.');
+      showToast('Reimbursement receipt confirmed. Thank you!', 'success');
     } catch (err: any) {
-      setError(err?.message || 'Failed to confirm receipt.');
+      showToast(err?.message || 'Failed to confirm receipt.', 'error');
     }
   };
 
-  // Stats calculation
+  // Stats
   const totalBillsAmount = myBills.reduce((acc, b) => acc + (b.total_amount || 0), 0);
   const readyBillsCount = myBills.filter((b) => b.extraction_status === 'READY' && !b.claim_id).length;
   const pendingApprovalsCount = pendingApprovals.length;
   const pendingConfirmationsCount = myConfirmations.filter((c) => c.status === 'PENDING_CONFIRMATION').length;
 
   return (
-    <div className="space-y-6">
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <Box sx={{ pb: 6 }}>
+      {/* Header */}
+      <Box sx={{ mb: 2.5, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Expenses & Claims</h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Reimbursement claims, automated bill parsing, approval workflows & payout reconciliation.
-          </p>
+          <Typography sx={{ fontSize: 19, fontWeight: 800, letterSpacing: -0.3, color: '#023020' }}>
+            Expenses & Claim Management
+          </Typography>
+          <Typography sx={{ fontSize: 13, color: '#7A8B80', mt: 0.5 }}>
+            Upload receipts, track approval chains, generate payout batches & reconcile bank transfers.
+          </Typography>
         </div>
 
-        <div className="flex items-center gap-3">
-          <button
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Button
+            variant="contained"
+            startIcon={<Upload size={16} />}
             onClick={() => setUploadModalOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium text-sm transition shadow-sm"
+            sx={{
+              bgcolor: '#023020',
+              '&:hover': { bgcolor: '#2A402A' },
+              borderRadius: 2,
+              fontSize: 13,
+              fontWeight: 600,
+            }}
           >
-            <Upload className="w-4 h-4" />
             Upload Bill / Receipt
-          </button>
-          <button
-            onClick={loadData}
-            title="Refresh Data"
-            className="p-2 border border-slate-300 rounded-lg hover:bg-slate-50 text-slate-600 transition"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          </button>
-        </div>
-      </div>
+          </Button>
 
-      {/* Notifications / Alerts */}
-      {successMsg && (
-        <div className="p-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-            <span>{successMsg}</span>
-          </div>
-          <button onClick={() => setSuccessMsg(null)} className="text-emerald-600 hover:text-emerald-800">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
+          <IconButton onClick={loadData} size="small" sx={{ border: '1px solid #E4EBE1', borderRadius: 2 }}>
+            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+          </IconButton>
+        </Box>
+      </Box>
 
-      {error && (
-        <div className="p-4 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
-            <span>{error}</span>
-          </div>
-          <button onClick={() => setError(null)} className="text-rose-600 hover:text-rose-800">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-
-      {/* Quick KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">My Total Bills</p>
-            <p className="text-2xl font-bold text-slate-900 mt-1">{myBills.length}</p>
-            <p className="text-xs text-slate-500 mt-1">₹{totalBillsAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })} total</p>
-          </div>
-          <div className="p-3 bg-indigo-50 text-indigo-600 rounded-lg">
-            <Receipt className="w-6 h-6" />
-          </div>
-        </div>
-
-        <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Ready for Claim</p>
-            <p className="text-2xl font-bold text-emerald-600 mt-1">{readyBillsCount}</p>
-            <p className="text-xs text-slate-500 mt-1">Awaiting next cycle bundle</p>
-          </div>
-          <div className="p-3 bg-emerald-50 text-emerald-600 rounded-lg">
-            <CheckCircle2 className="w-6 h-6" />
-          </div>
-        </div>
-
-        <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Actionable Approvals</p>
-            <p className="text-2xl font-bold text-amber-600 mt-1">{pendingApprovalsCount}</p>
-            <p className="text-xs text-slate-500 mt-1">Requiring your decision</p>
-          </div>
-          <div className="p-3 bg-amber-50 text-amber-600 rounded-lg">
-            <ShieldCheck className="w-6 h-6" />
-          </div>
-        </div>
-
-        <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Pending Confirmations</p>
-            <p className="text-2xl font-bold text-blue-600 mt-1">{pendingConfirmationsCount}</p>
-            <p className="text-xs text-slate-500 mt-1">Awaiting receipt confirmation</p>
-          </div>
-          <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
-            <CreditCard className="w-6 h-6" />
-          </div>
-        </div>
-      </div>
-
-      {/* Main Tab Navigation */}
-      <div className="border-b border-slate-200">
-        <nav className="flex space-x-6">
-          <button
-            onClick={() => setActiveTab('bills')}
-            className={`py-3 px-1 font-medium text-sm border-b-2 flex items-center gap-2 transition ${
-              activeTab === 'bills'
-                ? 'border-emerald-600 text-emerald-700'
-                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-            }`}
-          >
-            <Receipt className="w-4 h-4" />
-            My Bills & Receipts
-            <span className="ml-1 px-2 py-0.5 text-xs bg-slate-100 text-slate-600 rounded-full font-semibold">
+      {/* KPI Summary Cards */}
+      <Grid container spacing={2} sx={{ mb: 2.5 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <Paper variant="outlined" sx={{ p: 2, borderColor: '#E4EBE1', borderRadius: 2 }}>
+            <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#667085', textTransform: 'uppercase' }}>
+              My Total Bills
+            </Typography>
+            <Typography sx={{ fontSize: 22, fontWeight: 800, color: '#16231B', mt: 0.5 }}>
               {myBills.length}
-            </span>
-          </button>
+            </Typography>
+            <Typography sx={{ fontSize: 12, color: '#7A8B80', mt: 0.25 }}>
+              ₹{totalBillsAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })} total value
+            </Typography>
+          </Paper>
+        </Grid>
 
-          <button
-            onClick={() => setActiveTab('claims')}
-            className={`py-3 px-1 font-medium text-sm border-b-2 flex items-center gap-2 transition ${
-              activeTab === 'claims'
-                ? 'border-emerald-600 text-emerald-700'
-                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-            }`}
-          >
-            <Layers className="w-4 h-4" />
-            My Claims
-            <span className="ml-1 px-2 py-0.5 text-xs bg-slate-100 text-slate-600 rounded-full font-semibold">
-              {myClaims.length}
-            </span>
-          </button>
+        <Grid item xs={12} sm={6} md={3}>
+          <Paper variant="outlined" sx={{ p: 2, borderColor: '#E4EBE1', borderRadius: 2 }}>
+            <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#667085', textTransform: 'uppercase' }}>
+              Ready for Cycle Bundle
+            </Typography>
+            <Typography sx={{ fontSize: 22, fontWeight: 800, color: '#16A34A', mt: 0.5 }}>
+              {readyBillsCount}
+            </Typography>
+            <Typography sx={{ fontSize: 12, color: '#7A8B80', mt: 0.25 }}>
+              Awaiting next claim cycle
+            </Typography>
+          </Paper>
+        </Grid>
 
-          <button
-            onClick={() => setActiveTab('approvals')}
-            className={`py-3 px-1 font-medium text-sm border-b-2 flex items-center gap-2 transition ${
-              activeTab === 'approvals'
-                ? 'border-emerald-600 text-emerald-700'
-                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-            }`}
-          >
-            <ShieldCheck className="w-4 h-4" />
-            Approvals
-            {pendingApprovalsCount > 0 && (
-              <span className="ml-1 px-2 py-0.5 text-xs bg-amber-100 text-amber-800 rounded-full font-semibold">
-                {pendingApprovalsCount}
-              </span>
-            )}
-          </button>
+        <Grid item xs={12} sm={6} md={3}>
+          <Paper variant="outlined" sx={{ p: 2, borderColor: '#E4EBE1', borderRadius: 2 }}>
+            <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#667085', textTransform: 'uppercase' }}>
+              Pending Approvals
+            </Typography>
+            <Typography sx={{ fontSize: 22, fontWeight: 800, color: '#D97706', mt: 0.5 }}>
+              {pendingApprovalsCount}
+            </Typography>
+            <Typography sx={{ fontSize: 12, color: '#7A8B80', mt: 0.25 }}>
+              Actionable claims
+            </Typography>
+          </Paper>
+        </Grid>
 
-          <button
-            onClick={() => setActiveTab('payouts')}
-            className={`py-3 px-1 font-medium text-sm border-b-2 flex items-center gap-2 transition ${
-              activeTab === 'payouts'
-                ? 'border-emerald-600 text-emerald-700'
-                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-            }`}
-          >
-            <DollarSign className="w-4 h-4" />
-            Payouts & Transfers
-          </button>
+        <Grid item xs={12} sm={6} md={3}>
+          <Paper variant="outlined" sx={{ p: 2, borderColor: '#E4EBE1', borderRadius: 2 }}>
+            <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#667085', textTransform: 'uppercase' }}>
+              Awaiting Confirmations
+            </Typography>
+            <Typography sx={{ fontSize: 22, fontWeight: 800, color: '#2563EB', mt: 0.5 }}>
+              {pendingConfirmationsCount}
+            </Typography>
+            <Typography sx={{ fontSize: 12, color: '#7A8B80', mt: 0.25 }}>
+              Transferred to your bank
+            </Typography>
+          </Paper>
+        </Grid>
+      </Grid>
 
-          <button
-            onClick={() => setActiveTab('confirmations')}
-            className={`py-3 px-1 font-medium text-sm border-b-2 flex items-center gap-2 transition ${
-              activeTab === 'confirmations'
-                ? 'border-emerald-600 text-emerald-700'
-                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-            }`}
-          >
-            <CreditCard className="w-4 h-4" />
-            My Confirmations
-            {pendingConfirmationsCount > 0 && (
-              <span className="ml-1 px-2 py-0.5 text-xs bg-emerald-100 text-emerald-800 rounded-full font-semibold">
-                {pendingConfirmationsCount}
-              </span>
-            )}
-          </button>
-        </nav>
-      </div>
+      {/* Tabs */}
+      <Box sx={{ borderBottom: 1, borderColor: '#E4EBE1', mb: 2.5 }}>
+        <Tabs
+          value={tab}
+          onChange={(_, next) => setTab(next)}
+          textColor="primary"
+          indicatorColor="primary"
+          sx={{
+            '& .MuiTab-root': {
+              textTransform: 'none',
+              fontSize: 13,
+              fontWeight: 600,
+              minHeight: 44,
+            },
+          }}
+        >
+          <Tab icon={<Receipt size={16} />} iconPosition="start" label={`My Bills (${myBills.length})`} />
+          <Tab icon={<Layers size={16} />} iconPosition="start" label={`My Claims (${myClaims.length})`} />
+          <Tab
+            icon={<ShieldCheck size={16} />}
+            iconPosition="start"
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                <span>Approvals</span>
+                {pendingApprovalsCount > 0 && (
+                  <Chip
+                    label={pendingApprovalsCount}
+                    size="small"
+                    sx={{ height: 18, fontSize: 10, bgcolor: '#FEF3C7', color: '#B45309', fontWeight: 700 }}
+                  />
+                )}
+              </Box>
+            }
+          />
+          <Tab icon={<DollarSign size={16} />} iconPosition="start" label={`Payout Batches (${payouts.length})`} />
+          <Tab
+            icon={<CreditCard size={16} />}
+            iconPosition="start"
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                <span>My Confirmations</span>
+                {pendingConfirmationsCount > 0 && (
+                  <Chip
+                    label={pendingConfirmationsCount}
+                    size="small"
+                    sx={{ height: 18, fontSize: 10, bgcolor: '#DBEAFE', color: '#1E40AF', fontWeight: 700 }}
+                  />
+                )}
+              </Box>
+            }
+          />
+        </Tabs>
+      </Box>
 
       {/* TAB 1: MY BILLS */}
-      {activeTab === 'bills' && (
-        <div className="space-y-4">
-          {myBills.length === 0 ? (
-            <div className="p-12 text-center bg-white rounded-xl border border-dashed border-slate-300">
-              <Receipt className="w-12 h-12 text-slate-400 mx-auto mb-3" />
-              <h3 className="text-base font-semibold text-slate-900">No bills uploaded yet</h3>
-              <p className="text-sm text-slate-500 max-w-md mx-auto mt-1 mb-4">
-                Upload your expense receipts (photos or PDFs) to have them parsed automatically and queued for claim cycles.
-              </p>
-              <button
-                onClick={() => setUploadModalOpen(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium text-sm transition shadow-sm"
-              >
-                <Upload className="w-4 h-4" />
-                Upload Your First Bill
-              </button>
-            </div>
-          ) : (
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm text-slate-700">
-                  <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    <tr>
-                      <th className="py-3 px-4">Receipt</th>
-                      <th className="py-3 px-4">Supplier / Vendor</th>
-                      <th className="py-3 px-4">Bill Date & No</th>
-                      <th className="py-3 px-4">Category</th>
-                      <th className="py-3 px-4 text-right">Taxable</th>
-                      <th className="py-3 px-4 text-right">GST Total</th>
-                      <th className="py-3 px-4 text-right">Total Amount</th>
-                      <th className="py-3 px-4 text-center">Status</th>
-                      <th className="py-3 px-4 text-right">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {myBills.map((b) => (
-                      <tr key={b.id} className="hover:bg-slate-50/75 transition">
-                        <td className="py-3 px-4">
-                          <button
-                            onClick={() => openBillDrawer(b)}
-                            className="font-medium text-indigo-600 hover:text-indigo-800 flex items-center gap-1.5"
-                          >
-                            <FileText className="w-4 h-4 text-slate-400" />
-                            #{b.id}
-                          </button>
-                        </td>
-                        <td className="py-3 px-4 font-medium text-slate-900">
-                          {b.supplier_name || <span className="text-slate-400 italic">Unknown</span>}
-                          {b.is_duplicate && (
-                            <span className="ml-2 px-1.5 py-0.5 text-xs bg-rose-100 text-rose-700 rounded font-semibold">
-                              Duplicate
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-3 px-4 text-slate-600">
-                          <div>{b.bill_date || 'No Date'}</div>
-                          <div className="text-xs text-slate-400">{b.bill_number || 'No Bill #'}</div>
-                        </td>
-                        <td className="py-3 px-4">
-                          <span className="px-2.5 py-1 text-xs bg-slate-100 text-slate-700 rounded-full font-medium">
-                            {b.category_name || 'Unassigned'}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-right font-mono text-xs">
-                          ₹{Number(b.taxable_amount || 0).toFixed(2)}
-                        </td>
-                        <td className="py-3 px-4 text-right font-mono text-xs text-slate-500">
-                          ₹{Number(b.gst_total || 0).toFixed(2)}
-                        </td>
-                        <td className="py-3 px-4 text-right font-bold text-slate-900 font-mono">
-                          ₹{Number(b.total_amount || 0).toFixed(2)}
-                        </td>
-                        <td className="py-3 px-4 text-center">
-                          {b.extraction_status === 'READY' && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
-                              <CheckCircle2 className="w-3 h-3" /> Ready
-                            </span>
-                          )}
-                          {b.extraction_status === 'EXTRACTED' && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                              <Check className="w-3 h-3" /> Extracted
-                            </span>
-                          )}
-                          {b.extraction_status === 'NEEDS_REVIEW' && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                              <AlertCircle className="w-3 h-3" /> Needs Review
-                            </span>
-                          )}
-                          {b.extraction_status === 'PROCESSING' && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
-                              <RefreshCw className="w-3 h-3 animate-spin" /> Processing
-                            </span>
-                          )}
-                          {b.extraction_status === 'FAILED' && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-100 text-rose-800">
-                              <X className="w-3 h-3" /> Failed
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          <button
-                            onClick={() => openBillDrawer(b)}
-                            className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
-                            title="Review / Edit Bill"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+      <CustomTabPanel value={tab} index={0}>
+        <Paper variant="outlined" sx={{ borderColor: '#E4EBE1', borderRadius: 2.5, overflow: 'hidden' }}>
+          <Table>
+            <TableHead sx={{ bgcolor: '#F8FAF8' }}>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#526356' }}>RECEIPT #</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#526356' }}>VENDOR / SUPPLIER</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#526356' }}>BILL DATE & NO</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#526356' }}>CATEGORY</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#526356', textAlign: 'right' }}>TAXABLE</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#526356', textAlign: 'right' }}>TOTAL GST</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#526356', textAlign: 'right' }}>TOTAL (₹)</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#526356', textAlign: 'center' }}>STATUS</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#526356', textAlign: 'right' }}>ACTION</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {myBills.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={9} sx={{ textAlign: 'center', py: 6, color: '#7A8B80' }}>
+                    <Receipt size={36} style={{ margin: '0 auto 8px', opacity: 0.4 }} />
+                    <Typography sx={{ fontWeight: 700, fontSize: 14, color: '#16231B' }}>No bills uploaded yet</Typography>
+                    <Typography sx={{ fontSize: 12, color: '#667085', mt: 0.5, mb: 2 }}>
+                      Upload your expense receipts to have amounts and vendor details read automatically.
+                    </Typography>
+                    <Button
+                      variant="contained"
+                      size="small"
+                      startIcon={<Upload size={14} />}
+                      onClick={() => setUploadModalOpen(true)}
+                      sx={{ bgcolor: '#023020', '&:hover': { bgcolor: '#2A402A' } }}
+                    >
+                      Upload Receipt
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                myBills.map((b) => (
+                  <TableRow key={b.id} hover>
+                    <TableCell>
+                      <Button
+                        size="small"
+                        onClick={() => openBillDrawer(b)}
+                        startIcon={<FileText size={14} />}
+                        sx={{ textTransform: 'none', fontWeight: 600, color: '#023020' }}
+                      >
+                        #{b.id}
+                      </Button>
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: '#16231B' }}>
+                      {b.supplier_name || <span style={{ color: '#94A3B8', fontStyle: 'italic' }}>Unknown</span>}
+                      {b.is_duplicate && (
+                        <Chip label="Duplicate" size="small" sx={{ ml: 1, bgcolor: '#FEE2E2', color: '#991B1B', fontSize: 10, height: 18 }} />
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Typography sx={{ fontSize: 12, color: '#16231B' }}>{b.bill_date || 'No Date'}</Typography>
+                      <Typography sx={{ fontSize: 11, color: '#7A8B80', fontFamily: 'monospace' }}>
+                        {b.bill_number || 'No Bill #'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip label={b.category_name || 'Unassigned'} size="small" sx={{ fontSize: 11, bgcolor: '#F0F4F0' }} />
+                    </TableCell>
+                    <TableCell sx={{ textAlign: 'right', fontFamily: 'monospace', fontSize: 12 }}>
+                      ₹{Number(b.taxable_amount || 0).toFixed(2)}
+                    </TableCell>
+                    <TableCell sx={{ textAlign: 'right', fontFamily: 'monospace', fontSize: 12, color: '#667085' }}>
+                      ₹{Number(b.gst_total || 0).toFixed(2)}
+                    </TableCell>
+                    <TableCell sx={{ textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, fontSize: 13, color: '#023020' }}>
+                      ₹{Number(b.total_amount || 0).toFixed(2)}
+                    </TableCell>
+                    <TableCell sx={{ textAlign: 'center' }}>
+                      {b.extraction_status === 'READY' && (
+                        <Chip label="Ready" size="small" sx={{ bgcolor: '#DCFCE7', color: '#166534', fontWeight: 700, fontSize: 11 }} />
+                      )}
+                      {b.extraction_status === 'EXTRACTED' && (
+                        <Chip label="Extracted" size="small" sx={{ bgcolor: '#DBEAFE', color: '#1E40AF', fontWeight: 700, fontSize: 11 }} />
+                      )}
+                      {b.extraction_status === 'NEEDS_REVIEW' && (
+                        <Chip label="Needs Review" size="small" sx={{ bgcolor: '#FEF3C7', color: '#92400E', fontWeight: 700, fontSize: 11 }} />
+                      )}
+                      {b.extraction_status === 'PROCESSING' && (
+                        <Chip label="Processing" size="small" sx={{ bgcolor: '#F3F4F6', color: '#4B5563', fontSize: 11 }} />
+                      )}
+                      {b.extraction_status === 'FAILED' && (
+                        <Chip label="Failed" size="small" sx={{ bgcolor: '#FEE2E2', color: '#991B1B', fontSize: 11 }} />
+                      )}
+                    </TableCell>
+                    <TableCell sx={{ textAlign: 'right' }}>
+                      <IconButton size="small" onClick={() => openBillDrawer(b)} title="Review / Edit Bill">
+                        <Edit2 size={15} />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </Paper>
+      </CustomTabPanel>
 
       {/* TAB 2: MY CLAIMS */}
-      {activeTab === 'claims' && (
-        <div className="space-y-4">
+      <CustomTabPanel value={tab} index={1}>
+        <Paper variant="outlined" sx={{ p: 3, borderColor: '#E4EBE1', borderRadius: 2.5 }}>
           {myClaims.length === 0 ? (
-            <div className="p-12 text-center bg-white rounded-xl border border-dashed border-slate-300">
-              <Layers className="w-12 h-12 text-slate-400 mx-auto mb-3" />
-              <h3 className="text-base font-semibold text-slate-900">No claims submitted yet</h3>
-              <p className="text-sm text-slate-500 max-w-md mx-auto mt-1 mb-4">
-                When you mark bills as Ready, they are automatically grouped and submitted according to the active claim cycle.
-              </p>
-            </div>
+            <Box sx={{ textAlign: 'center', py: 6, color: '#7A8B80' }}>
+              <Layers size={36} style={{ margin: '0 auto 8px', opacity: 0.4 }} />
+              <Typography sx={{ fontWeight: 700, fontSize: 14, color: '#16231B' }}>No claims generated yet</Typography>
+              <Typography sx={{ fontSize: 12, color: '#667085', mt: 0.5 }}>
+                Ready bills are automatically batched into claims when the cycle cutoff passes.
+              </Typography>
+            </Box>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <Grid container spacing={2}>
               {myClaims.map((claim) => (
-                <div
-                  key={claim.id}
-                  onClick={() => openClaimDetail(claim.id)}
-                  className="p-5 bg-white rounded-xl border border-slate-200 hover:border-indigo-300 shadow-sm transition cursor-pointer flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-base text-slate-900">{claim.claim_no}</span>
-                      <span
-                        className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                          claim.status === 'PAID'
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : claim.status === 'REJECTED'
-                            ? 'bg-rose-100 text-rose-800'
-                            : claim.status.includes('APPROVED')
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-amber-100 text-amber-800'
-                        }`}
-                      >
-                        {claim.status.replace(/_/g, ' ')}
-                      </span>
-                    </div>
+                <Grid item xs={12} sm={6} md={4} key={claim.id}>
+                  <Paper
+                    variant="outlined"
+                    onClick={() => openClaimDetail(claim.id)}
+                    sx={{
+                      p: 2.5,
+                      borderRadius: 2,
+                      borderColor: '#E4EBE1',
+                      cursor: 'pointer',
+                      '&:hover': { borderColor: '#16C47F', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' },
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                      <Typography sx={{ fontWeight: 800, fontSize: 15, color: '#023020' }}>
+                        {claim.claim_no}
+                      </Typography>
+                      <Chip
+                        label={claim.status.replace(/_/g, ' ')}
+                        size="small"
+                        sx={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          bgcolor: claim.status === 'PAID' ? '#DCFCE7' : claim.status === 'REJECTED' ? '#FEE2E2' : '#FEF3C7',
+                          color: claim.status === 'PAID' ? '#166534' : claim.status === 'REJECTED' ? '#991B1B' : '#92400E',
+                        }}
+                      />
+                    </Box>
 
-                    <div className="mt-3 text-2xl font-extrabold text-slate-900 font-mono">
-                      ₹{Number(claim.total_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                    </div>
+                    <Typography sx={{ fontSize: 20, fontWeight: 800, fontFamily: 'monospace', color: '#16231B', my: 1 }}>
+                      ₹{Number(claim.total_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </Typography>
 
-                    <div className="mt-2 text-xs text-slate-500 space-y-1">
-                      <p>Bills bundled: {claim.bills_count}</p>
-                      <p>Cycle: {claim.cycle_name || 'Open Period'}</p>
-                      <p>Branch: {claim.branch_name || 'N/A'}</p>
-                    </div>
-                  </div>
+                    <Box sx={{ fontSize: 12, color: '#667085', spaceY: 0.5 }}>
+                      <div>Bundled: {claim.bills_count} bill(s)</div>
+                      <div>Cycle: {claim.cycle_name || 'Open Cycle'}</div>
+                    </Box>
 
-                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-indigo-600 font-medium">
-                    <span>View Timeline & Bills</span>
-                    <ChevronRight className="w-4 h-4" />
-                  </div>
-                </div>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pt: 1.5, mt: 1.5, borderTop: '1px solid #F0F4F0', color: '#023020', fontSize: 12, fontWeight: 600 }}>
+                      <span>View Breakdown & Timeline</span>
+                      <ChevronRight size={14} />
+                    </Box>
+                  </Paper>
+                </Grid>
               ))}
-            </div>
+            </Grid>
           )}
-        </div>
-      )}
+        </Paper>
+      </CustomTabPanel>
 
       {/* TAB 3: APPROVALS */}
-      {activeTab === 'approvals' && (
-        <div className="space-y-4">
+      <CustomTabPanel value={tab} index={2}>
+        <Paper variant="outlined" sx={{ p: 3, borderColor: '#E4EBE1', borderRadius: 2.5 }}>
           {pendingApprovals.length === 0 ? (
-            <div className="p-12 text-center bg-white rounded-xl border border-dashed border-slate-300">
-              <CheckCircle2 className="w-12 h-12 text-emerald-400 mx-auto mb-3" />
-              <h3 className="text-base font-semibold text-slate-900">All caught up!</h3>
-              <p className="text-sm text-slate-500 max-w-md mx-auto mt-1">
-                You have no expense claims pending your approval at this time.
-              </p>
-            </div>
+            <Box sx={{ textAlign: 'center', py: 6, color: '#7A8B80' }}>
+              <CheckCircle2 size={36} style={{ margin: '0 auto 8px', color: '#16A34A' }} />
+              <Typography sx={{ fontWeight: 700, fontSize: 14, color: '#16231B' }}>Inbox is clear</Typography>
+              <Typography sx={{ fontSize: 12, color: '#667085', mt: 0.5 }}>
+                You have no claims pending approval right now.
+              </Typography>
+            </Box>
           ) : (
-            <div className="space-y-3">
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {pendingApprovals.map((claim) => (
-                <div
+                <Paper
                   key={claim.id}
-                  className="p-5 bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4"
+                  variant="outlined"
+                  sx={{ p: 2.5, borderColor: '#E4EBE1', borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
                 >
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-3">
-                      <span className="font-bold text-lg text-slate-900">{claim.claim_no}</span>
-                      <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
-                        {claim.status.replace(/_/g, ' ')}
-                      </span>
-                    </div>
-                    <p className="text-sm text-slate-600">
-                      Claimant: <strong className="text-slate-800">{claim.employee_name}</strong> ({claim.employee_email})
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      Branch: {claim.branch_name || 'N/A'} • Bills count: {claim.bills_count}
-                    </p>
+                  <div>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      <Typography sx={{ fontWeight: 800, fontSize: 15, color: '#023020' }}>
+                        {claim.claim_no}
+                      </Typography>
+                      <Chip label={claim.status.replace(/_/g, ' ')} size="small" sx={{ bgcolor: '#FEF3C7', color: '#92400E', fontWeight: 700, fontSize: 10 }} />
+                    </Box>
+
+                    <Typography sx={{ fontSize: 13, color: '#526356', mt: 0.5 }}>
+                      Claimant: <strong>{claim.employee_name}</strong> ({claim.employee_email}) • {claim.bills_count} bill(s)
+                    </Typography>
                   </div>
 
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <p className="text-xs text-slate-400 uppercase font-medium">Total Claim</p>
-                      <p className="text-xl font-extrabold text-slate-900 font-mono">
-                        ₹{Number(claim.total_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                      </p>
-                    </div>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                    <Box sx={{ textAlign: 'right' }}>
+                      <Typography sx={{ fontSize: 11, color: '#7A8B80', textTransform: 'uppercase' }}>Amount</Typography>
+                      <Typography sx={{ fontSize: 18, fontWeight: 800, fontFamily: 'monospace', color: '#16231B' }}>
+                        ₹{Number(claim.total_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </Typography>
+                    </Box>
 
-                    <div className="flex items-center gap-2">
-                      <button
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Button
+                        size="small"
+                        variant="outlined"
                         onClick={() => openClaimDetail(claim.id)}
-                        className="px-3 py-2 border border-slate-300 rounded-lg text-xs font-semibold hover:bg-slate-50 transition"
+                        sx={{ textTransform: 'none', borderColor: '#E4EBE1', color: '#526356' }}
                       >
                         Inspect
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        color="error"
                         onClick={() => {
                           setRejectTargetClaim(claim);
                           setRejectModalOpen(true);
                         }}
-                        className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-semibold transition"
+                        sx={{ textTransform: 'none' }}
                       >
                         Reject
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="contained"
                         onClick={() => handleApproveClaim(claim.id)}
-                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition shadow-sm"
+                        sx={{ bgcolor: '#023020', '&:hover': { bgcolor: '#2A402A' }, textTransform: 'none' }}
                       >
                         Approve
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                      </Button>
+                    </Box>
+                  </Box>
+                </Paper>
               ))}
-            </div>
+            </Box>
           )}
-        </div>
-      )}
+        </Paper>
+      </CustomTabPanel>
 
-      {/* TAB 4: PAYOUTS & TRANSFERS */}
-      {activeTab === 'payouts' && (
-        <div className="space-y-4">
-          <div className="flex justify-end">
-            <button
-              onClick={openCreateBatchModal}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-sm transition shadow-sm"
-            >
-              <DollarSign className="w-4 h-4" />
-              Create Payout Batch
-            </button>
-          </div>
-
-          {payouts.length === 0 ? (
-            <div className="p-12 text-center bg-white rounded-xl border border-dashed border-slate-300">
-              <DollarSign className="w-12 h-12 text-slate-400 mx-auto mb-3" />
-              <h3 className="text-base font-semibold text-slate-900">No payout batches created</h3>
-              <p className="text-sm text-slate-500 max-w-md mx-auto mt-1 mb-4">
-                Accountants can group CFO-approved claims into payout batches, execute bank transfers, and log UTR numbers.
-              </p>
+      {/* TAB 4: PAYOUTS */}
+      <CustomTabPanel value={tab} index={3}>
+        <Paper variant="outlined" sx={{ p: 3, borderColor: '#E4EBE1', borderRadius: 2.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5 }}>
+            <div>
+              <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#023020' }}>
+                Reimbursement Payout Batches
+              </Typography>
+              <Typography sx={{ fontSize: 13, color: '#667085', mt: 0.25 }}>
+                Bundle approved claims, record bank transfer UTRs, and track claimant receipts.
+              </Typography>
             </div>
-          ) : (
-            <div className="space-y-3">
-              {payouts.map((p) => (
-                <div key={p.id} className="p-5 bg-white rounded-xl border border-slate-200 shadow-sm space-y-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <div className="flex items-center gap-3">
-                      <span className="font-bold text-lg text-slate-900">{p.batch_no}</span>
-                      <span
-                        className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                          p.status === 'CONFIRMED'
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : p.status === 'TRANSFERRED'
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-amber-100 text-amber-800'
-                        }`}
-                      >
-                        {p.status.replace(/_/g, ' ')}
-                      </span>
-                    </div>
 
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <span className="text-xs text-slate-400 uppercase">Batch Total: </span>
-                        <span className="font-mono font-bold text-slate-900 text-base">
-                          ₹{Number(p.total_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                        </span>
-                      </div>
+            <Button
+              variant="contained"
+              startIcon={<Plus size={16} />}
+              onClick={openCreateBatchModal}
+              sx={{ bgcolor: '#023020', '&:hover': { bgcolor: '#2A402A' }, borderRadius: 2, fontSize: 13 }}
+            >
+              Create Payout Batch
+            </Button>
+          </Box>
+
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {payouts.length === 0 ? (
+              <Box sx={{ textAlign: 'center', py: 6, color: '#7A8B80' }}>
+                <DollarSign size={36} style={{ margin: '0 auto 8px', opacity: 0.4 }} />
+                <Typography sx={{ fontWeight: 700, fontSize: 14, color: '#16231B' }}>No payout batches yet</Typography>
+                <Typography sx={{ fontSize: 12, color: '#667085', mt: 0.5 }}>
+                  Accountants can group CFO-approved claims to execute bank transfers.
+                </Typography>
+              </Box>
+            ) : (
+              payouts.map((p) => (
+                <Paper key={p.id} variant="outlined" sx={{ p: 2.5, borderColor: '#E4EBE1', borderRadius: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      <Typography sx={{ fontWeight: 800, fontSize: 16, color: '#023020' }}>
+                        {p.batch_no}
+                      </Typography>
+                      <Chip
+                        label={p.status.replace(/_/g, ' ')}
+                        size="small"
+                        sx={{
+                          fontWeight: 700,
+                          fontSize: 10,
+                          bgcolor: p.status === 'CONFIRMED' ? '#DCFCE7' : p.status === 'TRANSFERRED' ? '#DBEAFE' : '#FEF3C7',
+                          color: p.status === 'CONFIRMED' ? '#166534' : p.status === 'TRANSFERRED' ? '#1E40AF' : '#92400E',
+                        }}
+                      />
+                    </Box>
+
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Typography sx={{ fontWeight: 800, fontFamily: 'monospace', fontSize: 16 }}>
+                        ₹{Number(p.total_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </Typography>
 
                       {p.status === 'PENDING_TRANSFER' && (
-                        <button
+                        <Button
+                          size="small"
+                          variant="contained"
                           onClick={() => {
                             setTransferTargetPayout(p);
                             setTransferModalOpen(true);
                           }}
-                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition"
+                          sx={{ bgcolor: '#023020', '&:hover': { bgcolor: '#2A402A' }, textTransform: 'none', fontSize: 12 }}
                         >
                           Record UTR Transfer
-                        </button>
+                        </Button>
                       )}
-                    </div>
-                  </div>
+                    </Box>
+                  </Box>
 
                   {p.utr_number && (
-                    <div className="p-3 bg-slate-50 rounded-lg text-xs text-slate-600 flex flex-wrap gap-4">
-                      <div>
-                        <strong>Bank UTR / Ref:</strong> <span className="font-mono">{p.utr_number}</span>
-                      </div>
-                      <div>
-                        <strong>Payment Date:</strong> {p.payment_date || 'N/A'}
-                      </div>
-                      {p.bank_ref && (
-                        <div>
-                          <strong>Bank:</strong> {p.bank_ref}
-                        </div>
-                      )}
-                    </div>
+                    <Box sx={{ mt: 1, p: 1.5, bgcolor: '#F8FAF8', borderRadius: 1.5, fontSize: 12, color: '#526356', display: 'flex', gap: 3 }}>
+                      <div><strong>Bank UTR:</strong> <span style={{ fontFamily: 'monospace' }}>{p.utr_number}</span></div>
+                      <div><strong>Transfer Date:</strong> {p.payment_date || 'N/A'}</div>
+                      {p.bank_ref && <div><strong>Bank:</strong> {p.bank_ref}</div>}
+                    </Box>
                   )}
-
-                  {/* Employee confirmation breakdown */}
-                  {p.employee_statuses && p.employee_statuses.length > 0 && (
-                    <div className="pt-2">
-                      <p className="text-xs font-semibold text-slate-500 uppercase">Employee Confirmations:</p>
-                      <div className="mt-1 divide-y divide-slate-100 text-xs">
-                        {p.employee_statuses.map((s) => (
-                          <div key={s.id} className="py-1.5 flex items-center justify-between">
-                            <span>{s.employee_name} (₹{Number(s.amount).toFixed(2)})</span>
-                            <span
-                              className={`px-2 py-0.5 rounded text-[11px] font-semibold ${
-                                s.status === 'CONFIRMED'
-                                  ? 'bg-emerald-100 text-emerald-800'
-                                  : s.status === 'AUTO_RECONCILED'
-                                  ? 'bg-blue-100 text-blue-800'
-                                  : 'bg-amber-100 text-amber-800'
-                              }`}
-                            >
-                              {s.status.replace(/_/g, ' ')}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+                </Paper>
+              ))
+            )}
+          </Box>
+        </Paper>
+      </CustomTabPanel>
 
       {/* TAB 5: MY CONFIRMATIONS */}
-      {activeTab === 'confirmations' && (
-        <div className="space-y-4">
+      <CustomTabPanel value={tab} index={4}>
+        <Paper variant="outlined" sx={{ p: 3, borderColor: '#E4EBE1', borderRadius: 2.5 }}>
           {myConfirmations.length === 0 ? (
-            <div className="p-12 text-center bg-white rounded-xl border border-dashed border-slate-300">
-              <CheckCircle2 className="w-12 h-12 text-emerald-400 mx-auto mb-3" />
-              <h3 className="text-base font-semibold text-slate-900">No pending payout confirmations</h3>
-              <p className="text-sm text-slate-500 max-w-md mx-auto mt-1">
-                When the company transfers reimbursement funds into your bank account, you will receive an alert here to confirm receipt.
-              </p>
-            </div>
+            <Box sx={{ textAlign: 'center', py: 6, color: '#7A8B80' }}>
+              <CheckCircle2 size={36} style={{ margin: '0 auto 8px', color: '#16A34A' }} />
+              <Typography sx={{ fontWeight: 700, fontSize: 14, color: '#16231B' }}>No pending confirmations</Typography>
+              <Typography sx={{ fontSize: 12, color: '#667085', mt: 0.5 }}>
+                When reimbursement transfers are made to your bank account, you will confirm them here.
+              </Typography>
+            </Box>
           ) : (
-            <div className="space-y-3">
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {myConfirmations.map((conf) => (
-                <div key={conf.id} className="p-5 bg-white rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <Paper
+                  key={conf.id}
+                  variant="outlined"
+                  sx={{ p: 2.5, borderColor: '#E4EBE1', borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+                >
                   <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-slate-900 text-base">Reimbursement Payout #{conf.payout_id}</span>
-                      <span
-                        className={`px-2 py-0.5 rounded text-xs font-semibold ${
-                          conf.status === 'CONFIRMED'
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : 'bg-amber-100 text-amber-800'
-                        }`}
-                      >
-                        {conf.status.replace(/_/g, ' ')}
-                      </span>
-                    </div>
-                    <p className="text-sm font-bold text-slate-900 font-mono mt-1">₹{Number(conf.amount).toFixed(2)}</p>
+                    <Typography sx={{ fontWeight: 700, fontSize: 15, color: '#16231B' }}>
+                      Reimbursement Batch #{conf.payout_id}
+                    </Typography>
+                    <Typography sx={{ fontSize: 18, fontWeight: 800, fontFamily: 'monospace', color: '#023020', mt: 0.5 }}>
+                      ₹{Number(conf.amount).toFixed(2)}
+                    </Typography>
                     {conf.confirmed_at && (
-                      <p className="text-xs text-slate-400 mt-1">Confirmed on {new Date(conf.confirmed_at).toLocaleDateString()}</p>
+                      <Typography sx={{ fontSize: 11, color: '#7A8B80', mt: 0.5 }}>
+                        Confirmed on {new Date(conf.confirmed_at).toLocaleDateString()}
+                      </Typography>
                     )}
                   </div>
 
                   {conf.status === 'PENDING_CONFIRMATION' && (
-                    <button
+                    <Button
+                      variant="contained"
                       onClick={() => handleConfirmReceipt(conf.payout_id)}
-                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition shadow-sm"
+                      sx={{ bgcolor: '#023020', '&:hover': { bgcolor: '#2A402A' }, textTransform: 'none' }}
                     >
                       Confirm Receipt of Funds
-                    </button>
+                    </Button>
                   )}
-                </div>
+                </Paper>
               ))}
-            </div>
+            </Box>
           )}
-        </div>
-      )}
+        </Paper>
+      </CustomTabPanel>
 
-      {/* UPLOAD BILL MODAL */}
-      {uploadModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl">
-            <div className="flex items-center justify-between border-b pb-3">
-              <h3 className="text-lg font-bold text-slate-900">Upload Expense Bill</h3>
-              <button onClick={() => setUploadModalOpen(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      {/* UPLOAD MODAL */}
+      <Dialog open={uploadModalOpen} onClose={() => setUploadModalOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800, color: '#023020' }}>Upload Expense Bill</DialogTitle>
+        <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+          <Box>
+            <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#526356', mb: 1 }}>
+              Document Receipt (Photo or PDF) *
+            </Typography>
+            <input
+              type="file"
+              accept="image/*,application/pdf"
+              required
+              onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+              style={{
+                width: '100%',
+                border: '1px solid #E4EBE1',
+                padding: '10px',
+                borderRadius: '8px',
+                fontSize: '13px',
+              }}
+            />
+          </Box>
 
-            <form onSubmit={handleUploadSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Receipt Document (Photo or PDF) *</label>
-                <input
-                  type="file"
-                  accept="image/*,application/pdf"
-                  required
-                  onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
-                  className="w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 border border-slate-300 rounded-lg p-2"
-                />
-              </div>
+          <FormControl fullWidth size="small">
+            <InputLabel>Category (Optional)</InputLabel>
+            <Select
+              value={uploadCategory || ''}
+              label="Category (Optional)"
+              onChange={(e) => setUploadCategory(e.target.value ? Number(e.target.value) : undefined)}
+            >
+              <MenuItem value="">-- Let AI Auto-Classify --</MenuItem>
+              {categories.map((c) => (
+                <MenuItem key={c.id} value={c.id}>
+                  {c.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Category (Optional - AI will guess)</label>
-                <select
-                  value={uploadCategory || ''}
-                  onChange={(e) => setUploadCategory(e.target.value ? Number(e.target.value) : undefined)}
-                  className="w-full p-2.5 border border-slate-300 rounded-lg text-sm bg-white"
-                >
-                  <option value="">-- Let AI Auto-Classify --</option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+          <TextField
+            label="Notes / Description (Optional)"
+            size="small"
+            multiline
+            rows={2}
+            value={uploadNotes}
+            onChange={(e) => setUploadNotes(e.target.value)}
+            placeholder="e.g. Travel tickets or client dinner"
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setUploadModalOpen(false)} sx={{ color: '#667085' }}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleUploadSubmit}
+            disabled={uploading || !uploadFile}
+            startIcon={uploading ? <CircularProgress size={14} /> : <Upload size={14} />}
+            sx={{ bgcolor: '#023020', '&:hover': { bgcolor: '#2A402A' } }}
+          >
+            {uploading ? 'Parsing with AI...' : 'Upload & Parse'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Notes / Description (Optional)</label>
-                <textarea
-                  value={uploadNotes}
-                  onChange={(e) => setUploadNotes(e.target.value)}
-                  placeholder="e.g. Client lunch at Bangalore, fuel receipt for delivery vehicle"
-                  rows={2}
-                  className="w-full p-2.5 border border-slate-300 rounded-lg text-sm"
-                />
-              </div>
+      {/* BILL REVIEW DRAWER */}
+      <Drawer
+        anchor="right"
+        open={billDrawerOpen}
+        onClose={() => setBillDrawerOpen(false)}
+        PaperProps={{ sx: { width: { xs: '100%', sm: 600 }, p: 3 } }}
+      >
+        {selectedBill && (
+          <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 2, borderBottom: '1px solid #E4EBE1' }}>
+              <Typography sx={{ fontWeight: 800, fontSize: 17, color: '#023020' }}>
+                Review Bill #{selectedBill.id}
+              </Typography>
+              <IconButton onClick={() => setBillDrawerOpen(false)} size="small">
+                <X size={18} />
+              </IconButton>
+            </Box>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t">
-                <button
-                  type="button"
-                  onClick={() => setUploadModalOpen(false)}
-                  className="px-4 py-2 border border-slate-300 rounded-lg text-sm text-slate-600 hover:bg-slate-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={uploading || !uploadFile}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold flex items-center gap-2 disabled:opacity-50"
-                >
-                  {uploading ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                      Parsing with AI...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="w-4 h-4" />
-                      Upload & Parse
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* BILL REVIEW & EDIT DRAWER */}
-      {billDrawerOpen && selectedBill && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/40">
-          <div className="bg-white w-full max-w-2xl h-full shadow-2xl flex flex-col">
-            <div className="p-4 border-b flex items-center justify-between bg-slate-50">
-              <div className="flex items-center gap-2">
-                <FileText className="w-5 h-5 text-indigo-600" />
-                <h3 className="font-bold text-slate-900">Review Bill #{selectedBill.id}</h3>
-              </div>
-              <button onClick={() => setBillDrawerOpen(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6 space-y-5">
-              {/* Receipt File Preview Link */}
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
-                <div className="flex items-center gap-2 text-sm text-slate-700">
-                  <FileText className="w-4 h-4 text-slate-500" />
-                  <span className="truncate max-w-xs">{selectedBill.source_file_path.split('/').pop()}</span>
-                </div>
-                <a
+            <Box sx={{ flex: 1, overflowY: 'auto', py: 2.5, display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Paper variant="outlined" sx={{ p: 2, bgcolor: '#F8FAF8', borderColor: '#E4EBE1', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Typography sx={{ fontSize: 13, color: '#526356', fontWeight: 600 }}>
+                  Receipt Document
+                </Typography>
+                <Button
+                  size="small"
+                  startIcon={<ExternalLink size={14} />}
                   href={expensesApi.getFileUrl(selectedBill.id)}
                   target="_blank"
-                  rel="noreferrer"
-                  className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+                  sx={{ textTransform: 'none', color: '#023020', fontWeight: 600 }}
                 >
-                  Open Receipt Document <ExternalLink className="w-3.5 h-3.5" />
-                </a>
-              </div>
+                  Open Receipt
+                </Button>
+              </Paper>
 
-              {/* Editable Fields (Direct values without forced recalculations) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Supplier / Vendor</label>
-                  <input
-                    type="text"
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Supplier / Vendor"
+                    size="small"
+                    fullWidth
                     value={editBillData.supplier_name || ''}
                     onChange={(e) => setEditBillData({ ...editBillData, supplier_name: e.target.value })}
-                    className="w-full p-2 border border-slate-300 rounded-lg text-sm"
                   />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Bill / Invoice Number</label>
-                  <input
-                    type="text"
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Bill / Invoice Number"
+                    size="small"
+                    fullWidth
                     value={editBillData.bill_number || ''}
                     onChange={(e) => setEditBillData({ ...editBillData, bill_number: e.target.value })}
-                    className="w-full p-2 border border-slate-300 rounded-lg text-sm"
                   />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Bill Date</label>
-                  <input
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Bill Date"
+                    size="small"
                     type="date"
+                    InputLabelProps={{ shrink: true }}
+                    fullWidth
                     value={String(editBillData.bill_date || '')}
                     onChange={(e) => setEditBillData({ ...editBillData, bill_date: e.target.value })}
-                    className="w-full p-2 border border-slate-300 rounded-lg text-sm"
                   />
-                </div>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Category</InputLabel>
+                    <Select
+                      value={editBillData.category_id || ''}
+                      label="Category"
+                      onChange={(e) => setEditBillData({ ...editBillData, category_id: e.target.value ? Number(e.target.value) : undefined })}
+                    >
+                      <MenuItem value="">-- Select Category --</MenuItem>
+                      {categories.map((c) => (
+                        <MenuItem key={c.id} value={c.id}>
+                          {c.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </Grid>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Expense Category</label>
-                  <select
-                    value={editBillData.category_id || ''}
-                    onChange={(e) => setEditBillData({ ...editBillData, category_id: e.target.value ? Number(e.target.value) : undefined })}
-                    className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white"
-                  >
-                    <option value="">-- Select Category --</option>
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Tax & Amounts (Optional GST & Direct Input) */}
-              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
-                <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">Amounts & Taxes</p>
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-medium text-slate-600 mb-0.5">Taxable (₹)</label>
-                    <input
+              {/* Amounts & Taxes (Direct values) */}
+              <Paper variant="outlined" sx={{ p: 2, borderColor: '#E4EBE1', borderRadius: 2 }}>
+                <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#526356', textTransform: 'uppercase', mb: 1.5 }}>
+                  Amounts & Taxes
+                </Typography>
+                <Grid container spacing={1.5}>
+                  <Grid item xs={6} sm={3}>
+                    <TextField
+                      label="Taxable (₹)"
+                      size="small"
                       type="number"
-                      step="0.01"
                       value={editBillData.taxable_amount ?? 0}
                       onChange={(e) => setEditBillData({ ...editBillData, taxable_amount: parseFloat(e.target.value) || 0 })}
-                      className="w-full p-2 border border-slate-300 rounded text-sm font-mono"
                     />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-medium text-slate-600 mb-0.5">CGST (₹)</label>
-                    <input
+                  </Grid>
+                  <Grid item xs={6} sm={3}>
+                    <TextField
+                      label="CGST (₹)"
+                      size="small"
                       type="number"
-                      step="0.01"
                       value={editBillData.cgst_amount ?? 0}
                       onChange={(e) => setEditBillData({ ...editBillData, cgst_amount: parseFloat(e.target.value) || 0 })}
-                      className="w-full p-2 border border-slate-300 rounded text-sm font-mono"
                     />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-medium text-slate-600 mb-0.5">SGST (₹)</label>
-                    <input
+                  </Grid>
+                  <Grid item xs={6} sm={3}>
+                    <TextField
+                      label="SGST (₹)"
+                      size="small"
                       type="number"
-                      step="0.01"
                       value={editBillData.sgst_amount ?? 0}
                       onChange={(e) => setEditBillData({ ...editBillData, sgst_amount: parseFloat(e.target.value) || 0 })}
-                      className="w-full p-2 border border-slate-300 rounded text-sm font-mono"
                     />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-medium text-slate-600 mb-0.5">IGST (₹)</label>
-                    <input
+                  </Grid>
+                  <Grid item xs={6} sm={3}>
+                    <TextField
+                      label="IGST (₹)"
+                      size="small"
                       type="number"
-                      step="0.01"
                       value={editBillData.igst_amount ?? 0}
                       onChange={(e) => setEditBillData({ ...editBillData, igst_amount: parseFloat(e.target.value) || 0 })}
-                      className="w-full p-2 border border-slate-300 rounded text-sm font-mono"
                     />
-                  </div>
-                </div>
+                  </Grid>
+                </Grid>
 
-                <div className="pt-2 border-t flex items-center justify-between">
-                  <span className="text-sm font-bold text-slate-800">Total Claimable Amount (₹):</span>
-                  <input
+                <Box sx={{ mt: 2, pt: 1.5, borderTop: '1px solid #E4EBE1', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Typography sx={{ fontWeight: 700, fontSize: 14, color: '#16231B' }}>Total Amount (₹):</Typography>
+                  <TextField
+                    size="small"
                     type="number"
-                    step="0.01"
                     value={editBillData.total_amount ?? 0}
                     onChange={(e) => setEditBillData({ ...editBillData, total_amount: parseFloat(e.target.value) || 0 })}
-                    className="w-40 p-2 border-2 border-emerald-500 rounded-lg text-base font-bold font-mono text-right"
+                    sx={{ width: 140 }}
+                    inputProps={{ style: { textAlign: 'right', fontWeight: 800, fontFamily: 'monospace', fontSize: 15 } }}
                   />
-                </div>
-              </div>
+                </Box>
+              </Paper>
+            </Box>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Notes</label>
-                <textarea
-                  value={editBillData.notes || ''}
-                  onChange={(e) => setEditBillData({ ...editBillData, notes: e.target.value })}
-                  rows={2}
-                  className="w-full p-2 border border-slate-300 rounded-lg text-sm"
-                />
-              </div>
-            </div>
-
-            <div className="p-4 border-t bg-slate-50 flex items-center justify-between">
-              <button
-                type="button"
-                onClick={handleSaveBill}
-                disabled={savingBill}
-                className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium hover:bg-white transition"
-              >
+            <Box sx={{ pt: 2, borderTop: '1px solid #E4EBE1', display: 'flex', justifyContent: 'space-between' }}>
+              <Button onClick={handleSaveBill} disabled={savingBill} sx={{ color: '#526356' }}>
                 Save Draft
-              </button>
-
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="contained"
                 onClick={handleConfirmReady}
                 disabled={savingBill}
-                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold flex items-center gap-1.5 transition shadow-sm"
+                sx={{ bgcolor: '#023020', '&:hover': { bgcolor: '#2A402A' } }}
               >
-                <CheckCircle2 className="w-4 h-4" />
                 Confirm as Ready
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+              </Button>
+            </Box>
+          </Box>
+        )}
+      </Drawer>
 
-      {/* CLAIM DETAIL DRAWER */}
-      {claimDrawerOpen && selectedClaim && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/40">
-          <div className="bg-white w-full max-w-xl h-full shadow-2xl flex flex-col">
-            <div className="p-4 border-b flex items-center justify-between bg-slate-50">
-              <div>
-                <h3 className="font-bold text-slate-900 text-lg">{selectedClaim.claim_no}</h3>
-                <p className="text-xs text-slate-500">Status: {selectedClaim.status.replace(/_/g, ' ')}</p>
-              </div>
-              <button onClick={() => setClaimDrawerOpen(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-                <p className="text-xs text-slate-400 uppercase font-medium">Claim Total</p>
-                <p className="text-2xl font-extrabold text-slate-900 font-mono mt-1">
-                  ₹{Number(selectedClaim.total_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                </p>
-                <p className="text-xs text-slate-500 mt-1">Claimant: {selectedClaim.employee_name}</p>
-              </div>
-
-              {/* Associated Bills */}
-              <div>
-                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Attached Bills:</h4>
-                <div className="space-y-2">
-                  {selectedClaim.bills?.map((b) => (
-                    <div key={b.id} className="p-3 bg-white border border-slate-200 rounded-lg flex items-center justify-between text-xs">
-                      <div>
-                        <span className="font-semibold text-slate-900">{b.supplier_name || 'Vendor'}</span>
-                        <div className="text-slate-400">{b.bill_date} • {b.category_name}</div>
-                      </div>
-                      <span className="font-mono font-bold text-slate-900">₹{Number(b.total_amount).toFixed(2)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Status History Timeline */}
-              <div>
-                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Audit Trail Timeline:</h4>
-                <div className="space-y-3 border-l-2 border-indigo-200 pl-4 text-xs">
-                  {selectedClaim.status_history?.map((h) => (
-                    <div key={h.id} className="relative">
-                      <div className="font-semibold text-slate-800">{h.to_status.replace(/_/g, ' ')}</div>
-                      <div className="text-slate-500">{h.note}</div>
-                      <div className="text-slate-400 text-[10px] mt-0.5">{new Date(h.created_at).toLocaleString()}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* REJECT CLAIM MODAL */}
-      {rejectModalOpen && rejectTargetClaim && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl">
-            <h3 className="text-lg font-bold text-slate-900">Reject Claim {rejectTargetClaim.claim_no}</h3>
-            <p className="text-xs text-slate-500">
-              Provide a clear reason for the claimant. The bills will be returned to their Ready list for revision.
-            </p>
-
-            <form onSubmit={handleRejectSubmit} className="space-y-3">
-              <textarea
-                required
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-                placeholder="Reason for rejection (mandatory)..."
-                rows={3}
-                className="w-full p-2.5 border border-slate-300 rounded-lg text-sm"
-              />
-
-              <div className="flex items-center justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setRejectModalOpen(false)}
-                  className="px-4 py-2 border rounded-lg text-sm text-slate-600 hover:bg-slate-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-sm font-semibold"
-                >
-                  Confirm Rejection
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* REJECT MODAL */}
+      <Dialog open={rejectModalOpen} onClose={() => setRejectModalOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800, color: '#991B1B' }}>Reject Claim</DialogTitle>
+        <DialogContent dividers>
+          <Typography sx={{ fontSize: 13, color: '#667085', mb: 1.5 }}>
+            State the reason for rejection. All bundled bills will return to the employee for correction.
+          </Typography>
+          <TextField
+            label="Rejection Reason *"
+            fullWidth
+            multiline
+            rows={3}
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setRejectModalOpen(false)}>Cancel</Button>
+          <Button variant="contained" color="error" onClick={handleRejectSubmit}>
+            Confirm Rejection
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* CREATE PAYOUT BATCH MODAL */}
-      {payoutBatchModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl">
-            <div className="flex items-center justify-between border-b pb-3">
-              <h3 className="text-lg font-bold text-slate-900">Create Payout Batch</h3>
-              <button onClick={() => setPayoutBatchModalOpen(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      <Dialog open={payoutBatchModalOpen} onClose={() => setPayoutBatchModalOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800, color: '#023020' }}>Create Payout Batch</DialogTitle>
+        <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Typography sx={{ fontSize: 13, color: '#667085' }}>
+            Select approved claims to bundle into a single bank transfer batch:
+          </Typography>
 
-            <form onSubmit={handleCreateBatchSubmit} className="space-y-4">
-              <p className="text-xs text-slate-500">
-                Select CFO-approved claims to bundle into a single bank transfer payout batch:
-              </p>
-
-              <div className="max-h-48 overflow-y-auto space-y-2 border rounded-lg p-2">
-                {approvedClaimsForBatch.length === 0 ? (
-                  <p className="text-xs text-slate-400 p-2">No approved claims ready for payout.</p>
-                ) : (
-                  approvedClaimsForBatch.map((c) => (
-                    <label key={c.id} className="flex items-center justify-between p-2 hover:bg-slate-50 rounded text-xs cursor-pointer">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={selectedClaimIdsForBatch.includes(c.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) setSelectedClaimIdsForBatch([...selectedClaimIdsForBatch, c.id]);
-                            else setSelectedClaimIdsForBatch(selectedClaimIdsForBatch.filter((id) => id !== c.id));
-                          }}
-                        />
-                        <span className="font-semibold text-slate-800">{c.claim_no}</span> ({c.employee_name})
-                      </div>
-                      <span className="font-mono font-bold">₹{Number(c.total_amount).toFixed(2)}</span>
-                    </label>
-                  ))
-                )}
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Batch Notes (Optional)</label>
-                <input
-                  type="text"
-                  value={payoutBatchNotes}
-                  onChange={(e) => setPayoutBatchNotes(e.target.value)}
-                  placeholder="e.g. November 2026 1st Fortnightly Payout"
-                  className="w-full p-2 border border-slate-300 rounded-lg text-sm"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-3 border-t">
-                <button
-                  type="button"
-                  onClick={() => setPayoutBatchModalOpen(false)}
-                  className="px-4 py-2 border rounded-lg text-sm text-slate-600 hover:bg-slate-50"
+          <Box sx={{ maxHeight: 220, overflowY: 'auto', border: '1px solid #E4EBE1', borderRadius: 2, p: 1 }}>
+            {approvedClaimsForBatch.length === 0 ? (
+              <Typography sx={{ p: 2, fontSize: 12, color: '#94A3B8' }}>No approved claims ready for payout.</Typography>
+            ) : (
+              approvedClaimsForBatch.map((c) => (
+                <Box
+                  key={c.id}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    p: 1,
+                    '&:hover': { bgcolor: '#F8FAF8' },
+                    borderRadius: 1,
+                  }}
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={selectedClaimIdsForBatch.length === 0}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold disabled:opacity-50"
-                >
-                  Create Batch ({selectedClaimIdsForBatch.length})
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Checkbox
+                      checked={selectedClaimIdsForBatch.includes(c.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) setSelectedClaimIdsForBatch([...selectedClaimIdsForBatch, c.id]);
+                        else setSelectedClaimIdsForBatch(selectedClaimIdsForBatch.filter((id) => id !== c.id));
+                      }}
+                      size="small"
+                    />
+                    <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{c.claim_no}</Typography>
+                    <Typography sx={{ fontSize: 12, color: '#667085' }}>({c.employee_name})</Typography>
+                  </Box>
+                  <Typography sx={{ fontSize: 13, fontFamily: 'monospace', fontWeight: 700 }}>
+                    ₹{Number(c.total_amount).toFixed(2)}
+                  </Typography>
+                </Box>
+              ))
+            )}
+          </Box>
 
-      {/* RECORD BANK TRANSFER (UTR) MODAL */}
-      {transferModalOpen && transferTargetPayout && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl">
-            <h3 className="text-lg font-bold text-slate-900">Record Bank Transfer</h3>
-            <p className="text-xs text-slate-500">
-              Batch #{transferTargetPayout.batch_no} • Total: ₹{Number(transferTargetPayout.total_amount).toFixed(2)}
-            </p>
+          <TextField
+            label="Batch Reference / Description"
+            size="small"
+            fullWidth
+            value={payoutBatchNotes}
+            onChange={(e) => setPayoutBatchNotes(e.target.value)}
+            placeholder="e.g. Nov 2026 1st Fortnight Reimbursements"
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setPayoutBatchModalOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={handleCreateBatchSubmit}
+            disabled={selectedClaimIdsForBatch.length === 0}
+            sx={{ bgcolor: '#023020', '&:hover': { bgcolor: '#2A402A' } }}
+          >
+            Create Batch ({selectedClaimIdsForBatch.length})
+          </Button>
+        </DialogActions>
+      </Dialog>
 
-            <form onSubmit={handleRecordTransferSubmit} className="space-y-3">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Bank UTR / Transaction Reference *</label>
-                <input
-                  type="text"
-                  required
-                  value={utrNumber}
-                  onChange={(e) => setUtrNumber(e.target.value)}
-                  placeholder="e.g. HDFC000192837482"
-                  className="w-full p-2 border border-slate-300 rounded-lg text-sm font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Payment Date *</label>
-                <input
-                  type="date"
-                  required
-                  value={paymentDate}
-                  onChange={(e) => setPaymentDate(e.target.value)}
-                  className="w-full p-2 border border-slate-300 rounded-lg text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Bank Name / Reference</label>
-                <input
-                  type="text"
-                  value={bankRef}
-                  onChange={(e) => setBankRef(e.target.value)}
-                  placeholder="e.g. HDFC Current Account"
-                  className="w-full p-2 border border-slate-300 rounded-lg text-sm"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-3 border-t">
-                <button
-                  type="button"
-                  onClick={() => setTransferModalOpen(false)}
-                  className="px-4 py-2 border rounded-lg text-sm text-slate-600 hover:bg-slate-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={!utrNumber.trim()}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold disabled:opacity-50"
-                >
-                  Save & Notify Claimants
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
+      {/* RECORD TRANSFER MODAL */}
+      <Dialog open={transferModalOpen} onClose={() => setTransferModalOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800, color: '#023020' }}>Record Bank Transfer</DialogTitle>
+        <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <TextField
+            label="Bank UTR Number *"
+            size="small"
+            required
+            fullWidth
+            value={utrNumber}
+            onChange={(e) => setUtrNumber(e.target.value)}
+            placeholder="e.g. HDFC000192837482"
+          />
+          <TextField
+            label="Payment Date *"
+            size="small"
+            type="date"
+            InputLabelProps={{ shrink: true }}
+            fullWidth
+            value={paymentDate}
+            onChange={(e) => setPaymentDate(e.target.value)}
+          />
+          <TextField
+            label="Bank Reference"
+            size="small"
+            fullWidth
+            value={bankRef}
+            onChange={(e) => setBankRef(e.target.value)}
+            placeholder="e.g. HDFC Current Account"
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setTransferModalOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={handleRecordTransferSubmit}
+            disabled={!utrNumber.trim()}
+            sx={{ bgcolor: '#023020', '&:hover': { bgcolor: '#2A402A' } }}
+          >
+            Save & Notify
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
   );
 }

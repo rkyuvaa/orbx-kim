@@ -722,6 +722,57 @@ def update_cycle(cycle_id: int, payload: ClaimCycleUpdate, db: Session = Depends
 @router.get("/configuration/ai-providers", response_model=list[AIProviderConfigResponse])
 def list_ai_providers(db: Session = Depends(get_db)):
     providers = db.scalars(select(AIProviderConfig).order_by(AIProviderConfig.id.asc())).all()
+    if not providers:
+        default_providers = [
+            AIProviderConfig(
+                provider=AIProviderType.GOOGLE,
+                label="Google Gemini API",
+                model_name="gemini-1.5-flash",
+                api_endpoint="https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent",
+                api_key_env_var="GEMINI_API_KEY",
+                is_default=True,
+                is_active=True,
+            ),
+            AIProviderConfig(
+                provider=AIProviderType.NVIDIA,
+                label="Nvidia NIM",
+                model_name="meta/llama-3.2-11b-vision-instruct",
+                api_endpoint="https://integrate.api.nvidia.com/v1/chat/completions",
+                api_key_env_var="NVIDIA_API_KEY",
+                is_default=False,
+                is_active=True,
+            ),
+            AIProviderConfig(
+                provider=AIProviderType.OPENROUTER,
+                label="OpenRouter",
+                model_name="google/gemini-flash-1.5",
+                api_endpoint="https://openrouter.ai/api/v1/chat/completions",
+                api_key_env_var="OPENROUTER_API_KEY",
+                is_default=False,
+                is_active=True,
+            ),
+            AIProviderConfig(
+                provider=AIProviderType.KILO,
+                label="Kilo AI",
+                model_name="kilo-vision-1",
+                api_endpoint="https://api.kilo.ai/v1/chat/completions",
+                api_key_env_var="KILO_API_KEY",
+                is_default=False,
+                is_active=True,
+            ),
+            AIProviderConfig(
+                provider=AIProviderType.LOCAL,
+                label="Local Ollama",
+                model_name="llama3.2-vision",
+                api_endpoint="http://localhost:11434/api/generate",
+                api_key_env_var=None,
+                is_default=False,
+                is_active=True,
+            ),
+        ]
+        db.add_all(default_providers)
+        db.commit()
+        providers = db.scalars(select(AIProviderConfig).order_by(AIProviderConfig.id.asc())).all()
     return providers
 
 
@@ -755,6 +806,19 @@ def update_ai_provider(provider_id: int, payload: AIProviderConfigUpdate, db: Se
 @router.get("/configuration/policies", response_model=list[ExpensePolicyResponse])
 def list_policies(db: Session = Depends(get_db)):
     policies = db.scalars(select(ExpensePolicy).order_by(ExpensePolicy.policy_key.asc())).all()
+    if not policies:
+        default_pols = [
+            ("manual_claim_submission_enabled", "false", "Enable manual claim submission by employees instead of automatic cycle bundling", "BOOLEAN"),
+            ("accountant_escalation_hours", "72", "Hours before escalating unconfirmed payout to accountant reminder queue", "INTEGER"),
+            ("auto_reconcile_days", "7", "Days before auto-reconciling unconfirmed payout", "INTEGER"),
+            ("auto_reconcile_enabled", "true", "Enable automatic reconciliation after N days of no dispute", "BOOLEAN"),
+            ("max_bill_age_days", "90", "Maximum allowed age of expense receipt in days", "INTEGER"),
+            ("gst_is_mandatory", "false", "Whether GST split is strictly required on all bills", "BOOLEAN"),
+        ]
+        for k, v, d, t in default_pols:
+            db.add(ExpensePolicy(policy_key=k, policy_value=v, description=d, data_type=t))
+        db.commit()
+        policies = db.scalars(select(ExpensePolicy).order_by(ExpensePolicy.policy_key.asc())).all()
     return policies
 
 

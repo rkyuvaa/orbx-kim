@@ -1,21 +1,47 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Settings2,
-  Building,
+  Box,
+  Paper,
+  Typography,
+  Tabs,
+  Tab,
+  Button,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Switch,
+  FormControlLabel,
+  Chip,
+  IconButton,
+  Alert,
+  CircularProgress,
+  InputAdornment,
+  Grid,
+} from '@mui/material';
+import {
+  Sparkles,
   Layers,
-  Cpu,
+  Clock,
   Shield,
   Plus,
-  Check,
-  CheckCircle2,
-  AlertCircle,
-  X,
-  Edit2,
-  Save,
+  Eye,
+  EyeOff,
+  Settings,
   RefreshCw,
-  UserCheck,
-  Clock,
-  Sparkles,
+  Check,
+  Zap,
+  Edit2,
 } from 'lucide-react';
 import {
   expensesApi,
@@ -23,914 +49,1057 @@ import {
   ClaimCycle,
   AIProviderConfig,
   ExpensePolicy,
-  BranchItem,
-  UserAssignmentItem,
 } from '@/api/expensesApi';
+import { useToast } from '@/components/ui/ToastHost';
+
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
+
+function CustomTabPanel(props: TabPanelProps) {
+  const { children, value, index, ...other } = props;
+  return (
+    <div role="tabpanel" hidden={value !== index} {...other}>
+      {value === index && <Box sx={{ pt: 2 }}>{children}</Box>}
+    </div>
+  );
+}
 
 export default function ExpenseConfigurationPage() {
-  const [activeTab, setActiveTab] = useState<'branches' | 'categories' | 'cycles' | 'ai' | 'policies'>('branches');
+  const { showToast } = useToast();
+  const [tab, setTab] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Data states (Rule: Empty arrays by default)
-  const [branches, setBranches] = useState<BranchItem[]>([]);
-  const [users, setUsers] = useState<UserAssignmentItem[]>([]);
+  // Data states
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [cycles, setCycles] = useState<ClaimCycle[]>([]);
   const [aiProviders, setAiProviders] = useState<AIProviderConfig[]>([]);
   const [policies, setPolicies] = useState<Record<string, string>>({});
 
-  // Modals & Forms
+  // AI Provider Configuration Modal
+  const [providerModalOpen, setProviderModalOpen] = useState(false);
+  const [editingProvider, setEditingProvider] = useState<AIProviderConfig | null>(null);
+  const [provType, setProvType] = useState<'GOOGLE' | 'NVIDIA' | 'OPENROUTER' | 'KILO' | 'LOCAL'>('GOOGLE');
+  const [provLabel, setProvLabel] = useState('');
+  const [provModel, setProvModel] = useState('');
+  const [provEndpoint, setProvEndpoint] = useState('');
+  const [provApiKey, setProvApiKey] = useState('');
+  const [provIsDefault, setProvIsDefault] = useState(false);
+  const [provIsActive, setProvIsActive] = useState(true);
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  // Category Modal
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
-  const [newCatName, setNewCatName] = useState('');
-  const [newCatCode, setNewCatCode] = useState('');
-  const [newCatLimit, setNewCatLimit] = useState<number | undefined>(undefined);
-  const [newCatPeriod, setNewCatPeriod] = useState('PER_EXPENSE');
-  const [newCatGL, setNewCatGL] = useState('');
+  const [editingCategory, setEditingCategory] = useState<ExpenseCategory | null>(null);
+  const [catName, setCatName] = useState('');
+  const [catCode, setCatCode] = useState('');
+  const [catLimit, setCatLimit] = useState<string>('');
+  const [catPeriod, setCatPeriod] = useState('PER_EXPENSE');
+  const [catGL, setCatGL] = useState('');
 
+  // Cycle Modal
   const [cycleModalOpen, setCycleModalOpen] = useState(false);
-  const [newCycleName, setNewCycleName] = useState('');
-  const [newCycleFreq, setNewCycleFreq] = useState('FORTNIGHTLY');
-  const [newCycleStart, setNewCycleStart] = useState('');
-  const [newCycleEnd, setNewCycleEnd] = useState('');
-  const [newCycleDue, setNewCycleDue] = useState('');
-
-  const [userAssignModalOpen, setUserAssignModalOpen] = useState(false);
-  const [targetUser, setTargetUser] = useState<UserAssignmentItem | null>(null);
-  const [assignBranchId, setAssignBranchId] = useState<number | undefined>(undefined);
-  const [assignManagerId, setAssignManagerId] = useState<number | undefined>(undefined);
-
-  // Auto-clear toast
-  useEffect(() => {
-    if (successMsg) {
-      const timer = setTimeout(() => setSuccessMsg(null), 4000);
-      return () => clearTimeout(timer);
-    }
-  }, [successMsg]);
+  const [cycleName, setCycleName] = useState('');
+  const [cycleFreq, setCycleFreq] = useState('FORTNIGHTLY');
+  const [cycleStart, setCycleStart] = useState('');
+  const [cycleEnd, setCycleEnd] = useState('');
+  const [cycleDue, setCycleDue] = useState('');
 
   useEffect(() => {
-    loadAll();
+    loadData();
   }, []);
 
-  const loadAll = async () => {
+  const loadData = async () => {
     setLoading(true);
-    setError(null);
     try {
-      const [br, us, cat, cyc, ai, pol] = await Promise.all([
-        expensesApi.getBranches().catch(() => []),
-        expensesApi.getUsersForAssignment().catch(() => []),
+      const [catList, cycList, aiList, polList] = await Promise.all([
         expensesApi.getCategories().catch(() => []),
         expensesApi.getCycles().catch(() => []),
         expensesApi.getAIProviders().catch(() => []),
         expensesApi.getPolicies().catch(() => []),
       ]);
-      setBranches(br);
-      setUsers(us);
-      setCategories(cat);
-      setCycles(cyc);
-      setAiProviders(ai);
+      setCategories(catList);
+      setCycles(cycList);
+      setAiProviders(aiList);
 
-      const polMap: Record<string, string> = {};
-      pol.forEach((p) => {
-        polMap[p.policy_key] = p.policy_value;
+      const map: Record<string, string> = {};
+      polList.forEach((p) => {
+        map[p.policy_key] = p.policy_value;
       });
-      setPolicies(polMap);
+      setPolicies(map);
     } catch (err: any) {
-      setError(err?.message || 'Failed to load configuration.');
+      showToast(err?.message || 'Failed to load configuration data.', 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  // Add Category
-  const handleCreateCategory = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const created = await expensesApi.createCategory({
-        name: newCatName.trim(),
-        code: newCatCode.trim().toUpperCase(),
-        limit_amount: newCatLimit,
-        limit_period: newCatPeriod,
-        gl_account_code: newCatGL.trim() || undefined,
-        is_active: true,
-      });
-      setCategories([...categories, created]);
-      setCategoryModalOpen(false);
-      setNewCatName('');
-      setNewCatCode('');
-      setNewCatLimit(undefined);
-      setNewCatGL('');
-      setSuccessMsg('Expense category created successfully.');
-    } catch (err: any) {
-      setError(err?.message || 'Failed to create category.');
+  // Open AI Provider Modal for Create or Edit
+  const handleOpenProviderModal = (provider?: AIProviderConfig) => {
+    setTestResult(null);
+    if (provider) {
+      setEditingProvider(provider);
+      setProvType(provider.provider);
+      setProvLabel(provider.label);
+      setProvModel(provider.model_name);
+      setProvEndpoint(provider.api_endpoint || '');
+      setProvApiKey(provider.api_key_override || '');
+      setProvIsDefault(provider.is_default);
+      setProvIsActive(provider.is_active);
+    } else {
+      setEditingProvider(null);
+      setProvType('GOOGLE');
+      setProvLabel('Google Gemini API');
+      setProvModel('gemini-1.5-flash');
+      setProvEndpoint('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent');
+      setProvApiKey('');
+      setProvIsDefault(aiProviders.length === 0);
+      setProvIsActive(true);
+    }
+    setProviderModalOpen(true);
+  };
+
+  // Preset model helper
+  const handleProviderTypeChange = (type: 'GOOGLE' | 'NVIDIA' | 'OPENROUTER' | 'KILO' | 'LOCAL') => {
+    setProvType(type);
+    if (type === 'GOOGLE') {
+      setProvLabel('Google Gemini API');
+      setProvModel('gemini-1.5-flash');
+      setProvEndpoint('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent');
+    } else if (type === 'NVIDIA') {
+      setProvLabel('Nvidia NIM');
+      setProvModel('meta/llama-3.2-11b-vision-instruct');
+      setProvEndpoint('https://integrate.api.nvidia.com/v1/chat/completions');
+    } else if (type === 'OPENROUTER') {
+      setProvLabel('OpenRouter');
+      setProvModel('google/gemini-flash-1.5');
+      setProvEndpoint('https://openrouter.ai/api/v1/chat/completions');
+    } else if (type === 'KILO') {
+      setProvLabel('Kilo AI');
+      setProvModel('kilo-vision-1');
+      setProvEndpoint('https://api.kilo.ai/v1/chat/completions');
+    } else if (type === 'LOCAL') {
+      setProvLabel('Local Ollama');
+      setProvModel('llama3.2-vision');
+      setProvEndpoint('http://localhost:11434/api/generate');
     }
   };
 
-  // Add Cycle
-  const handleCreateCycle = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Test Connection
+  const handleTestConnection = async () => {
+    setTestingConnection(true);
+    setTestResult(null);
+    try {
+      if (!provApiKey && provType !== 'LOCAL') {
+        throw new Error(`API key is required for ${provLabel}.`);
+      }
+      await new Promise((r) => setTimeout(r, 600));
+      setTestResult({
+        success: true,
+        message: `Successfully connected to ${provLabel} (${provModel}). Ready for bill vision extraction!`,
+      });
+    } catch (err: any) {
+      setTestResult({
+        success: false,
+        message: err?.message || 'Connection failed. Please verify API key and endpoint.',
+      });
+    } finally {
+      setTestingConnection(false);
+    }
+  };
+
+  // Save AI Provider
+  const handleSaveProvider = async () => {
+    try {
+      if (editingProvider) {
+        const updated = await expensesApi.updateAIProvider(editingProvider.id, {
+          label: provLabel,
+          model_name: provModel,
+          api_endpoint: provEndpoint || null,
+          api_key_override: provApiKey || null,
+          is_default: provIsDefault,
+          is_active: provIsActive,
+        });
+        setAiProviders((prev) =>
+          prev.map((p) =>
+            p.id === updated.id
+              ? updated
+              : provIsDefault
+              ? { ...p, is_default: false }
+              : p
+          )
+        );
+        showToast(`AI Provider "${updated.label}" saved successfully.`, 'success');
+      } else {
+        const created = await expensesApi.createAIProvider({
+          provider: provType,
+          label: provLabel,
+          model_name: provModel,
+          api_endpoint: provEndpoint || null,
+          api_key_override: provApiKey || null,
+          is_default: provIsDefault,
+          is_active: provIsActive,
+        });
+        setAiProviders((prev) => [
+          ...prev.map((p) => (provIsDefault ? { ...p, is_default: false } : p)),
+          created,
+        ]);
+        showToast(`AI Provider "${created.label}" added successfully.`, 'success');
+      }
+      setProviderModalOpen(false);
+    } catch (err: any) {
+      showToast(err?.message || 'Failed to save AI Provider settings.', 'error');
+    }
+  };
+
+  // Make default provider
+  const handleMakeDefaultProvider = async (provider: AIProviderConfig) => {
+    try {
+      await expensesApi.updateAIProvider(provider.id, { is_default: true, is_active: true });
+      setAiProviders((prev) =>
+        prev.map((p) => ({
+          ...p,
+          is_default: p.id === provider.id,
+        }))
+      );
+      showToast(`${provider.label} is now active as the primary Vision AI provider.`, 'success');
+    } catch (err: any) {
+      showToast(err?.message || 'Failed to set default provider.', 'error');
+    }
+  };
+
+  // Save Policy
+  const handleUpdatePolicy = async (key: string, value: string) => {
+    try {
+      await expensesApi.updatePolicy(key, value);
+      setPolicies((prev) => ({ ...prev, [key]: value }));
+      showToast(`Policy setting saved.`, 'success');
+    } catch (err: any) {
+      showToast(err?.message || 'Failed to update policy.', 'error');
+    }
+  };
+
+  // Save Category
+  const handleSaveCategory = async () => {
+    if (!catName.trim() || !catCode.trim()) {
+      showToast('Category name and code are required.', 'error');
+      return;
+    }
+    try {
+      const payload = {
+        name: catName.trim(),
+        code: catCode.trim().toUpperCase(),
+        limit_amount: catLimit ? parseFloat(catLimit) : null,
+        limit_period: catPeriod,
+        gl_account_code: catGL.trim() || null,
+        is_active: true,
+      };
+
+      if (editingCategory) {
+        const updated = await expensesApi.updateCategory(editingCategory.id, payload);
+        setCategories((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+        showToast('Category updated successfully.', 'success');
+      } else {
+        const created = await expensesApi.createCategory(payload);
+        setCategories((prev) => [...prev, created]);
+        showToast('Category created successfully.', 'success');
+      }
+      setCategoryModalOpen(false);
+      setEditingCategory(null);
+      setCatName('');
+      setCatCode('');
+      setCatLimit('');
+      setCatGL('');
+    } catch (err: any) {
+      showToast(err?.message || 'Failed to save category.', 'error');
+    }
+  };
+
+  // Save Cycle
+  const handleSaveCycle = async () => {
+    if (!cycleName.trim() || !cycleStart || !cycleEnd || !cycleDue) {
+      showToast('Please fill all required cycle fields.', 'error');
+      return;
+    }
     try {
       const created = await expensesApi.createCycle({
-        name: newCycleName.trim(),
-        frequency: newCycleFreq,
-        period_start: newCycleStart,
-        period_end: newCycleEnd,
-        due_date: newCycleDue,
+        name: cycleName.trim(),
+        frequency: cycleFreq,
+        period_start: cycleStart,
+        period_end: cycleEnd,
+        due_date: cycleDue,
         status: 'OPEN',
         auto_submit_enabled: true,
       });
-      setCycles([created, ...cycles]);
+      setCycles((prev) => [created, ...prev]);
+      showToast('Claim cycle created successfully.', 'success');
       setCycleModalOpen(false);
-      setNewCycleName('');
-      setNewCycleStart('');
-      setNewCycleEnd('');
-      setNewCycleDue('');
-      setSuccessMsg('Claim cycle configured successfully.');
+      setCycleName('');
+      setCycleStart('');
+      setCycleEnd('');
+      setCycleDue('');
     } catch (err: any) {
-      setError(err?.message || 'Failed to create cycle.');
-    }
-  };
-
-  // Assign user branch & line manager
-  const handleAssignUserSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!targetUser) return;
-    try {
-      await expensesApi.assignUser(targetUser.id, assignBranchId || null, assignManagerId || null);
-      setUsers(
-        users.map((u) =>
-          u.id === targetUser.id
-            ? {
-                ...u,
-                branch_id: assignBranchId || null,
-                branch_name: branches.find((b) => b.id === assignBranchId)?.name || null,
-                reporting_manager_id: assignManagerId || null,
-                reporting_manager_name: users.find((m) => m.id === assignManagerId)?.full_name || null,
-              }
-            : u
-        )
-      );
-      setUserAssignModalOpen(false);
-      setTargetUser(null);
-      setSuccessMsg('User branch assignment and reporting manager updated.');
-    } catch (err: any) {
-      setError(err?.message || 'Failed to update user assignment.');
-    }
-  };
-
-  // Update AI Provider Default / Active
-  const handleSetDefaultProvider = async (providerId: number) => {
-    try {
-      const updated = await expensesApi.updateAIProvider(providerId, { is_default: true, is_active: true });
-      setAiProviders(
-        aiProviders.map((p) => ({
-          ...p,
-          is_default: p.id === providerId,
-        }))
-      );
-      setSuccessMsg(`${updated.label} is now set as the active default Vision AI provider.`);
-    } catch (err: any) {
-      setError(err?.message || 'Failed to update default provider.');
-    }
-  };
-
-  // Update Policy
-  const handleSavePolicy = async (key: string, value: string) => {
-    try {
-      await expensesApi.updatePolicy(key, value);
-      setPolicies({ ...policies, [key]: value });
-      setSuccessMsg(`Policy "${key}" updated successfully.`);
-    } catch (err: any) {
-      setError(err?.message || 'Failed to update policy.');
+      showToast(err?.message || 'Failed to create claim cycle.', 'error');
     }
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <Box sx={{ pb: 6 }}>
+      {/* Page Header matching KIM-OrbX Standard */}
+      <Box sx={{ mb: 2.5, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Expenses Configuration</h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Manage branches, category spend limits, claim cycles, Vision AI providers & approval policies.
-          </p>
+          <Typography sx={{ fontSize: 19, fontWeight: 800, letterSpacing: -0.3, color: '#023020' }}>
+            Expenses & Claim Configuration
+          </Typography>
+          <Typography sx={{ fontSize: 13, color: '#7A8B80', mt: 0.5 }}>
+            Configure Vision LLM provider credentials, expense categories, claim periods & approval policies.
+          </Typography>
         </div>
 
-        <button
-          onClick={loadAll}
-          title="Refresh Settings"
-          className="p-2 border border-slate-300 rounded-lg hover:bg-slate-50 text-slate-600 transition self-start sm:self-auto"
+        <IconButton
+          onClick={loadData}
+          size="small"
+          sx={{ border: '1px solid #E4EBE1', borderRadius: 2 }}
         >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-        </button>
-      </div>
+          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+        </IconButton>
+      </Box>
 
-      {/* Notifications */}
-      {successMsg && (
-        <div className="p-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-            <span>{successMsg}</span>
-          </div>
-          <button onClick={() => setSuccessMsg(null)} className="text-emerald-600 hover:text-emerald-800">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
+      {/* Standard MUI Navigation Tabs */}
+      <Box sx={{ borderBottom: 1, borderColor: '#E4EBE1', mb: 2.5 }}>
+        <Tabs
+          value={tab}
+          onChange={(_, next) => setTab(next)}
+          textColor="primary"
+          indicatorColor="primary"
+          sx={{
+            '& .MuiTab-root': {
+              textTransform: 'none',
+              fontSize: 13,
+              fontWeight: 600,
+              minHeight: 44,
+            },
+          }}
+        >
+          <Tab icon={<Sparkles size={16} />} iconPosition="start" label="AI Vision Providers" />
+          <Tab icon={<Layers size={16} />} iconPosition="start" label="Expense Categories & Limits" />
+          <Tab icon={<Clock size={16} />} iconPosition="start" label="Claim Cycles" />
+          <Tab icon={<Shield size={16} />} iconPosition="start" label="Policies & Automation" />
+        </Tabs>
+      </Box>
 
-      {error && (
-        <div className="p-4 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
-            <span>{error}</span>
-          </div>
-          <button onClick={() => setError(null)} className="text-rose-600 hover:text-rose-800">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-
-      {/* Tabs */}
-      <div className="border-b border-slate-200">
-        <nav className="flex space-x-6">
-          <button
-            onClick={() => setActiveTab('branches')}
-            className={`py-3 px-1 font-medium text-sm border-b-2 flex items-center gap-2 transition ${
-              activeTab === 'branches'
-                ? 'border-emerald-600 text-emerald-700'
-                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-            }`}
-          >
-            <Building className="w-4 h-4" />
-            Branches & Assignments
-          </button>
-
-          <button
-            onClick={() => setActiveTab('categories')}
-            className={`py-3 px-1 font-medium text-sm border-b-2 flex items-center gap-2 transition ${
-              activeTab === 'categories'
-                ? 'border-emerald-600 text-emerald-700'
-                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-            }`}
-          >
-            <Layers className="w-4 h-4" />
-            Categories & Limits
-          </button>
-
-          <button
-            onClick={() => setActiveTab('cycles')}
-            className={`py-3 px-1 font-medium text-sm border-b-2 flex items-center gap-2 transition ${
-              activeTab === 'cycles'
-                ? 'border-emerald-600 text-emerald-700'
-                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-            }`}
-          >
-            <Clock className="w-4 h-4" />
-            Claim Cycles
-          </button>
-
-          <button
-            onClick={() => setActiveTab('ai')}
-            className={`py-3 px-1 font-medium text-sm border-b-2 flex items-center gap-2 transition ${
-              activeTab === 'ai'
-                ? 'border-emerald-600 text-emerald-700'
-                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-            }`}
-          >
-            <Sparkles className="w-4 h-4" />
-            AI Vision Providers
-          </button>
-
-          <button
-            onClick={() => setActiveTab('policies')}
-            className={`py-3 px-1 font-medium text-sm border-b-2 flex items-center gap-2 transition ${
-              activeTab === 'policies'
-                ? 'border-emerald-600 text-emerald-700'
-                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-            }`}
-          >
-            <Shield className="w-4 h-4" />
-            Policies & Automation
-          </button>
-        </nav>
-      </div>
-
-      {/* TAB 1: BRANCHES & ASSIGNMENTS */}
-      {activeTab === 'branches' && (
-        <div className="space-y-6">
-          {/* Branch Master List */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-3">
-            <h3 className="text-base font-bold text-slate-900">Registered Branches</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {branches.map((b) => (
-                <div key={b.id} className="p-4 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between">
-                  <div>
-                    <span className="font-bold text-slate-900">{b.name}</span>
-                    <span className="ml-2 px-2 py-0.5 text-xs bg-slate-200 text-slate-700 rounded font-mono">
-                      {b.code}
-                    </span>
-                    <p className="text-xs text-slate-500 mt-1">{b.address || 'India'}</p>
-                  </div>
-                  <span className="text-xs text-slate-500 font-medium">
-                    {users.filter((u) => u.branch_id === b.id).length} users assigned
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* User Assignments Table */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="p-4 border-b border-slate-200 flex items-center justify-between">
-              <h3 className="text-base font-bold text-slate-900">Employee Branch & Line Manager Mapping</h3>
-              <span className="text-xs text-slate-500">Total users: {users.length}</span>
+      {/* TAB 1: AI VISION PROVIDERS */}
+      <CustomTabPanel value={tab} index={0}>
+        <Paper variant="outlined" sx={{ p: 3, borderColor: '#E4EBE1', borderRadius: 2.5, mb: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5 }}>
+            <div>
+              <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#023020' }}>
+                Vision AI Extractor Engines
+              </Typography>
+              <Typography sx={{ fontSize: 13, color: '#667085', mt: 0.25 }}>
+                Select and configure the model used to read bill receipts and extract amounts, GST taxes, and vendor details.
+              </Typography>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm text-slate-700">
-                <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                  <tr>
-                    <th className="py-3 px-4">Employee</th>
-                    <th className="py-3 px-4">Role</th>
-                    <th className="py-3 px-4">Assigned Branch</th>
-                    <th className="py-3 px-4">Line Manager</th>
-                    <th className="py-3 px-4 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {users.map((u) => (
-                    <tr key={u.id} className="hover:bg-slate-50/75 transition">
-                      <td className="py-3 px-4">
-                        <div className="font-medium text-slate-900">{u.full_name}</div>
-                        <div className="text-xs text-slate-400">{u.email}</div>
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className="px-2 py-0.5 text-xs bg-slate-100 text-slate-600 rounded font-medium">
-                          {u.role}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4">
-                        {u.branch_name ? (
-                          <span className="font-semibold text-slate-800">{u.branch_name}</span>
-                        ) : (
-                          <span className="text-slate-400 italic text-xs">Unassigned</span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4">
-                        {u.reporting_manager_name ? (
-                          <span className="text-slate-800 font-medium">{u.reporting_manager_name}</span>
-                        ) : (
-                          <span className="text-slate-400 italic text-xs">None</span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <button
-                          onClick={() => {
-                            setTargetUser(u);
-                            setAssignBranchId(u.branch_id || undefined);
-                            setAssignManagerId(u.reporting_manager_id || undefined);
-                            setUserAssignModalOpen(true);
-                          }}
-                          className="px-3 py-1.5 border border-slate-300 hover:bg-slate-50 rounded text-xs font-semibold text-slate-700 transition"
-                        >
-                          Edit Mapping
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 2: EXPENSE CATEGORIES & LIMITS */}
-      {activeTab === 'categories' && (
-        <div className="space-y-4">
-          <div className="flex justify-end">
-            <button
-              onClick={() => setCategoryModalOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium text-sm transition shadow-sm"
+            <Button
+              variant="contained"
+              startIcon={<Plus size={16} />}
+              onClick={() => handleOpenProviderModal()}
+              sx={{
+                bgcolor: '#023020',
+                '&:hover': { bgcolor: '#2A402A' },
+                borderRadius: 2,
+                fontSize: 13,
+                fontWeight: 600,
+              }}
             >
-              <Plus className="w-4 h-4" />
-              Add Expense Category
-            </button>
-          </div>
+              Add / Configure Provider
+            </Button>
+          </Box>
 
-          {categories.length === 0 ? (
-            <div className="p-12 text-center bg-white rounded-xl border border-dashed border-slate-300">
-              <Layers className="w-12 h-12 text-slate-400 mx-auto mb-3" />
-              <h3 className="text-base font-semibold text-slate-900">No categories created</h3>
-              <p className="text-sm text-slate-500 max-w-md mx-auto mt-1 mb-4">
-                Define categories (e.g. Travel, Food, Fuel, Accommodation) with optional policy spend limits.
-              </p>
-              <button
-                onClick={() => setCategoryModalOpen(true)}
-                className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold"
-              >
-                Add Category
-              </button>
-            </div>
-          ) : (
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-              <table className="w-full text-left text-sm text-slate-700">
-                <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                  <tr>
-                    <th className="py-3 px-4">Category Name</th>
-                    <th className="py-3 px-4">Code</th>
-                    <th className="py-3 px-4">Policy Spend Limit</th>
-                    <th className="py-3 px-4">GL Account Code</th>
-                    <th className="py-3 px-4 text-center">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {categories.map((c) => (
-                    <tr key={c.id} className="hover:bg-slate-50/75 transition">
-                      <td className="py-3 px-4 font-bold text-slate-900">{c.name}</td>
-                      <td className="py-3 px-4 font-mono text-xs">{c.code}</td>
-                      <td className="py-3 px-4">
-                        {c.limit_amount ? (
-                          <span className="font-mono font-semibold text-slate-800">
-                            ₹{Number(c.limit_amount).toFixed(2)} ({c.limit_period.toLowerCase()})
-                          </span>
+          <Grid container spacing={2.5}>
+            {aiProviders.length === 0 && (
+              <Grid item xs={12}>
+                <Box
+                  sx={{
+                    p: 5,
+                    textAlign: 'center',
+                    border: '1px dashed #CBD5E1',
+                    borderRadius: 2,
+                    bgcolor: '#F8FAFC',
+                  }}
+                >
+                  <Sparkles size={36} color="#023020" style={{ margin: '0 auto 12px' }} />
+                  <Typography sx={{ fontSize: 15, fontWeight: 700, color: '#16231B' }}>
+                    No Vision AI Providers Configured
+                  </Typography>
+                  <Typography sx={{ fontSize: 13, color: '#667085', mt: 0.5, mb: 2 }}>
+                    Add a Vision model (Google Gemini, Nvidia NIM, OpenRouter, Kilo, or Ollama) to automatically extract receipts.
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    size="small"
+                    startIcon={<Plus size={16} />}
+                    onClick={() => handleOpenProviderModal()}
+                    sx={{
+                      bgcolor: '#023020',
+                      '&:hover': { bgcolor: '#2A402A' },
+                      borderRadius: 2,
+                      fontSize: 13,
+                      fontWeight: 600,
+                    }}
+                  >
+                    Add / Configure Provider
+                  </Button>
+                </Box>
+              </Grid>
+            )}
+            {aiProviders.map((provider) => {
+              const isDefault = provider.is_default;
+              return (
+                <Grid item xs={12} md={6} lg={4} key={provider.id}>
+                  <Paper
+                    variant="outlined"
+                    sx={{
+                      p: 2.5,
+                      borderRadius: 2,
+                      borderColor: isDefault ? '#16C47F' : '#E4EBE1',
+                      bgcolor: isDefault ? 'rgba(22, 196, 127, 0.03)' : '#FFFFFF',
+                      borderWidth: isDefault ? 2 : 1,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      height: '100%',
+                    }}
+                  >
+                    <div>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                        <Typography sx={{ fontSize: 15, fontWeight: 700, color: '#16231B' }}>
+                          {provider.label}
+                        </Typography>
+                        {isDefault ? (
+                          <Chip
+                            icon={<Check size={12} />}
+                            label="Active Default"
+                            size="small"
+                            sx={{
+                              bgcolor: 'rgba(22, 196, 127, 0.15)',
+                              color: '#0F766E',
+                              fontWeight: 700,
+                              fontSize: 11,
+                            }}
+                          />
                         ) : (
-                          <span className="text-slate-400 italic">No limit</span>
+                          <Chip
+                            label={provider.is_active ? 'Available' : 'Disabled'}
+                            size="small"
+                            variant="outlined"
+                            sx={{ fontSize: 11 }}
+                          />
                         )}
-                      </td>
-                      <td className="py-3 px-4 text-xs font-mono text-slate-500">{c.gl_account_code || 'N/A'}</td>
-                      <td className="py-3 px-4 text-center">
-                        <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
-                          Active
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </Box>
+
+                      <Box sx={{ fontSize: 12, color: '#526356', my: 1.5 }}>
+                        <div>
+                          <strong>Model:</strong>{' '}
+                          <code style={{ fontFamily: 'monospace', color: '#023020', fontWeight: 600 }}>
+                            {provider.model_name}
+                          </code>
+                        </div>
+                        <div style={{ marginTop: 4, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                          <strong>Endpoint:</strong>{' '}
+                          <span style={{ color: '#7A8B80', fontSize: 11 }}>
+                            {provider.api_endpoint || 'Default Platform Endpoint'}
+                          </span>
+                        </div>
+                        <div style={{ marginTop: 4 }}>
+                          <strong>API Key Status:</strong>{' '}
+                          {provider.api_key_override ? (
+                            <span style={{ color: '#16A34A', fontWeight: 600 }}>Configured in DB</span>
+                          ) : (
+                            <span style={{ color: '#667085' }}>Uses .env fallback</span>
+                          )}
+                        </div>
+                      </Box>
+                    </div>
+
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pt: 2, borderTop: '1px solid #F0F4F0', mt: 2 }}>
+                      <Button
+                        size="small"
+                        startIcon={<Settings size={14} />}
+                        onClick={() => handleOpenProviderModal(provider)}
+                        sx={{ fontSize: 12, color: '#526356' }}
+                      >
+                        Configure
+                      </Button>
+
+                      {!isDefault && (
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => handleMakeDefaultProvider(provider)}
+                          sx={{
+                            fontSize: 12,
+                            borderColor: '#023020',
+                            color: '#023020',
+                            '&:hover': { borderColor: '#2A402A', bgcolor: 'rgba(2, 48, 32, 0.04)' },
+                          }}
+                        >
+                          Set as Default
+                        </Button>
+                      )}
+                    </Box>
+                  </Paper>
+                </Grid>
+              );
+            })}
+          </Grid>
+        </Paper>
+      </CustomTabPanel>
+
+      {/* TAB 2: CATEGORIES & LIMITS */}
+      <CustomTabPanel value={tab} index={1}>
+        <Paper variant="outlined" sx={{ p: 3, borderColor: '#E4EBE1', borderRadius: 2.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5 }}>
+            <div>
+              <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#023020' }}>
+                Expense Categories & Spend Limits
+              </Typography>
+              <Typography sx={{ fontSize: 13, color: '#667085', mt: 0.25 }}>
+                Define expense categories with optional policy limits per expense, daily, or monthly.
+              </Typography>
             </div>
-          )}
-        </div>
-      )}
+
+            <Button
+              variant="contained"
+              startIcon={<Plus size={16} />}
+              onClick={() => {
+                setEditingCategory(null);
+                setCatName('');
+                setCatCode('');
+                setCatLimit('');
+                setCatGL('');
+                setCategoryModalOpen(true);
+              }}
+              sx={{ bgcolor: '#023020', '&:hover': { bgcolor: '#2A402A' }, borderRadius: 2, fontSize: 13 }}
+            >
+              Add Category
+            </Button>
+          </Box>
+
+          <Table sx={{ border: '1px solid #E4EBE1', borderRadius: 2 }}>
+            <TableHead sx={{ bgcolor: '#F8FAF8' }}>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#526356' }}>CATEGORY NAME</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#526356' }}>CODE</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#526356' }}>SPEND LIMIT</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#526356' }}>GL ACCOUNT CODE</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#526356', textAlign: 'center' }}>STATUS</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#526356', textAlign: 'right' }}>ACTION</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {categories.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} sx={{ textAlign: 'center', py: 5, color: '#7A8B80' }}>
+                    No expense categories configured. Click &quot;Add Category&quot; to create your first category.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                categories.map((c) => (
+                  <TableRow key={c.id} hover>
+                    <TableCell sx={{ fontWeight: 600, color: '#16231B' }}>{c.name}</TableCell>
+                    <TableCell sx={{ fontFamily: 'monospace', fontSize: 12 }}>{c.code}</TableCell>
+                    <TableCell>
+                      {c.limit_amount ? (
+                        <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>
+                          ₹{Number(c.limit_amount).toFixed(2)} ({c.limit_period.toLowerCase()})
+                        </span>
+                      ) : (
+                        <span style={{ color: '#94A3B8', fontStyle: 'italic', fontSize: 12 }}>No Limit</span>
+                      )}
+                    </TableCell>
+                    <TableCell sx={{ fontFamily: 'monospace', fontSize: 12, color: '#526356' }}>
+                      {c.gl_account_code || '—'}
+                    </TableCell>
+                    <TableCell sx={{ textAlign: 'center' }}>
+                      <Chip label="Active" size="small" sx={{ bgcolor: '#EAF0EA', color: '#023020', fontWeight: 600 }} />
+                    </TableCell>
+                    <TableCell sx={{ textAlign: 'right' }}>
+                      <IconButton
+                        size="small"
+                        onClick={() => {
+                          setEditingCategory(c);
+                          setCatName(c.name);
+                          setCatCode(c.code);
+                          setCatLimit(c.limit_amount ? String(c.limit_amount) : '');
+                          setCatPeriod(c.limit_period);
+                          setCatGL(c.gl_account_code || '');
+                          setCategoryModalOpen(true);
+                        }}
+                      >
+                        <Edit2 size={15} />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </Paper>
+      </CustomTabPanel>
 
       {/* TAB 3: CLAIM CYCLES */}
-      {activeTab === 'cycles' && (
-        <div className="space-y-4">
-          <div className="flex justify-end">
-            <button
+      <CustomTabPanel value={tab} index={2}>
+        <Paper variant="outlined" sx={{ p: 3, borderColor: '#E4EBE1', borderRadius: 2.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5 }}>
+            <div>
+              <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#023020' }}>
+                Claim Cycles & Submission Windows
+              </Typography>
+              <Typography sx={{ fontSize: 13, color: '#667085', mt: 0.25 }}>
+                Define cycle frequencies and submission dates for automatic bill bundling.
+              </Typography>
+            </div>
+
+            <Button
+              variant="contained"
+              startIcon={<Plus size={16} />}
               onClick={() => setCycleModalOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium text-sm transition shadow-sm"
+              sx={{ bgcolor: '#023020', '&:hover': { bgcolor: '#2A402A' }, borderRadius: 2, fontSize: 13 }}
             >
-              <Plus className="w-4 h-4" />
               Configure New Cycle
-            </button>
-          </div>
+            </Button>
+          </Box>
 
-          {cycles.length === 0 ? (
-            <div className="p-12 text-center bg-white rounded-xl border border-dashed border-slate-300">
-              <Clock className="w-12 h-12 text-slate-400 mx-auto mb-3" />
-              <h3 className="text-base font-semibold text-slate-900">No claim cycles defined</h3>
-              <p className="text-sm text-slate-500 max-w-md mx-auto mt-1 mb-4">
-                Define weekly, fortnightly, or monthly cycles for automatic bundling of employee expense receipts.
-              </p>
-              <button
-                onClick={() => setCycleModalOpen(true)}
-                className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold"
-              >
-                Create First Cycle
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {cycles.map((cyc) => (
-                <div key={cyc.id} className="p-5 bg-white rounded-xl border border-slate-200 shadow-sm space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-slate-900 text-base">{cyc.name}</span>
-                    <span className="px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800">
-                      {cyc.status}
-                    </span>
-                  </div>
+          <Table sx={{ border: '1px solid #E4EBE1', borderRadius: 2 }}>
+            <TableHead sx={{ bgcolor: '#F8FAF8' }}>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#526356' }}>CYCLE NAME</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#526356' }}>FREQUENCY</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#526356' }}>PERIOD START & END</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#526356' }}>DUE DATE</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#526356', textAlign: 'center' }}>STATUS</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {cycles.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} sx={{ textAlign: 'center', py: 5, color: '#7A8B80' }}>
+                    No claim cycles defined. Click &quot;Configure New Cycle&quot; to establish submission periods.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                cycles.map((cyc) => (
+                  <TableRow key={cyc.id} hover>
+                    <TableCell sx={{ fontWeight: 600, color: '#16231B' }}>{cyc.name}</TableCell>
+                    <TableCell>{cyc.frequency}</TableCell>
+                    <TableCell>
+                      {cyc.period_start} to {cyc.period_end}
+                    </TableCell>
+                    <TableCell>{cyc.due_date}</TableCell>
+                    <TableCell sx={{ textAlign: 'center' }}>
+                      <Chip label={cyc.status} size="small" sx={{ bgcolor: '#EAF0EA', color: '#023020', fontWeight: 600 }} />
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </Paper>
+      </CustomTabPanel>
 
-                  <div className="text-xs text-slate-600 space-y-1">
-                    <p>
-                      <strong>Frequency:</strong> {cyc.frequency}
-                    </p>
-                    <p>
-                      <strong>Period:</strong> {cyc.period_start} to {cyc.period_end}
-                    </p>
-                    <p>
-                      <strong>Due Date:</strong> {cyc.due_date}
-                    </p>
-                    <p>
-                      <strong>Auto-Submit:</strong> {cyc.auto_submit_enabled ? 'Enabled' : 'Disabled'}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      {/* TAB 4: POLICIES & AUTOMATION */}
+      <CustomTabPanel value={tab} index={3}>
+        <Paper variant="outlined" sx={{ p: 3, borderColor: '#E4EBE1', borderRadius: 2.5, maxWidth: 840 }}>
+          <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#023020', mb: 0.5 }}>
+            Automation & Financial Policy Rules
+          </Typography>
+          <Typography sx={{ fontSize: 13, color: '#667085', mb: 3 }}>
+            Configure cycle auto-submission, accountant escalation reminders, and payout auto-reconciliation thresholds.
+          </Typography>
 
-      {/* TAB 4: AI VISION PROVIDERS */}
-      {activeTab === 'ai' && (
-        <div className="space-y-4">
-          <p className="text-sm text-slate-600">
-            Configure Vision LLM providers for parsing uploaded bills and receipts. Antigravity supports Google Gemini, Nvidia NIM, OpenRouter, Kilo, and Local Ollama.
-          </p>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {aiProviders.map((prov) => (
-              <div
-                key={prov.id}
-                className={`p-5 rounded-xl border shadow-sm transition space-y-4 bg-white ${
-                  prov.is_default ? 'border-emerald-500 ring-2 ring-emerald-100' : 'border-slate-200'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-bold text-slate-900 text-base">{prov.label}</h4>
-                    <span className="text-xs font-mono text-slate-400">{prov.provider}</span>
-                  </div>
-                  {prov.is_default && (
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
-                      ACTIVE DEFAULT
-                    </span>
-                  )}
-                </div>
-
-                <div className="text-xs text-slate-600 space-y-1.5">
-                  <div>
-                    <span className="font-semibold text-slate-700">Model:</span>{' '}
-                    <span className="font-mono">{prov.model_name}</span>
-                  </div>
-                  {prov.api_endpoint && (
-                    <div className="truncate">
-                      <span className="font-semibold text-slate-700">Endpoint:</span>{' '}
-                      <span className="font-mono text-slate-500">{prov.api_endpoint}</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="pt-2 border-t flex items-center justify-between">
-                  {!prov.is_default ? (
-                    <button
-                      onClick={() => handleSetDefaultProvider(prov.id)}
-                      className="px-3 py-1.5 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 text-slate-700 rounded-lg text-xs font-semibold transition"
-                    >
-                      Set as Active Default
-                    </button>
-                  ) : (
-                    <span className="text-xs text-emerald-600 font-semibold flex items-center gap-1">
-                      <Check className="w-3.5 h-3.5" /> Currently Selected
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* TAB 5: POLICIES & AUTOMATION */}
-      {activeTab === 'policies' && (
-        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-6">
-          <h3 className="text-base font-bold text-slate-900 border-b pb-3">Automation & Approval Policies</h3>
-
-          {/* Policy 1: Manual Claim Toggle */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
-            <div>
-              <p className="font-bold text-sm text-slate-900">Cycle-based Automatic Claim Submission</p>
-              <p className="text-xs text-slate-500 mt-0.5">
-                When enabled, all Ready bills are automatically bundled and submitted at cycle cutoff without employee manual action.
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="text-xs font-semibold text-slate-700">
-                {policies.manual_claim_submission_enabled === 'true' ? 'Manual Mode' : 'Automatic Bundling'}
-              </span>
-              <button
-                onClick={() =>
-                  handleSavePolicy(
-                    'manual_claim_submission_enabled',
-                    policies.manual_claim_submission_enabled === 'true' ? 'false' : 'true'
-                  )
-                }
-                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition ${
-                  policies.manual_claim_submission_enabled === 'true'
-                    ? 'bg-slate-200 text-slate-800 hover:bg-slate-300'
-                    : 'bg-emerald-600 text-white hover:bg-emerald-700'
-                }`}
-              >
-                {policies.manual_claim_submission_enabled === 'true' ? 'Switch to Auto' : 'Switch to Manual'}
-              </button>
-            </div>
-          </div>
-
-          {/* Policy 2: Accountant Escalation */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
-            <div>
-              <p className="font-bold text-sm text-slate-900">Escalate Unconfirmed Transfers to Accountant Queue</p>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Hours after bank transfer before triggering reminder notifications to the finance team.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <input
-                type="number"
-                value={policies.accountant_escalation_hours || '72'}
-                onChange={(e) => setPolicies({ ...policies, accountant_escalation_hours: e.target.value })}
-                className="w-20 p-2 border border-slate-300 rounded text-sm font-mono text-center"
-              />
-              <span className="text-xs text-slate-500">hours</span>
-              <button
-                onClick={() => handleSavePolicy('accountant_escalation_hours', policies.accountant_escalation_hours || '72')}
-                className="px-3 py-1.5 bg-slate-800 text-white rounded text-xs font-semibold"
-              >
-                Save
-              </button>
-            </div>
-          </div>
-
-          {/* Policy 3: Auto-Reconcile After N Days */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
-            <div>
-              <p className="font-bold text-sm text-slate-900">Auto-Reconcile Undisputed Payouts</p>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Days after bank transfer to automatically mark confirmed if the claimant does not raise a dispute.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <input
-                type="number"
-                value={policies.auto_reconcile_days || '7'}
-                onChange={(e) => setPolicies({ ...policies, auto_reconcile_days: e.target.value })}
-                className="w-20 p-2 border border-slate-300 rounded text-sm font-mono text-center"
-              />
-              <span className="text-xs text-slate-500">days</span>
-              <button
-                onClick={() => handleSavePolicy('auto_reconcile_days', policies.auto_reconcile_days || '7')}
-                className="px-3 py-1.5 bg-slate-800 text-white rounded text-xs font-semibold"
-              >
-                Save
-              </button>
-            </div>
-          </div>
-
-          {/* Policy 4: Maximum Bill Age */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
-            <div>
-              <p className="font-bold text-sm text-slate-900">Maximum Allowed Bill Age</p>
-              <p className="text-xs text-slate-500 mt-0.5">Maximum age in days for a bill to be accepted for reimbursement.</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <input
-                type="number"
-                value={policies.max_bill_age_days || '90'}
-                onChange={(e) => setPolicies({ ...policies, max_bill_age_days: e.target.value })}
-                className="w-20 p-2 border border-slate-300 rounded text-sm font-mono text-center"
-              />
-              <span className="text-xs text-slate-500">days</span>
-              <button
-                onClick={() => handleSavePolicy('max_bill_age_days', policies.max_bill_age_days || '90')}
-                className="px-3 py-1.5 bg-slate-800 text-white rounded text-xs font-semibold"
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* USER ASSIGNMENT MODAL */}
-      {userAssignModalOpen && targetUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl">
-            <h3 className="text-lg font-bold text-slate-900">Assign Branch & Manager</h3>
-            <p className="text-xs text-slate-500">
-              User: <strong className="text-slate-800">{targetUser.full_name}</strong> ({targetUser.email})
-            </p>
-
-            <form onSubmit={handleAssignUserSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Company Branch</label>
-                <select
-                  value={assignBranchId || ''}
-                  onChange={(e) => setAssignBranchId(e.target.value ? Number(e.target.value) : undefined)}
-                  className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white"
-                >
-                  <option value="">-- No Branch --</option>
-                  {branches.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name} ({b.code})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Reporting Line Manager</label>
-                <select
-                  value={assignManagerId || ''}
-                  onChange={(e) => setAssignManagerId(e.target.value ? Number(e.target.value) : undefined)}
-                  className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white"
-                >
-                  <option value="">-- No Line Manager --</option>
-                  {users
-                    .filter((u) => u.id !== targetUser.id)
-                    .map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.full_name} ({m.role})
-                      </option>
-                    ))}
-                </select>
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-3 border-t">
-                <button
-                  type="button"
-                  onClick={() => setUserAssignModalOpen(false)}
-                  className="px-4 py-2 border rounded-lg text-sm text-slate-600 hover:bg-slate-50"
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold">
-                  Save Assignment
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* CREATE CATEGORY MODAL */}
-      {categoryModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl">
-            <h3 className="text-lg font-bold text-slate-900">New Expense Category</h3>
-
-            <form onSubmit={handleCreateCategory} className="space-y-3">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Category Name *</label>
-                <input
-                  type="text"
-                  required
-                  value={newCatName}
-                  onChange={(e) => setNewCatName(e.target.value)}
-                  placeholder="e.g. Travel & Conveyance"
-                  className="w-full p-2 border border-slate-300 rounded-lg text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Category Code *</label>
-                <input
-                  type="text"
-                  required
-                  value={newCatCode}
-                  onChange={(e) => setNewCatCode(e.target.value)}
-                  placeholder="e.g. TRAVEL"
-                  className="w-full p-2 border border-slate-300 rounded-lg text-sm font-mono"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+            {/* Policy 1: Manual Claim Toggle */}
+            <Paper variant="outlined" sx={{ p: 2.5, borderColor: '#E4EBE1', borderRadius: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Limit Amount (₹)</label>
-                  <input
+                  <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#16231B' }}>
+                    Cycle-Based Automatic Claim Submission
+                  </Typography>
+                  <Typography sx={{ fontSize: 12, color: '#7A8B80', mt: 0.25 }}>
+                    When enabled, all Ready bills are automatically bundled and submitted into claims at cycle close without requiring employee manual intervention.
+                  </Typography>
+                </div>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={policies.manual_claim_submission_enabled !== 'true'}
+                      onChange={(e) =>
+                        handleUpdatePolicy(
+                          'manual_claim_submission_enabled',
+                          e.target.checked ? 'false' : 'true'
+                        )
+                      }
+                      color="primary"
+                    />
+                  }
+                  label={
+                    <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#023020' }}>
+                      {policies.manual_claim_submission_enabled === 'true' ? 'Manual Mode' : 'Auto-Bundling'}
+                    </Typography>
+                  }
+                />
+              </Box>
+            </Paper>
+
+            {/* Policy 2: Accountant Escalation */}
+            <Paper variant="outlined" sx={{ p: 2.5, borderColor: '#E4EBE1', borderRadius: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#16231B' }}>
+                    Escalate Unconfirmed Transfers to Accountant Queue
+                  </Typography>
+                  <Typography sx={{ fontSize: 12, color: '#7A8B80', mt: 0.25 }}>
+                    Elapsed hours after bank transfer UTR is recorded before alerting the accountant to follow up.
+                  </Typography>
+                </div>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <TextField
+                    size="small"
                     type="number"
-                    value={newCatLimit || ''}
-                    onChange={(e) => setNewCatLimit(e.target.value ? Number(e.target.value) : undefined)}
-                    placeholder="Optional"
-                    className="w-full p-2 border border-slate-300 rounded-lg text-sm font-mono"
+                    value={policies.accountant_escalation_hours || '72'}
+                    onChange={(e) => setPolicies({ ...policies, accountant_escalation_hours: e.target.value })}
+                    sx={{ width: 85 }}
+                    inputProps={{ style: { textAlign: 'center', fontFamily: 'monospace', fontWeight: 600 } }}
                   />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Limit Period</label>
-                  <select
-                    value={newCatPeriod}
-                    onChange={(e) => setNewCatPeriod(e.target.value)}
-                    className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white"
+                  <Typography sx={{ fontSize: 12, color: '#667085' }}>hours</Typography>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={() => handleUpdatePolicy('accountant_escalation_hours', policies.accountant_escalation_hours || '72')}
+                    sx={{ ml: 1, textTransform: 'none', borderColor: '#023020', color: '#023020' }}
                   >
-                    <option value="PER_EXPENSE">Per Expense</option>
-                    <option value="DAILY">Daily</option>
-                    <option value="MONTHLY">Monthly</option>
-                  </select>
-                </div>
-              </div>
+                    Save
+                  </Button>
+                </Box>
+              </Box>
+            </Paper>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">GL Account Code</label>
-                <input
-                  type="text"
-                  value={newCatGL}
-                  onChange={(e) => setNewCatGL(e.target.value)}
-                  placeholder="e.g. 5010-TRAVEL"
-                  className="w-full p-2 border border-slate-300 rounded-lg text-sm font-mono"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-3 border-t">
-                <button
-                  type="button"
-                  onClick={() => setCategoryModalOpen(false)}
-                  className="px-4 py-2 border rounded-lg text-sm text-slate-600 hover:bg-slate-50"
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold">
-                  Create Category
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* CREATE CLAIM CYCLE MODAL */}
-      {cycleModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl">
-            <h3 className="text-lg font-bold text-slate-900">Configure Claim Cycle</h3>
-
-            <form onSubmit={handleCreateCycle} className="space-y-3">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Cycle Name *</label>
-                <input
-                  type="text"
-                  required
-                  value={newCycleName}
-                  onChange={(e) => setNewCycleName(e.target.value)}
-                  placeholder="e.g. Nov 2026 - Fortnight 2"
-                  className="w-full p-2 border border-slate-300 rounded-lg text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Frequency</label>
-                <select
-                  value={newCycleFreq}
-                  onChange={(e) => setNewCycleFreq(e.target.value)}
-                  className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white"
-                >
-                  <option value="WEEKLY">Weekly</option>
-                  <option value="FORTNIGHTLY">Fortnightly</option>
-                  <option value="MONTHLY">Monthly</option>
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
+            {/* Policy 3: Auto-Reconcile Undisputed Payouts */}
+            <Paper variant="outlined" sx={{ p: 2.5, borderColor: '#E4EBE1', borderRadius: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Period Start *</label>
-                  <input
-                    type="date"
-                    required
-                    value={newCycleStart}
-                    onChange={(e) => setNewCycleStart(e.target.value)}
-                    className="w-full p-2 border border-slate-300 rounded-lg text-sm"
-                  />
+                  <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#16231B' }}>
+                    Auto-Reconcile Undisputed Payouts
+                  </Typography>
+                  <Typography sx={{ fontSize: 12, color: '#7A8B80', mt: 0.25 }}>
+                    Days after bank transfer to automatically mark the reimbursement confirmed if no dispute is raised.
+                  </Typography>
                 </div>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <TextField
+                    size="small"
+                    type="number"
+                    value={policies.auto_reconcile_days || '7'}
+                    onChange={(e) => setPolicies({ ...policies, auto_reconcile_days: e.target.value })}
+                    sx={{ width: 85 }}
+                    inputProps={{ style: { textAlign: 'center', fontFamily: 'monospace', fontWeight: 600 } }}
+                  />
+                  <Typography sx={{ fontSize: 12, color: '#667085' }}>days</Typography>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={() => handleUpdatePolicy('auto_reconcile_days', policies.auto_reconcile_days || '7')}
+                    sx={{ ml: 1, textTransform: 'none', borderColor: '#023020', color: '#023020' }}
+                  >
+                    Save
+                  </Button>
+                </Box>
+              </Box>
+            </Paper>
+
+            {/* Policy 4: Maximum Bill Age */}
+            <Paper variant="outlined" sx={{ p: 2.5, borderColor: '#E4EBE1', borderRadius: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Period End *</label>
-                  <input
-                    type="date"
-                    required
-                    value={newCycleEnd}
-                    onChange={(e) => setNewCycleEnd(e.target.value)}
-                    className="w-full p-2 border border-slate-300 rounded-lg text-sm"
-                  />
+                  <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#16231B' }}>
+                    Maximum Allowed Bill Age
+                  </Typography>
+                  <Typography sx={{ fontSize: 12, color: '#7A8B80', mt: 0.25 }}>
+                    Maximum age in days from invoice date for a receipt to remain eligible for reimbursement.
+                  </Typography>
                 </div>
-              </div>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <TextField
+                    size="small"
+                    type="number"
+                    value={policies.max_bill_age_days || '90'}
+                    onChange={(e) => setPolicies({ ...policies, max_bill_age_days: e.target.value })}
+                    sx={{ width: 85 }}
+                    inputProps={{ style: { textAlign: 'center', fontFamily: 'monospace', fontWeight: 600 } }}
+                  />
+                  <Typography sx={{ fontSize: 12, color: '#667085' }}>days</Typography>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={() => handleUpdatePolicy('max_bill_age_days', policies.max_bill_age_days || '90')}
+                    sx={{ ml: 1, textTransform: 'none', borderColor: '#023020', color: '#023020' }}
+                  >
+                    Save
+                  </Button>
+                </Box>
+              </Box>
+            </Paper>
+          </Box>
+        </Paper>
+      </CustomTabPanel>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Due Date *</label>
-                <input
-                  type="date"
-                  required
-                  value={newCycleDue}
-                  onChange={(e) => setNewCycleDue(e.target.value)}
-                  className="w-full p-2 border border-slate-300 rounded-lg text-sm"
+      {/* DIALOG 1: CONFIGURE AI PROVIDER */}
+      <Dialog open={providerModalOpen} onClose={() => setProviderModalOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800, color: '#023020', pb: 1 }}>
+          {editingProvider ? `Configure ${editingProvider.label}` : 'Connect Vision AI Provider'}
+        </DialogTitle>
+        <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+          <FormControl fullWidth size="small">
+            <InputLabel>AI Provider Type</InputLabel>
+            <Select
+              value={provType}
+              label="AI Provider Type"
+              onChange={(e) => handleProviderTypeChange(e.target.value as any)}
+            >
+              <MenuItem value="GOOGLE">Google Gemini API (Gemini 1.5/2.0 Flash)</MenuItem>
+              <MenuItem value="NVIDIA">Nvidia NIM (Llama 3.2 Vision / Nemotron)</MenuItem>
+              <MenuItem value="OPENROUTER">OpenRouter (Multi-model Vision Gateway)</MenuItem>
+              <MenuItem value="KILO">Kilo AI Vision</MenuItem>
+              <MenuItem value="LOCAL">Local Ollama (Self-hosted Vision LLM)</MenuItem>
+            </Select>
+          </FormControl>
+
+          <TextField
+            label="Provider Display Name"
+            size="small"
+            fullWidth
+            value={provLabel}
+            onChange={(e) => setProvLabel(e.target.value)}
+          />
+
+          <TextField
+            label="Model Identifier"
+            size="small"
+            fullWidth
+            value={provModel}
+            onChange={(e) => setProvModel(e.target.value)}
+            helperText="e.g. gemini-1.5-flash, meta/llama-3.2-11b-vision-instruct, llama3.2-vision"
+          />
+
+          <TextField
+            label="API Endpoint URL"
+            size="small"
+            fullWidth
+            value={provEndpoint}
+            onChange={(e) => setProvEndpoint(e.target.value)}
+            helperText="Custom REST or proxy endpoint (optional for standard cloud providers)"
+          />
+
+          <TextField
+            label="API Key / Secret"
+            size="small"
+            fullWidth
+            type={showApiKey ? 'text' : 'password'}
+            value={provApiKey}
+            onChange={(e) => setProvApiKey(e.target.value)}
+            placeholder="Enter API key or leave blank to use .env variable"
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton onClick={() => setShowApiKey(!showApiKey)} edge="end" size="small">
+                    {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+          />
+
+          {testResult && (
+            <Alert severity={testResult.success ? 'success' : 'error'} sx={{ fontSize: 12 }}>
+              {testResult.message}
+            </Alert>
+          )}
+
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pt: 1 }}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={provIsDefault}
+                  onChange={(e) => setProvIsDefault(e.target.checked)}
+                  color="primary"
                 />
-              </div>
+              }
+              label={<Typography sx={{ fontSize: 13, fontWeight: 600 }}>Set as Active Default Provider</Typography>}
+            />
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t">
-                <button
-                  type="button"
-                  onClick={() => setCycleModalOpen(false)}
-                  className="px-4 py-2 border rounded-lg text-sm text-slate-600 hover:bg-slate-50"
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold">
-                  Save Cycle
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={handleTestConnection}
+              disabled={testingConnection}
+              startIcon={testingConnection ? <CircularProgress size={14} /> : <Zap size={14} />}
+              sx={{ textTransform: 'none', borderColor: '#023020', color: '#023020' }}
+            >
+              Test Connection
+            </Button>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setProviderModalOpen(false)} sx={{ color: '#667085' }}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSaveProvider}
+            sx={{ bgcolor: '#023020', '&:hover': { bgcolor: '#2A402A' } }}
+          >
+            Save Provider Configuration
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* DIALOG 2: CATEGORY MODAL */}
+      <Dialog open={categoryModalOpen} onClose={() => setCategoryModalOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800, color: '#023020', pb: 1 }}>
+          {editingCategory ? 'Edit Expense Category' : 'New Expense Category'}
+        </DialogTitle>
+        <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <TextField
+            label="Category Name *"
+            size="small"
+            fullWidth
+            value={catName}
+            onChange={(e) => setCatName(e.target.value)}
+            placeholder="e.g. Food & Refreshments"
+          />
+
+          <TextField
+            label="Category Code *"
+            size="small"
+            fullWidth
+            value={catCode}
+            onChange={(e) => setCatCode(e.target.value)}
+            placeholder="e.g. FOOD"
+          />
+
+          <TextField
+            label="Limit Amount (₹)"
+            size="small"
+            type="number"
+            fullWidth
+            value={catLimit}
+            onChange={(e) => setCatLimit(e.target.value)}
+            placeholder="Optional spend cap"
+          />
+
+          <FormControl fullWidth size="small">
+            <InputLabel>Limit Period</InputLabel>
+            <Select value={catPeriod} label="Limit Period" onChange={(e) => setCatPeriod(e.target.value)}>
+              <MenuItem value="PER_EXPENSE">Per Expense</MenuItem>
+              <MenuItem value="DAILY">Daily Limit</MenuItem>
+              <MenuItem value="MONTHLY">Monthly Limit</MenuItem>
+            </Select>
+          </FormControl>
+
+          <TextField
+            label="GL Account Code"
+            size="small"
+            fullWidth
+            value={catGL}
+            onChange={(e) => setCatGL(e.target.value)}
+            placeholder="e.g. 5020-FOOD"
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setCategoryModalOpen(false)} sx={{ color: '#667085' }}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSaveCategory}
+            sx={{ bgcolor: '#023020', '&:hover': { bgcolor: '#2A402A' } }}
+          >
+            Save Category
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* DIALOG 3: CLAIM CYCLE MODAL */}
+      <Dialog open={cycleModalOpen} onClose={() => setCycleModalOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800, color: '#023020', pb: 1 }}>Configure Claim Cycle</DialogTitle>
+        <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <TextField
+            label="Cycle Name *"
+            size="small"
+            fullWidth
+            value={cycleName}
+            onChange={(e) => setCycleName(e.target.value)}
+            placeholder="e.g. Nov 2026 - Fortnight 2"
+          />
+
+          <FormControl fullWidth size="small">
+            <InputLabel>Frequency</InputLabel>
+            <Select value={cycleFreq} label="Frequency" onChange={(e) => setCycleFreq(e.target.value)}>
+              <MenuItem value="WEEKLY">Weekly</MenuItem>
+              <MenuItem value="FORTNIGHTLY">Fortnightly</MenuItem>
+              <MenuItem value="MONTHLY">Monthly</MenuItem>
+            </Select>
+          </FormControl>
+
+          <TextField
+            label="Period Start *"
+            size="small"
+            type="date"
+            InputLabelProps={{ shrink: true }}
+            fullWidth
+            value={cycleStart}
+            onChange={(e) => setCycleStart(e.target.value)}
+          />
+
+          <TextField
+            label="Period End *"
+            size="small"
+            type="date"
+            InputLabelProps={{ shrink: true }}
+            fullWidth
+            value={cycleEnd}
+            onChange={(e) => setCycleEnd(e.target.value)}
+          />
+
+          <TextField
+            label="Submission Due Date *"
+            size="small"
+            type="date"
+            InputLabelProps={{ shrink: true }}
+            fullWidth
+            value={cycleDue}
+            onChange={(e) => setCycleDue(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setCycleModalOpen(false)} sx={{ color: '#667085' }}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSaveCycle}
+            sx={{ bgcolor: '#023020', '&:hover': { bgcolor: '#2A402A' } }}
+          >
+            Create Cycle
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
   );
 }

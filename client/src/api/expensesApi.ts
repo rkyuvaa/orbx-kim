@@ -456,6 +456,17 @@ export const expensesApi = {
     return res.json();
   },
 
+  async createAIProvider(data: Partial<AIProviderConfig>): Promise<AIProviderConfig> {
+    const res = await fetch(`${API_BASE}/configuration/ai-providers`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+
   async updateAIProvider(providerId: number, data: Partial<AIProviderConfig>): Promise<AIProviderConfig> {
     const res = await fetch(`${API_BASE}/configuration/ai-providers/${providerId}`, {
       method: 'PUT',
