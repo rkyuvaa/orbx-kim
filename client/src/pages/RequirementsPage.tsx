@@ -908,10 +908,17 @@ export default function RequirementsPage() {
 
     try {
       // Refetch authoritative data first so the transition is based on the
-      // true DB status, not potentially stale local state.
-      await refetchRequirements();
+      // true DB status, not potentially stale local state. Read fresh data
+      // from the refetch result (local `requirements` state isn't updated
+      // synchronously by refetch).
+      const { data: refetchedData } = await refetchRequirements();
+      const serverItems = (refetchedData?.value as RequirementItem[]) || [];
+      const fresh = serverItems.find((r) => r.id === selectedDetailItem?.id);
 
-      const fresh = requirements.find((r) => r.id === selectedDetailItem?.id);
+      // Sync local state with the server so the drawer reflects reality.
+      setRequirements(serverItems);
+      if (fresh) setSelectedDetailItem(fresh);
+
       const currentStatus = fresh?.status ?? selectedDetailItem.status;
       const nextStatus = STORE_MANAGER_STATUS_ORDER[currentStatus];
       if (!nextStatus) {
