@@ -387,6 +387,25 @@ def approve_requirement(
                 raise HTTPException(status_code=409, detail="Concurrent modification, please try again")
 
     db.commit()
+    # Notify Store Managers that an approved requirement is ready for processing
+    try:
+        store_incharge_ids = (
+            db.query(AppDataDocument)
+            .filter(AppDataDocument.key == "crm_requirements_store_incharges")
+            .first()
+        )
+        if store_incharge_ids and isinstance(store_incharge_ids.value, list):
+            for uid in store_incharge_ids.value:
+                db.add(
+                    Notification(
+                        user_id=int(uid),
+                        message=f"Requirement {token_rec.request_no} ({token_rec.requirement_type}) has been approved and is ready for Store processing.",
+                        link=f"/requirements/material?requestNo={quote(token_rec.request_no, safe='')}",
+                    )
+                )
+            db.commit()
+    except Exception:
+        db.rollback()
     _queue_requirement_decision_notifications(
         token_rec=token_rec,
         req_item=req_item,

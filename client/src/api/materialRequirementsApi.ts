@@ -49,6 +49,16 @@ export const materialRequirementsApi = baseApi.injectEndpoints({
         body: { requirement },
       }),
     }),
+    updateStoreManagerStatus: build.mutation<
+      { ok: boolean; request_no: string; status: string; message?: string },
+      { request_no: string; status: string }
+    >({
+      query: ({ request_no, status }) => ({
+        url: `/material-requirements/${encodeRequestNo(request_no)}/store-manager/status`,
+        method: 'POST',
+        body: { status },
+      }),
+    }),
   }),
 });
 
@@ -57,4 +67,5 @@ export const {
   useListMaterialRequirementAttachmentsQuery,
   useDeleteMaterialRequirementAttachmentMutation,
   useSubmitMaterialRequirementMutation,
+  useUpdateStoreManagerStatusMutation,
 } = materialRequirementsApi;

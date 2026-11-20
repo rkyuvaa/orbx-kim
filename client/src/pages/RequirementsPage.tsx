@@ -49,6 +49,7 @@ import {
   Paperclip,
   Calendar,
   Printer,
+  Truck,
 } from 'lucide-react';
 import { useTableSort } from '../hooks/useTableSort';
 import ErpSortHeaderCell from '../components/ui/ErpSortHeaderCell';
@@ -71,6 +72,7 @@ import {
   useListMaterialRequirementAttachmentsQuery,
   useDeleteMaterialRequirementAttachmentMutation,
   useSubmitMaterialRequirementMutation,
+  useUpdateStoreManagerStatusMutation,
 } from '@/api/materialRequirementsApi';
 import { useGetAppDataQuery } from '@/api/appDataApi';
 import { useMeQuery } from '@/api/authApi';
@@ -84,6 +86,16 @@ const numberFieldSx = {
     WebkitAppearance: 'none',
     margin: 0,
   },
+};
+
+// Store Manager post-approval status progression: NEW → IN_PROGRESS → SOURCING → COMPLETED → CLOSED
+// Starts from APPROVED (set by the approver) and advances only via Store Manager clicks.
+const STORE_MANAGER_STATUS_ORDER: Record<string, string> = {
+  APPROVED: 'NEW',
+  NEW: 'IN_PROGRESS',
+  IN_PROGRESS: 'SOURCING',
+  SOURCING: 'COMPLETED',
+  COMPLETED: 'CLOSED',
 };
 
 // Helper Badge Colors
@@ -105,8 +117,16 @@ const getStatusChip = (status: string) => {
     case 'FULFILLED':
     case 'COMPLETED':
       return <Chip label="COMPLETED" size="small" icon={<CheckCircle2 size={12} />} sx={{ bgcolor: '#DCFCE7', color: '#15803D', fontWeight: 700, fontSize: '0.68rem' }} />;
+    case 'CLOSED':
+      return <Chip label="CLOSED" size="small" icon={<CheckCircle2 size={12} />} sx={{ bgcolor: '#E2E8F0', color: '#475569', fontWeight: 700, fontSize: '0.68rem' }} />;
     case 'APPROVED':
       return <Chip label="APPROVED" size="small" sx={{ bgcolor: '#DBEAFE', color: '#1D4ED8', fontWeight: 700, fontSize: '0.68rem' }} />;
+    case 'NEW':
+      return <Chip label="NEW" size="small" icon={<Clock size={12} />} sx={{ bgcolor: '#DBEAFE', color: '#1D4ED8', fontWeight: 700, fontSize: '0.68rem' }} />;
+    case 'IN_PROGRESS':
+      return <Chip label="IN PROGRESS" size="small" icon={<Clock size={12} />} sx={{ bgcolor: '#FEF3C7', color: '#B45309', fontWeight: 700, fontSize: '0.68rem' }} />;
+    case 'SOURCING':
+      return <Chip label="SOURCING" size="small" icon={<Truck size={12} />} sx={{ bgcolor: '#E0E7FF', color: '#4338CA', fontWeight: 700, fontSize: '0.68rem' }} />;
     case 'SUBMITTED':
       return <Chip label="SUBMITTED" size="small" icon={<Clock size={12} />} sx={{ bgcolor: '#FEF3C7', color: '#B45309', fontWeight: 700, fontSize: '0.68rem' }} />;
     case 'MANAGER_APPROVAL':
@@ -328,6 +348,14 @@ export default function RequirementsPage() {
 
   // Fetch initial requirements data from server (read-only, no auto-save)
   const { data: requirementsData } = useGetAppDataQuery('crm_requirements_items_data');
+  const { data: storeConfig } = useGetAppDataQuery('crm_requirements_store_incharges');
+
+  // Store Manager detection: user is a store incharge if their id is in the configured user_ids list.
+  const storeManagerUserIds = useMemo(() => {
+    const value = storeConfig?.value as { user_ids?: number[] } | number[] | null | undefined;
+    return Array.isArray(value) ? value : value?.user_ids || [];
+  }, [storeConfig]);
+  const isStoreManager = useMemo(() => Boolean(loggedUser?.id && storeManagerUserIds.includes(loggedUser.id)), [loggedUser?.id, storeManagerUserIds]);
   const [requirements, setRequirements] = useState<RequirementItem[]>([]);
 
   // Initialize local state from server data once
@@ -341,6 +369,7 @@ export default function RequirementsPage() {
   const [previewCurrentDocumentNumber, { isLoading: requestNumberPreviewLoading }] =
     usePreviewCurrentDocumentNumberMutation();
   const [submitMaterialRequirement] = useSubmitMaterialRequirementMutation();
+  const [updateStoreManagerStatus] = useUpdateStoreManagerStatusMutation();
 
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState('');
@@ -872,6 +901,39 @@ export default function RequirementsPage() {
       );
     }
     showSuccess(`${requestNo} status updated to ${newStatus.replace('_', ' ')}`);
+  };
+
+  const handleUpdateStoreManagerStatus = async (currentStatus: string) => {
+    if (!selectedDetailItem?.request_no) return;
+
+    const nextStatus = STORE_MANAGER_STATUS_ORDER[currentStatus];
+    if (!nextStatus) {
+      showError('No next status available for this requirement.');
+      return;
+    }
+
+    try {
+      const result = await updateStoreManagerStatus({
+        request_no: selectedDetailItem.request_no,
+        status: nextStatus,
+      }).unwrap();
+
+      if (result.ok) {
+        setRequirements((prev) =>
+          prev.map((r) =>
+            r.id === selectedDetailItem?.id ? { ...r, status: nextStatus } : r,
+          ),
+        );
+        setSelectedDetailItem((prev) =>
+          prev ? { ...prev, status: nextStatus } : null,
+        );
+        showSuccess(`${selectedDetailItem.request_no} status updated to ${nextStatus.replace('_', ' ')}`);
+      } else {
+        showError(result.message || 'Failed to update store manager status.');
+      }
+    } catch (err: any) {
+      showError(err?.data?.detail || err?.data?.message || 'Failed to update store manager status.');
+    }
   };
 
   return (
@@ -1718,6 +1780,25 @@ export default function RequirementsPage() {
                     </Button>
                   </Box>
                 )}
+
+              {/* Store Manager status progression buttons (post-approval stage) */}
+              {isStoreManager && Boolean(STORE_MANAGER_STATUS_ORDER[selectedDetailItem.status]) && (
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="caption" color="textSecondary" sx={{ mb: 0.75, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    Store Manager — Next Status
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    fullWidth
+                    startIcon={<Truck size={16} />}
+                    onClick={() => handleUpdateStoreManagerStatus(selectedDetailItem.status)}
+                    sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600, '&:hover': { bgcolor: '#04552B' } }}
+                  >
+                    {STORE_MANAGER_STATUS_ORDER[selectedDetailItem.status].replace('_', ' ')}
+                  </Button>
+                </Box>
+              )}
 
               <Box sx={{ mt: 'auto', pt: 2, display: 'flex', gap: 1.5 }}>
                 {canEdit && (
