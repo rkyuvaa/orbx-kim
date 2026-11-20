@@ -254,3 +254,77 @@ def test_dual_followup_auto_reconcile(db):
 
     db.refresh(emp_status)
     assert emp_status.status == EmployeeConfirmationStatus.AUTO_RECONCILED
+
+
+def test_daily_and_multiday_claim_cycles(db):
+    """Test creating Daily, 2-Day, and 3-Day Claim Cycles."""
+    today = date.today()
+    c_daily = ClaimCycle(
+        name="Daily Cycle Test",
+        frequency=CycleFrequency.DAILY,
+        period_start=today,
+        period_end=today,
+        due_date=today,
+        status=CycleStatus.OPEN,
+    )
+    c_two_days = ClaimCycle(
+        name="2-Day Cycle Test",
+        frequency=CycleFrequency.TWO_DAYS,
+        period_start=today,
+        period_end=today + timedelta(days=1),
+        due_date=today + timedelta(days=1),
+        status=CycleStatus.OPEN,
+    )
+    c_three_days = ClaimCycle(
+        name="3-Day Cycle Test",
+        frequency=CycleFrequency.THREE_DAYS,
+        period_start=today,
+        period_end=today + timedelta(days=2),
+        due_date=today + timedelta(days=2),
+        status=CycleStatus.OPEN,
+    )
+    db.add_all([c_daily, c_two_days, c_three_days])
+    db.commit()
+
+    assert c_daily.frequency == "DAILY"
+    assert c_two_days.frequency == "TWO_DAYS"
+    assert c_three_days.frequency == "THREE_DAYS"
+
+
+def test_immediate_cycle_auto_bundle(db):
+    """Test immediate auto-bundle of ready bills into a Claim."""
+    user = User(email="autobundle_user@kim.com", full_name="Bundle User", role=UserRole.SALES_EXECUTIVE, password_hash="dummy")
+    db.add(user)
+    db.commit()
+
+    b1 = Bill(uploaded_by_id=user.id, source_file_path="b1.jpg", total_amount=400.0, extraction_status=ExtractionStatus.READY)
+    b2 = Bill(uploaded_by_id=user.id, source_file_path="b2.jpg", total_amount=600.0, extraction_status=ExtractionStatus.READY)
+    db.add_all([b1, b2])
+    db.commit()
+
+    created_claims = ExpenseService.auto_bundle_cycle_claims(db, force=True)
+    assert len(created_claims) == 1
+    claim = created_claims[0]
+    assert claim.employee_user_id == user.id
+    assert claim.total_amount == 1000.0
+    assert claim.status == ClaimStatus.SUBMITTED
+
+    db.refresh(b1)
+    db.refresh(b2)
+    assert b1.claim_id == claim.id
+    assert b2.claim_id == claim.id
+
+
+def test_cfo_and_accountant_policy_routing(db):
+    """Test configured CFO and Accountant user IDs in policies."""
+    cfo_user = User(email="cfo_policy@kim.com", full_name="CFO Policy", role=UserRole.ADMIN, password_hash="dummy")
+    acc_user = User(email="acc_policy@kim.com", full_name="Acc Policy", role=UserRole.FINANCE_OFFICER, password_hash="dummy")
+    db.add_all([cfo_user, acc_user])
+    db.commit()
+
+    set_policy_value(db, "cfo_approver_user_ids", f"{cfo_user.id}")
+    set_policy_value(db, "accountant_approver_user_ids", f"{acc_user.id}")
+
+    assert ExpenseService.get_cfo_approver_ids(db) == [cfo_user.id]
+    assert ExpenseService.get_accountant_approver_ids(db) == [acc_user.id]
+

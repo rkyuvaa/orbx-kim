@@ -379,14 +379,26 @@ class ExpenseService:
         return claim
 
     @staticmethod
-    def auto_bundle_cycle_claims(db: Session) -> list[Claim]:
+    def get_cfo_approver_ids(db: Session) -> list[int]:
+        """Returns user IDs explicitly configured as Level 2 CFO/Management approvers."""
+        val = get_policy_value(db, "cfo_approver_user_ids", "")
+        return [int(x.strip()) for x in val.split(",") if x.strip().isdigit()]
+
+    @staticmethod
+    def get_accountant_approver_ids(db: Session) -> list[int]:
+        """Returns user IDs explicitly configured as Level 3 Accountant/Finance approvers."""
+        val = get_policy_value(db, "accountant_approver_user_ids", "")
+        return [int(x.strip()) for x in val.split(",") if x.strip().isdigit()]
+
+    @staticmethod
+    def auto_bundle_cycle_claims(db: Session, force: bool = False) -> list[Claim]:
         """
         Automatic Claim Submission Engine:
         Finds all READY bills unassigned to any claim.
-        If manual_claim_submission_enabled is 'false', groups them by employee + cycle and creates submitted claims.
+        Groups them by employee + cycle and creates submitted claims.
         """
         manual_mode = get_policy_value(db, "manual_claim_submission_enabled", "false").lower() == "true"
-        if manual_mode:
+        if manual_mode and not force:
             logger.info("Automatic claim submission is disabled in policy. Skipping auto-bundle.")
             return []
 
@@ -412,7 +424,21 @@ class ExpenseService:
         for b in ready_bills:
             bills_by_emp.setdefault(b.uploaded_by_id, []).append(b)
 
-        active_cycle = open_cycles[0] if open_cycles else None
+        if not open_cycles:
+            today = date.today()
+            active_cycle = ClaimCycle(
+                name=f"Daily Cycle - {today.strftime('%d %b %Y')}",
+                frequency=CycleFrequency.DAILY,
+                period_start=today,
+                period_end=today,
+                due_date=today,
+                status=CycleStatus.OPEN,
+                auto_submit_enabled=True,
+            )
+            db.add(active_cycle)
+            db.flush()
+        else:
+            active_cycle = open_cycles[0]
 
         for emp_id, emp_bills in bills_by_emp.items():
             emp = db.scalar(select(User).where(User.id == emp_id))
@@ -443,8 +469,12 @@ class ExpenseService:
             claim.status = ClaimStatus.LINE_MANAGER_APPROVED
             claim.line_manager_id = approver.id
             claim.line_manager_action_at = now
-            # Notify CFO / Admin
-            cfos = db.scalars(select(User).where(User.role.in_(["ADMIN", "FINANCE_OFFICER"]))).all()
+            # Notify configured CFO / Management approvers (or fallback to Admin / Finance Officer)
+            cfo_ids = ExpenseService.get_cfo_approver_ids(db)
+            if cfo_ids:
+                cfos = db.scalars(select(User).where(User.id.in_(cfo_ids))).all()
+            else:
+                cfos = db.scalars(select(User).where(User.role.in_(["ADMIN", "FINANCE_OFFICER"]))).all()
             for cfo in cfos:
                 db.add(Notification(
                     user_id=cfo.id,
@@ -457,8 +487,12 @@ class ExpenseService:
             claim.status = ClaimStatus.CFO_APPROVED
             claim.cfo_id = approver.id
             claim.cfo_action_at = now
-            # Notify Accountant
-            accountants = db.scalars(select(User).where(User.role.in_(["FINANCE_OFFICER", "ADMIN"]))).all()
+            # Notify configured Accountant approvers (or fallback to Finance Officer / Admin)
+            acc_ids = ExpenseService.get_accountant_approver_ids(db)
+            if acc_ids:
+                accountants = db.scalars(select(User).where(User.id.in_(acc_ids))).all()
+            else:
+                accountants = db.scalars(select(User).where(User.role.in_(["FINANCE_OFFICER", "ADMIN"]))).all()
             for acc in accountants:
                 db.add(Notification(
                     user_id=acc.id,

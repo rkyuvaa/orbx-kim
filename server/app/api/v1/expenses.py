@@ -453,14 +453,34 @@ def submit_claim_manually(
     return _claim_to_response(claim)
 
 
-@router.post("/claims/trigger-auto-bundle")
-def trigger_auto_bundle(
+@router.get("/approvers/candidates")
+def get_approver_candidates(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Trigger the automatic cycle claim bundler for ready bills."""
-    created = ExpenseService.auto_bundle_cycle_claims(db)
-    return {"message": f"Auto-bundled {len(created)} claim(s)", "claim_ids": [c.id for c in created]}
+    """List active users eligible to be configured as CFO or Accountant approvers."""
+    users = db.scalars(select(User).order_by(User.full_name)).all()
+    return [
+        {
+            "id": u.id,
+            "full_name": u.full_name or u.username or u.email,
+            "email": u.email,
+            "role": str(u.role) if u.role else "USER",
+        }
+        for u in users
+    ]
+
+
+@router.post("/claims/trigger-auto-bundle")
+def trigger_auto_bundle(
+    force: bool = Query(True),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Trigger the automatic cycle claim bundler for ready bills immediately."""
+    created = ExpenseService.auto_bundle_cycle_claims(db, force=force)
+    msg = f"Successfully bundled ready bills into {len(created)} claim(s)." if created else "No ready bills found to bundle."
+    return {"message": msg, "claims_created": len(created), "claim_ids": [c.id for c in created]}
 
 
 @router.get("/claims/approvals/pending", response_model=list[ClaimResponse])
@@ -471,8 +491,8 @@ def get_pending_approvals(
     """
     Returns actionable claims for the logged-in user:
     - Line Manager: sees direct subordinates' SUBMITTED claims.
-    - CFO / Admin: sees LINE_MANAGER_APPROVED claims.
-    - Accountant / Admin: sees CFO_APPROVED claims.
+    - CFO / Management: sees LINE_MANAGER_APPROVED claims (configured users or Admin fallback).
+    - Accountant / Finance: sees CFO_APPROVED claims (configured users or Finance Officer/Admin fallback).
     """
     queries = []
 
@@ -483,13 +503,19 @@ def get_pending_approvals(
         queries.append(
             select(Claim).where(and_(Claim.employee_user_id.in_(sub_ids), Claim.status == ClaimStatus.SUBMITTED))
         )
+    elif current_user.role == "ADMIN":
+        queries.append(select(Claim).where(Claim.status == ClaimStatus.SUBMITTED))
 
-    # 2. Check if user is Admin / CFO
-    if current_user.role in ("ADMIN", "SALES_EXECUTIVE"):  # Admin handles CFO approval
+    # 2. Check if user is configured CFO / Executive Management
+    cfo_ids = ExpenseService.get_cfo_approver_ids(db)
+    is_cfo = (current_user.id in cfo_ids) if cfo_ids else (current_user.role in ("ADMIN", "FINANCE_OFFICER"))
+    if is_cfo or current_user.role == "ADMIN":
         queries.append(select(Claim).where(Claim.status == ClaimStatus.LINE_MANAGER_APPROVED))
 
-    # 3. Check if user is Accountant / Finance Officer
-    if current_user.role in ("ADMIN", "FINANCE_OFFICER"):
+    # 3. Check if user is configured Accountant / Finance Officer
+    acc_ids = ExpenseService.get_accountant_approver_ids(db)
+    is_accountant = (current_user.id in acc_ids) if acc_ids else (current_user.role in ("ADMIN", "FINANCE_OFFICER"))
+    if is_accountant or current_user.role == "ADMIN":
         queries.append(select(Claim).where(Claim.status == ClaimStatus.CFO_APPROVED))
 
     claims_dict: dict[int, Claim] = {}

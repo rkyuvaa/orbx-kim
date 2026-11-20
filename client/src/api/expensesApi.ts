@@ -308,12 +308,18 @@ export const expensesApi = {
     return res.json();
   },
 
-  async triggerAutoBundle(): Promise<{ message: string; claim_ids: number[] }> {
-    const res = await fetch(`${API_BASE}/claims/trigger-auto-bundle`, {
+  async triggerAutoBundle(force: boolean = true): Promise<{ message: string; claim_ids: number[]; claims_created?: number }> {
+    const res = await fetch(`${API_BASE}/claims/trigger-auto-bundle?force=${force}`, {
       method: 'POST',
       credentials: 'include',
       headers: getAuthHeaders(),
     });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+
+  async getApproverCandidates(): Promise<Array<{ id: number; full_name: string; email: string; role: string }>> {
+    const res = await fetch(`${API_BASE}/approvers/candidates`, { credentials: 'include', headers: getAuthHeaders() });
     if (!res.ok) throw new Error(await res.text());
     return res.json();
   },

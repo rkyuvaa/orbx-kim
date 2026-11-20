@@ -109,6 +109,15 @@ export default function ExpenseConfigurationPage() {
   const [cycleEnd, setCycleEnd] = useState('');
   const [cycleDue, setCycleDue] = useState('');
 
+  // Cycle Bundler execution state
+  const [bundlingNow, setBundlingNow] = useState(false);
+
+  // Approver Candidates & Selection state
+  const [approverCandidates, setApproverCandidates] = useState<Array<{ id: number; full_name: string; email: string; role: string }>>([]);
+  const [cfoApproverIds, setCfoApproverIds] = useState<number[]>([]);
+  const [accountantApproverIds, setAccountantApproverIds] = useState<number[]>([]);
+  const [savingApprovers, setSavingApprovers] = useState(false);
+
   useEffect(() => {
     loadData();
   }, []);
@@ -116,21 +125,41 @@ export default function ExpenseConfigurationPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [catList, cycList, aiList, polList] = await Promise.all([
+      const [catList, cycList, aiList, polList, candidates] = await Promise.all([
         expensesApi.getCategories().catch(() => []),
         expensesApi.getCycles().catch(() => []),
         expensesApi.getAIProviders().catch(() => []),
         expensesApi.getPolicies().catch(() => []),
+        expensesApi.getApproverCandidates().catch(() => []),
       ]);
       setCategories(catList);
       setCycles(cycList);
       setAiProviders(aiList);
+      setApproverCandidates(candidates);
 
       const map: Record<string, string> = {};
       polList.forEach((p) => {
         map[p.policy_key] = p.policy_value;
       });
       setPolicies(map);
+
+      // Parse configured CFO and Accountant user IDs
+      if (map.cfo_approver_user_ids) {
+        setCfoApproverIds(
+          map.cfo_approver_user_ids
+            .split(',')
+            .map((x) => Number(x.trim()))
+            .filter((x) => !isNaN(x) && x > 0)
+        );
+      }
+      if (map.accountant_approver_user_ids) {
+        setAccountantApproverIds(
+          map.accountant_approver_user_ids
+            .split(',')
+            .map((x) => Number(x.trim()))
+            .filter((x) => !isNaN(x) && x > 0)
+        );
+      }
     } catch (err: any) {
       showToast(err?.message || 'Failed to load configuration data.', 'error');
     } finally {
@@ -355,6 +384,77 @@ export default function ExpenseConfigurationPage() {
     }
   };
 
+  // Calculate prefilled dates based on cycle frequency
+  const calculateCycleDates = (freq: string, baseStartDate?: string) => {
+    const start = baseStartDate ? new Date(baseStartDate) : new Date();
+    const fmt = (d: Date) => d.toISOString().split('T')[0];
+    const sStr = fmt(start);
+
+    const e = new Date(start);
+    let namePrefix = '';
+
+    if (freq === 'DAILY') {
+      namePrefix = `Daily Cycle - ${start.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`;
+    } else if (freq === 'TWO_DAYS') {
+      e.setDate(e.getDate() + 1);
+      namePrefix = `2-Day Cycle (${start.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} - ${e.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })})`;
+    } else if (freq === 'THREE_DAYS') {
+      e.setDate(e.getDate() + 2);
+      namePrefix = `3-Day Cycle (${start.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} - ${e.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })})`;
+    } else if (freq === 'WEEKLY') {
+      e.setDate(e.getDate() + 6);
+      namePrefix = `Weekly Cycle (${start.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} - ${e.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })})`;
+    } else if (freq === 'FORTNIGHTLY') {
+      e.setDate(e.getDate() + 14);
+      namePrefix = `Fortnight Cycle (${start.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} - ${e.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })})`;
+    } else if (freq === 'MONTHLY') {
+      e.setDate(e.getDate() + 29);
+      namePrefix = `Monthly Cycle - ${start.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}`;
+    }
+
+    const eStr = fmt(e);
+    return { start: sStr, end: eStr, due: eStr, name: namePrefix };
+  };
+
+  // Run Cycle Bundler Now (Test & Immediate Execution)
+  const handleRunCycleBundlerNow = async () => {
+    setBundlingNow(true);
+    try {
+      const res = await expensesApi.triggerAutoBundle(true);
+      showToast(res.message, res.claims_created && res.claims_created > 0 ? 'success' : 'info');
+      loadData();
+    } catch (err: any) {
+      showToast(err?.message || 'Failed to trigger cycle bundler.', 'error');
+    } finally {
+      setBundlingNow(false);
+    }
+  };
+
+  // Save Approver Roles
+  const handleSaveApproverRoles = async () => {
+    setSavingApprovers(true);
+    try {
+      await Promise.all([
+        expensesApi.updatePolicy(
+          'cfo_approver_user_ids',
+          cfoApproverIds.join(','),
+          'Designated CFO and Executive Management Approver User IDs'
+        ),
+        expensesApi.updatePolicy(
+          'accountant_approver_user_ids',
+          accountantApproverIds.join(','),
+          'Designated Accountant and Finance Approver User IDs'
+        ),
+      ]);
+      showToast('Approval roles updated successfully.', 'success');
+      loadData();
+    } catch (err: any) {
+      showToast(err?.message || 'Failed to save approval roles.', 'error');
+    } finally {
+      setSavingApprovers(false);
+    }
+  };
+
   return (
     <Box sx={{ pb: 6 }}>
       {/* Page Header matching KIM-OrbX Standard */}
@@ -396,7 +496,7 @@ export default function ExpenseConfigurationPage() {
           <Tab icon={<Sparkles size={16} />} iconPosition="start" label="AI Vision Providers" />
           <Tab icon={<Layers size={16} />} iconPosition="start" label="Expense Categories & Limits" />
           <Tab icon={<Clock size={16} />} iconPosition="start" label="Claim Cycles" />
-          <Tab icon={<Shield size={16} />} iconPosition="start" label="Policies & Automation" />
+          <Tab icon={<Shield size={16} />} iconPosition="start" label="Approval Roles & Policies" />
         </Tabs>
       </Box>
 
@@ -700,18 +800,46 @@ export default function ExpenseConfigurationPage() {
                 Claim Cycles & Submission Windows
               </Typography>
               <Typography sx={{ fontSize: 13, color: '#667085', mt: 0.25 }}>
-                Define cycle frequencies and submission dates for automatic bill bundling.
+                Define cycle frequencies (Daily, 2 Days, 3 Days, Weekly, Fortnightly) for automatic bill bundling.
               </Typography>
             </div>
 
-            <Button
-              variant="contained"
-              startIcon={<Plus size={16} />}
-              onClick={() => setCycleModalOpen(true)}
-              sx={{ bgcolor: '#023020', '&:hover': { bgcolor: '#2A402A' }, borderRadius: 2, fontSize: 13 }}
-            >
-              Configure New Cycle
-            </Button>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Button
+                variant="outlined"
+                startIcon={<Zap size={15} className={bundlingNow ? 'animate-spin' : ''} />}
+                onClick={handleRunCycleBundlerNow}
+                disabled={bundlingNow}
+                sx={{
+                  borderColor: '#023020',
+                  color: '#023020',
+                  '&:hover': { borderColor: '#2A402A', bgcolor: 'rgba(2, 48, 32, 0.04)' },
+                  borderRadius: 2,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  textTransform: 'none',
+                }}
+              >
+                {bundlingNow ? 'Bundling...' : 'Run Cycle Bundler Now'}
+              </Button>
+
+              <Button
+                variant="contained"
+                startIcon={<Plus size={16} />}
+                onClick={() => {
+                  const def = calculateCycleDates('DAILY');
+                  setCycleFreq('DAILY');
+                  setCycleStart(def.start);
+                  setCycleEnd(def.end);
+                  setCycleDue(def.due);
+                  setCycleName(def.name);
+                  setCycleModalOpen(true);
+                }}
+                sx={{ bgcolor: '#023020', '&:hover': { bgcolor: '#2A402A' }, borderRadius: 2, fontSize: 13 }}
+              >
+                Configure New Cycle
+              </Button>
+            </Box>
           </Box>
 
           <Table sx={{ border: '1px solid #E4EBE1', borderRadius: 2 }}>
@@ -751,17 +879,152 @@ export default function ExpenseConfigurationPage() {
         </Paper>
       </CustomTabPanel>
 
-      {/* TAB 4: POLICIES & AUTOMATION */}
+      {/* TAB 4: APPROVAL ROLES & POLICIES */}
       <CustomTabPanel value={tab} index={3}>
         <Paper variant="outlined" sx={{ p: 3, borderColor: '#E4EBE1', borderRadius: 2.5, maxWidth: 840 }}>
           <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#023020', mb: 0.5 }}>
-            Automation & Financial Policy Rules
+            Approval Hierarchy & Financial Policy Rules
           </Typography>
           <Typography sx={{ fontSize: 13, color: '#667085', mb: 3 }}>
-            Configure cycle auto-submission, accountant escalation reminders, and payout auto-reconciliation thresholds.
+            Configure multi-tier approver roles (CFO and Accountant), cycle auto-submission, and payout reconciliation thresholds.
           </Typography>
 
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+            {/* Section A: Multi-Level Approval Hierarchy */}
+            <Paper variant="outlined" sx={{ p: 2.5, borderColor: '#16C47F', bgcolor: '#FAFCFA', borderRadius: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                <Box>
+                  <Typography sx={{ fontSize: 15, fontWeight: 800, color: '#023020' }}>
+                    Multi-Level Approver Hierarchy Configuration
+                  </Typography>
+                  <Typography sx={{ fontSize: 12, color: '#526356', mt: 0.25 }}>
+                    Define which team members have authority to review and approve claims at each stage.
+                  </Typography>
+                </Box>
+                <Button
+                  variant="contained"
+                  size="small"
+                  onClick={handleSaveApproverRoles}
+                  disabled={savingApprovers}
+                  sx={{ bgcolor: '#023020', '&:hover': { bgcolor: '#2A402A' }, textTransform: 'none', fontWeight: 600 }}
+                >
+                  {savingApprovers ? 'Saving...' : 'Save Approver Roles'}
+                </Button>
+              </Box>
+
+              <Grid container spacing={2}>
+                {/* Level 1: Line / Reporting Manager */}
+                <Grid item xs={12}>
+                  <Paper variant="outlined" sx={{ p: 2, bgcolor: '#FFFFFF', borderColor: '#E4EBE1', borderRadius: 1.5 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Chip label="Level 1" size="small" sx={{ height: 20, fontSize: 10, bgcolor: '#DCFCE7', color: '#166534', fontWeight: 700 }} />
+                          <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#16231B' }}>
+                            Line / Reporting Manager
+                          </Typography>
+                        </Box>
+                        <Typography sx={{ fontSize: 12, color: '#667085', mt: 0.5 }}>
+                          Automatically routed based on each employee's configured <strong>Reporting Manager</strong> in User Management. Line Managers approve Stage 1 submitted claims.
+                        </Typography>
+                      </Box>
+                      <Chip label="Configured in Users" size="small" sx={{ bgcolor: '#F0F4F0', color: '#526356', fontSize: 11 }} />
+                    </Box>
+                  </Paper>
+                </Grid>
+
+                {/* Level 2: CFO / Executive Management */}
+                <Grid item xs={12} sm={6}>
+                  <Paper variant="outlined" sx={{ p: 2, bgcolor: '#FFFFFF', borderColor: '#E4EBE1', borderRadius: 1.5, height: '100%', display: 'flex', flexDirection: 'column' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <Chip label="Level 2" size="small" sx={{ height: 20, fontSize: 10, bgcolor: '#FEF3C7', color: '#92400E', fontWeight: 700 }} />
+                      <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#16231B' }}>
+                        CFO / Management Approver(s)
+                      </Typography>
+                    </Box>
+                    <Typography sx={{ fontSize: 12, color: '#667085', mb: 1.5 }}>
+                      Select users responsible for Level 2 financial and budget approval. If none selected, defaults to System Admins.
+                    </Typography>
+
+                    <FormControl fullWidth size="small" sx={{ mt: 'auto' }}>
+                      <InputLabel>Designated CFO Approver(s)</InputLabel>
+                      <Select
+                        multiple
+                        value={cfoApproverIds}
+                        label="Designated CFO Approver(s)"
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setCfoApproverIds(typeof val === 'string' ? val.split(',').map(Number) : (val as number[]));
+                        }}
+                        renderValue={(selected) => (
+                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                            {selected.map((val) => {
+                              const cand = approverCandidates.find((c) => c.id === val);
+                              return <Chip key={val} label={cand?.full_name || `User #${val}`} size="small" sx={{ height: 22, fontSize: 11 }} />;
+                            })}
+                          </Box>
+                        )}
+                      >
+                        {approverCandidates.map((u) => (
+                          <MenuItem key={u.id} value={u.id}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                              <span>{u.full_name}</span>
+                              <span style={{ fontSize: 11, color: '#94A3B8' }}>{u.role}</span>
+                            </Box>
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Paper>
+                </Grid>
+
+                {/* Level 3: Accountant / Finance Officer */}
+                <Grid item xs={12} sm={6}>
+                  <Paper variant="outlined" sx={{ p: 2, bgcolor: '#FFFFFF', borderColor: '#E4EBE1', borderRadius: 1.5, height: '100%', display: 'flex', flexDirection: 'column' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <Chip label="Level 3" size="small" sx={{ height: 20, fontSize: 10, bgcolor: '#DBEAFE', color: '#1E40AF', fontWeight: 700 }} />
+                      <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#16231B' }}>
+                        Accountant / Finance Officer(s)
+                      </Typography>
+                    </Box>
+                    <Typography sx={{ fontSize: 12, color: '#667085', mb: 1.5 }}>
+                      Select users responsible for GST/tax check, payout batch creation, and recording bank UTRs. If none selected, defaults to Finance Officers and Admins.
+                    </Typography>
+
+                    <FormControl fullWidth size="small" sx={{ mt: 'auto' }}>
+                      <InputLabel>Designated Accountant(s)</InputLabel>
+                      <Select
+                        multiple
+                        value={accountantApproverIds}
+                        label="Designated Accountant(s)"
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setAccountantApproverIds(typeof val === 'string' ? val.split(',').map(Number) : (val as number[]));
+                        }}
+                        renderValue={(selected) => (
+                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                            {selected.map((val) => {
+                              const cand = approverCandidates.find((c) => c.id === val);
+                              return <Chip key={val} label={cand?.full_name || `User #${val}`} size="small" sx={{ height: 22, fontSize: 11 }} />;
+                            })}
+                          </Box>
+                        )}
+                      >
+                        {approverCandidates.map((u) => (
+                          <MenuItem key={u.id} value={u.id}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                              <span>{u.full_name}</span>
+                              <span style={{ fontSize: 11, color: '#94A3B8' }}>{u.role}</span>
+                            </Box>
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Paper>
+                </Grid>
+              </Grid>
+            </Paper>
+
             {/* Policy 1: Manual Claim Toggle */}
             <Paper variant="outlined" sx={{ p: 2.5, borderColor: '#E4EBE1', borderRadius: 2 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -1088,10 +1351,28 @@ export default function ExpenseConfigurationPage() {
 
           <FormControl fullWidth size="small">
             <InputLabel>Frequency</InputLabel>
-            <Select value={cycleFreq} label="Frequency" onChange={(e) => setCycleFreq(e.target.value)}>
-              <MenuItem value="WEEKLY">Weekly</MenuItem>
-              <MenuItem value="FORTNIGHTLY">Fortnightly</MenuItem>
-              <MenuItem value="MONTHLY">Monthly</MenuItem>
+            <Select
+              value={cycleFreq}
+              label="Frequency"
+              onChange={(e) => {
+                const f = e.target.value;
+                setCycleFreq(f);
+                if (f !== 'CUSTOM') {
+                  const d = calculateCycleDates(f, cycleStart);
+                  setCycleStart(d.start);
+                  setCycleEnd(d.end);
+                  setCycleDue(d.due);
+                  setCycleName(d.name);
+                }
+              }}
+            >
+              <MenuItem value="DAILY">Daily (1 Day)</MenuItem>
+              <MenuItem value="TWO_DAYS">Every 2 Days</MenuItem>
+              <MenuItem value="THREE_DAYS">Every 3 Days</MenuItem>
+              <MenuItem value="WEEKLY">Weekly (7 Days)</MenuItem>
+              <MenuItem value="FORTNIGHTLY">Fortnightly (15 Days)</MenuItem>
+              <MenuItem value="MONTHLY">Monthly (30 Days)</MenuItem>
+              <MenuItem value="CUSTOM">Custom Range</MenuItem>
             </Select>
           </FormControl>
 
@@ -1102,7 +1383,16 @@ export default function ExpenseConfigurationPage() {
             InputLabelProps={{ shrink: true }}
             fullWidth
             value={cycleStart}
-            onChange={(e) => setCycleStart(e.target.value)}
+            onChange={(e) => {
+              const s = e.target.value;
+              setCycleStart(s);
+              if (cycleFreq !== 'CUSTOM') {
+                const d = calculateCycleDates(cycleFreq, s);
+                setCycleEnd(d.end);
+                setCycleDue(d.due);
+                setCycleName(d.name);
+              }
+            }}
           />
 
           <TextField

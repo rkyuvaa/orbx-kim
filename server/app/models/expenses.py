@@ -32,9 +32,13 @@ class LimitPeriod(enum.StrEnum):
 
 
 class CycleFrequency(enum.StrEnum):
+    DAILY = "DAILY"
+    TWO_DAYS = "TWO_DAYS"
+    THREE_DAYS = "THREE_DAYS"
     WEEKLY = "WEEKLY"
     FORTNIGHTLY = "FORTNIGHTLY"
     MONTHLY = "MONTHLY"
+    CUSTOM = "CUSTOM"
 
 
 class CycleStatus(enum.StrEnum):

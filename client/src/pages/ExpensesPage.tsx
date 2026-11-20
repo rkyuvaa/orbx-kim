@@ -48,6 +48,7 @@ import {
   Plus,
   Check,
   Sparkles,
+  Zap,
 } from 'lucide-react';
 import { expensesApi, Bill, Claim, Payout, PayoutEmployeeStatus, ExpenseCategory } from '@/api/expensesApi';
 import { useToast } from '@/components/ui/ToastHost';
@@ -110,6 +111,7 @@ export default function ExpensesPage() {
   const [utrNumber, setUtrNumber] = useState('');
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
   const [bankRef, setBankRef] = useState('');
+  const [bundlingNow, setBundlingNow] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -135,6 +137,20 @@ export default function ExpensesPage() {
       showToast(err?.message || 'Failed to load expense records.', 'error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Immediate Claim Cycle Bundling Action
+  const handleTriggerCycleBundle = async () => {
+    setBundlingNow(true);
+    try {
+      const res = await expensesApi.triggerAutoBundle(true);
+      showToast(res.message, res.claims_created && res.claims_created > 0 ? 'success' : 'info');
+      await loadData();
+    } catch (err: any) {
+      showToast(err?.message || 'Failed to bundle ready bills.', 'error');
+    } finally {
+      setBundlingNow(false);
     }
   };
 
@@ -376,6 +392,26 @@ export default function ExpensesPage() {
         </div>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          {readyBillsCount > 0 && (
+            <Button
+              variant="outlined"
+              startIcon={<Zap size={15} className={bundlingNow ? 'animate-spin' : ''} />}
+              onClick={handleTriggerCycleBundle}
+              disabled={bundlingNow}
+              sx={{
+                borderColor: '#16A34A',
+                color: '#16A34A',
+                '&:hover': { borderColor: '#15803D', bgcolor: '#F0FDF4' },
+                borderRadius: 2,
+                fontSize: 13,
+                fontWeight: 600,
+                textTransform: 'none',
+              }}
+            >
+              {bundlingNow ? 'Bundling...' : `Bundle ${readyBillsCount} Ready Bill(s)`}
+            </Button>
+          )}
+
           <Button
             variant="contained"
             startIcon={<Upload size={16} />}
@@ -415,9 +451,33 @@ export default function ExpensesPage() {
 
         <Grid item xs={12} sm={6} md={3}>
           <Paper variant="outlined" sx={{ p: 2, borderColor: '#E4EBE1', borderRadius: 2 }}>
-            <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#667085', textTransform: 'uppercase' }}>
-              Ready for Cycle Bundle
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#667085', textTransform: 'uppercase' }}>
+                Ready for Cycle Bundle
+              </Typography>
+              {readyBillsCount > 0 && (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={handleTriggerCycleBundle}
+                  disabled={bundlingNow}
+                  startIcon={<Zap size={11} className={bundlingNow ? 'animate-spin' : ''} />}
+                  sx={{
+                    py: 0.25,
+                    px: 1,
+                    minHeight: 22,
+                    fontSize: 10,
+                    fontWeight: 700,
+                    textTransform: 'none',
+                    borderColor: '#16A34A',
+                    color: '#16A34A',
+                    '&:hover': { borderColor: '#15803D', bgcolor: '#F0FDF4' },
+                  }}
+                >
+                  {bundlingNow ? 'Bundling...' : 'Bundle Now'}
+                </Button>
+              )}
+            </Box>
             <Typography sx={{ fontSize: 22, fontWeight: 800, color: '#16A34A', mt: 0.5 }}>
               {readyBillsCount}
             </Typography>
