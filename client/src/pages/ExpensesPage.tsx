@@ -83,7 +83,6 @@ export default function ExpensesPage() {
   // Modals & Drawers
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const [uploadCategory, setUploadCategory] = useState<number | undefined>(undefined);
   const [uploadNotes, setUploadNotes] = useState('');
   const [uploading, setUploading] = useState(false);
 
@@ -145,12 +144,11 @@ export default function ExpensesPage() {
     if (!uploadFile) return;
     setUploading(true);
     try {
-      const newBill = await expensesApi.uploadBill(uploadFile, uploadCategory, uploadNotes);
+      const newBill = await expensesApi.uploadBill(uploadFile, undefined, uploadNotes);
       setMyBills((prev) => [newBill, ...prev]);
       setUploadModalOpen(false);
       setUploadFile(null);
       setUploadNotes('');
-      setUploadCategory(undefined);
       showToast('Bill uploaded and processed by Vision AI.', 'success');
       openBillDrawer(newBill);
     } catch (err: any) {
@@ -521,7 +519,8 @@ export default function ExpensesPage() {
                 <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#526356' }}>RECEIPT #</TableCell>
                 <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#526356' }}>VENDOR / SUPPLIER</TableCell>
                 <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#526356' }}>BILL DATE & NO</TableCell>
-                <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#526356' }}>CATEGORY</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#526356' }}>CREATED DATE</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#526356' }}>CREATED BY</TableCell>
                 <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#526356', textAlign: 'right' }}>TAXABLE</TableCell>
                 <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#526356', textAlign: 'right' }}>TOTAL GST</TableCell>
                 <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#526356', textAlign: 'right' }}>TOTAL (₹)</TableCell>
@@ -532,7 +531,7 @@ export default function ExpensesPage() {
             <TableBody>
               {myBills.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} sx={{ textAlign: 'center', py: 6, color: '#7A8B80' }}>
+                  <TableCell colSpan={10} sx={{ textAlign: 'center', py: 6, color: '#7A8B80' }}>
                     <Receipt size={36} style={{ margin: '0 auto 8px', opacity: 0.4 }} />
                     <Typography sx={{ fontWeight: 700, fontSize: 14, color: '#16231B' }}>No bills uploaded yet</Typography>
                     <Typography sx={{ fontSize: 12, color: '#667085', mt: 0.5, mb: 2 }}>
@@ -575,7 +574,28 @@ export default function ExpensesPage() {
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <Chip label={b.category_name || 'Unassigned'} size="small" sx={{ fontSize: 11, bgcolor: '#F0F4F0' }} />
+                      <Typography sx={{ fontSize: 12, color: '#16231B', fontWeight: 500 }}>
+                        {b.created_at
+                          ? new Date(b.created_at).toLocaleDateString('en-IN', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric',
+                            })
+                          : '—'}
+                      </Typography>
+                      <Typography sx={{ fontSize: 11, color: '#7A8B80' }}>
+                        {b.created_at
+                          ? new Date(b.created_at).toLocaleTimeString('en-IN', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })
+                          : ''}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#16231B' }}>
+                        {b.uploaded_by_name || 'Recorded User'}
+                      </Typography>
                     </TableCell>
                     <TableCell sx={{ textAlign: 'right', fontFamily: 'monospace', fontSize: 12 }}>
                       ₹{Number(b.taxable_amount || 0).toFixed(2)}
@@ -917,22 +937,6 @@ export default function ExpensesPage() {
             />
           </Box>
 
-          <FormControl fullWidth size="small">
-            <InputLabel>Category (Optional)</InputLabel>
-            <Select
-              value={uploadCategory || ''}
-              label="Category (Optional)"
-              onChange={(e) => setUploadCategory(e.target.value ? Number(e.target.value) : undefined)}
-            >
-              <MenuItem value="">-- Let AI Auto-Classify --</MenuItem>
-              {categories.map((c) => (
-                <MenuItem key={c.id} value={c.id}>
-                  {c.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
           <TextField
             label="Notes / Description (Optional)"
             size="small"
@@ -1110,21 +1114,36 @@ export default function ExpensesPage() {
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Category</InputLabel>
-                    <Select
-                      value={editBillData.category_id || ''}
-                      label="Category"
-                      onChange={(e) => setEditBillData({ ...editBillData, category_id: e.target.value ? Number(e.target.value) : undefined })}
-                    >
-                      <MenuItem value="">-- Select Category --</MenuItem>
-                      {categories.map((c) => (
-                        <MenuItem key={c.id} value={c.id}>
-                          {c.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  <TextField
+                    label="Created Date"
+                    size="small"
+                    fullWidth
+                    disabled
+                    value={
+                      selectedBill.created_at
+                        ? new Date(selectedBill.created_at).toLocaleString('en-IN', {
+                            dateStyle: 'medium',
+                            timeStyle: 'short',
+                          })
+                        : '—'
+                    }
+                    InputProps={{
+                      readOnly: true,
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    label="Created By"
+                    size="small"
+                    fullWidth
+                    disabled
+                    value={selectedBill.uploaded_by_name || 'Recorded User'}
+                    InputProps={{
+                      readOnly: true,
+                    }}
+                    helperText="User recorded upon receipt upload"
+                  />
                 </Grid>
               </Grid>
 
@@ -1198,6 +1217,130 @@ export default function ExpensesPage() {
               >
                 Confirm as Ready
               </Button>
+            </Box>
+          </Box>
+        )}
+      </Drawer>
+
+      {/* CLAIM DETAIL DRAWER */}
+      <Drawer
+        anchor="right"
+        open={claimDrawerOpen}
+        onClose={() => setClaimDrawerOpen(false)}
+        PaperProps={{ sx: { width: { xs: '100%', sm: 600 }, p: 3 } }}
+      >
+        {selectedClaim && (
+          <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 2, borderBottom: '1px solid #E4EBE1' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <Typography sx={{ fontWeight: 800, fontSize: 17, color: '#023020' }}>
+                  {selectedClaim.claim_no}
+                </Typography>
+                <Chip
+                  label={selectedClaim.status.replace(/_/g, ' ')}
+                  size="small"
+                  sx={{
+                    fontWeight: 700,
+                    fontSize: 11,
+                    bgcolor: selectedClaim.status === 'PAID' ? '#DCFCE7' : selectedClaim.status === 'REJECTED' ? '#FEE2E2' : '#FEF3C7',
+                    color: selectedClaim.status === 'PAID' ? '#166534' : selectedClaim.status === 'REJECTED' ? '#991B1B' : '#92400E',
+                  }}
+                />
+              </Box>
+              <IconButton onClick={() => setClaimDrawerOpen(false)} size="small">
+                <X size={18} />
+              </IconButton>
+            </Box>
+
+            <Box sx={{ flex: 1, overflowY: 'auto', py: 2.5, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+              {/* Employee & Summary */}
+              <Paper variant="outlined" sx={{ p: 2, bgcolor: '#F8FAF8', borderColor: '#E4EBE1', borderRadius: 2 }}>
+                <Grid container spacing={1.5}>
+                  <Grid item xs={6}>
+                    <Typography sx={{ fontSize: 11, color: '#667085', fontWeight: 600, textTransform: 'uppercase' }}>
+                      Claimant
+                    </Typography>
+                    <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#16231B' }}>
+                      {selectedClaim.employee_name || 'N/A'}
+                    </Typography>
+                    <Typography sx={{ fontSize: 12, color: '#7A8B80' }}>
+                      {selectedClaim.employee_email}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6} sx={{ textAlign: 'right' }}>
+                    <Typography sx={{ fontSize: 11, color: '#667085', fontWeight: 600, textTransform: 'uppercase' }}>
+                      Total Amount
+                    </Typography>
+                    <Typography sx={{ fontSize: 20, fontWeight: 800, fontFamily: 'monospace', color: '#023020' }}>
+                      ₹{Number(selectedClaim.total_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </Typography>
+                    <Typography sx={{ fontSize: 12, color: '#7A8B80' }}>
+                      {selectedClaim.bills_count} receipt(s)
+                    </Typography>
+                  </Grid>
+                </Grid>
+              </Paper>
+
+              {/* Bundled Bills */}
+              <div>
+                <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#023020', mb: 1 }}>
+                  Bundled Receipts & Bills
+                </Typography>
+                {(!selectedClaim.bills || selectedClaim.bills.length === 0) ? (
+                  <Typography sx={{ fontSize: 12, color: '#7A8B80' }}>No bills attached.</Typography>
+                ) : (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    {selectedClaim.bills.map((b) => (
+                      <Paper key={b.id} variant="outlined" sx={{ p: 1.5, borderColor: '#E4EBE1', borderRadius: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#16231B' }}>
+                            {b.supplier_name || `Bill #${b.id}`}
+                          </Typography>
+                          <Typography sx={{ fontSize: 11, color: '#7A8B80' }}>
+                            {b.bill_date ? `Date: ${b.bill_date}` : ''} {b.bill_number ? `• No: ${b.bill_number}` : ''} • Created by: {b.uploaded_by_name || 'User'}
+                          </Typography>
+                        </div>
+                        <Typography sx={{ fontSize: 13, fontWeight: 700, fontFamily: 'monospace', color: '#023020' }}>
+                          ₹{Number(b.total_amount).toFixed(2)}
+                        </Typography>
+                      </Paper>
+                    ))}
+                  </Box>
+                )}
+              </div>
+
+              {/* Status History Timeline */}
+              {selectedClaim.status_history && selectedClaim.status_history.length > 0 && (
+                <div>
+                  <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#023020', mb: 1 }}>
+                    Approval History & Audit Trail
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    {selectedClaim.status_history.map((h) => (
+                      <Box key={h.id} sx={{ p: 1.5, bgcolor: '#F8FAF8', borderRadius: 1.5, borderLeft: '3px solid #16C47F' }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#16231B' }}>
+                            {h.from_status} → {h.to_status}
+                          </Typography>
+                          <Typography sx={{ fontSize: 11, color: '#7A8B80' }}>
+                            {new Date(h.created_at).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
+                          </Typography>
+                        </Box>
+                        {h.actor_name && (
+                          <Typography sx={{ fontSize: 11, color: '#526356', mt: 0.25 }}>
+                            Action by: {h.actor_name}
+                          </Typography>
+                        )}
+                        {h.note && (
+                          <Typography sx={{ fontSize: 12, color: '#D97706', mt: 0.5, fontStyle: 'italic' }}>
+                            "{h.note}"
+                          </Typography>
+                        )}
+                      </Box>
+                    ))}
+                  </Box>
+                </div>
+              )}
             </Box>
           </Box>
         )}

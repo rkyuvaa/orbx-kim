@@ -86,7 +86,7 @@ def _bill_to_response(bill: Bill) -> BillResponse:
         category_id=bill.category_id,
         category_name=bill.category.name if bill.category else None,
         uploaded_by_id=bill.uploaded_by_id,
-        uploaded_by_name=bill.uploaded_by.full_name if bill.uploaded_by else None,
+        uploaded_by_name=(bill.uploaded_by.full_name or bill.uploaded_by.username or bill.uploaded_by.email) if bill.uploaded_by else None,
         branch_id=bill.branch_id,
         branch_name=bill.branch.name if bill.branch else None,
         claim_id=bill.claim_id,
