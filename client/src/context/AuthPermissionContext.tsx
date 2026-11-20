@@ -189,8 +189,13 @@ export const AuthPermissionProvider: React.FC<{ children: React.ReactNode }> = (
     }
 
     if (path.startsWith('/expenses')) {
-      if (path === '/expenses/configuration') return can('view', 'expense_configuration') || user?.role === 'ADMIN';
-      return can('view', 'expenses') || true;
+      if (path === '/expenses/configuration') return can('view', 'expense_configuration');
+      return (
+        can('view', 'expenses') ||
+        can('view', 'expenses_claims') ||
+        can('view', 'expenses_approvals') ||
+        can('view', 'expenses_payouts')
+      );
     }
 
     if (path.startsWith('/admin')) {
@@ -250,6 +255,7 @@ export const AuthPermissionProvider: React.FC<{ children: React.ReactNode }> = (
     if (can('view', 'renewal_tracker')) return '/renewal/tracker';
     if (can('view', 'req_material') || can('view', 'req_it')) return '/requirements/material';
     if (can('view', 'compliance_policies')) return '/compliance/policies';
+    if (can('view', 'expenses') || can('view', 'expenses_claims')) return '/expenses';
     if (can('view', 'users') || can('view', 'roles')) return '/admin/users';
 
     // Dynamic framework fallback: first granted view resource

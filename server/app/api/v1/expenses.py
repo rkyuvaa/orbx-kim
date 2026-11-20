@@ -335,9 +335,12 @@ def serve_bill_file(
 
     candidates = [
         Path(bill.source_file_path),
-        Path("server") / bill.source_file_path,
         Path.cwd() / bill.source_file_path,
+        Path("/app") / bill.source_file_path,
+        Path("server") / bill.source_file_path,
         Path.cwd() / "server" / bill.source_file_path,
+        Path(__file__).resolve().parents[2] / bill.source_file_path,
+        Path(__file__).resolve().parents[3] / bill.source_file_path,
         Path(__file__).resolve().parents[4] / bill.source_file_path,
         Path(__file__).resolve().parents[4] / "server" / bill.source_file_path,
     ]
@@ -354,6 +357,7 @@ def serve_bill_file(
         path=str(resolved_path),
         media_type=bill.source_mime or "application/octet-stream",
         filename=os.path.basename(bill.source_file_path),
+        content_disposition_type="inline",
     )
 
 

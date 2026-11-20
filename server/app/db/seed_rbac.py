@@ -30,7 +30,8 @@ def seed_rbac_data(db: Session) -> None:
         {"name": "Vehicle Service", "code": "vehicle_service_module", "display_order": 3, "icon": "Car"},
         {"name": "Project & Task Management", "code": "project_task", "display_order": 4, "icon": "FolderPlus"},
         {"name": "HR & Employee Management", "code": "hr_employee", "display_order": 4, "icon": "Users"},
-        {"name": "Renewal Tracker", "code": "renewal_tracker_module", "display_order": 5, "icon": "RefreshCw"},
+        {"name": "Expenses & Claim Management", "code": "expenses_module", "display_order": 5, "icon": "Receipt"},
+        {"name": "Renewal Tracker", "code": "renewal_tracker_module", "display_order": 6, "icon": "RefreshCw"},
         {"name": "Requirements Management", "code": "requirements_module", "display_order": 6, "icon": "ClipboardList"},
         {"name": "KIM - Policy & Compliance", "code": "policy_compliance_module", "display_order": 7, "icon": "ShieldCheck"},
         {"name": "Administration", "code": "administration", "display_order": 8, "icon": "ShieldCheck"},
@@ -91,6 +92,13 @@ def seed_rbac_data(db: Session) -> None:
         {"module_code": "hr_employee", "name": "Self Service", "code": "hr_self_service", "display_order": 7},
         {"module_code": "hr_employee", "name": "HR Reports", "code": "hr_reports", "display_order": 8},
         {"module_code": "hr_employee", "name": "HR Configuration", "code": "hr_configuration", "display_order": 9},
+
+        # Expenses & Claim
+        {"module_code": "expenses_module", "name": "Expenses & Bills", "code": "expenses", "display_order": 1},
+        {"module_code": "expenses_module", "name": "Expense Claims", "code": "expenses_claims", "display_order": 2},
+        {"module_code": "expenses_module", "name": "Claim Approvals", "code": "expenses_approvals", "display_order": 3},
+        {"module_code": "expenses_module", "name": "Payout Batches", "code": "expenses_payouts", "display_order": 4},
+        {"module_code": "expenses_module", "name": "Expenses Configuration", "code": "expense_configuration", "display_order": 5},
 
         # Renewal Tracker
         {"module_code": "renewal_tracker_module", "name": "Renewal Tracker", "code": "renewal_tracker", "display_order": 1},
@@ -268,12 +276,12 @@ def seed_rbac_data(db: Session) -> None:
 
     # Module allocations for standard roles
     role_resource_allocations = {
-        "sales_executive": ["crm_dashboard", "leads", "opportunities", "customers", "activities", "crm_reports", "crm_configuration", "projects", "tasks", "my_tasks", "masters"],
-        "sales_manager": ["crm_dashboard", "leads", "opportunities", "customers", "activities", "crm_reports", "crm_configuration", "projects", "tasks", "my_tasks", "summary_reports", "masters"],
-        "finance_officer": ["crm_dashboard", "leads", "opportunities", "crm_reports", "summary_reports", "masters"],
-        "delivery_team": ["crm_dashboard", "leads", "opportunities", "masters"],
-        "hr_manager": ["hr_recruitment", "hr_onboarding", "hr_master", "hr_attendance", "hr_leave", "hr_payroll", "hr_self_service", "hr_reports", "hr_configuration", "masters"],
-        "employee": ["hr_self_service", "hr_attendance", "hr_leave", "my_tasks", "tasks"],
+        "sales_executive": ["crm_dashboard", "leads", "opportunities", "customers", "activities", "crm_reports", "crm_configuration", "projects", "tasks", "my_tasks", "masters", "expenses", "expenses_claims"],
+        "sales_manager": ["crm_dashboard", "leads", "opportunities", "customers", "activities", "crm_reports", "crm_configuration", "projects", "tasks", "my_tasks", "summary_reports", "masters", "expenses", "expenses_claims", "expenses_approvals"],
+        "finance_officer": ["crm_dashboard", "leads", "opportunities", "crm_reports", "summary_reports", "masters", "expenses", "expenses_claims", "expenses_approvals", "expenses_payouts", "expense_configuration"],
+        "delivery_team": ["crm_dashboard", "leads", "opportunities", "masters", "expenses", "expenses_claims"],
+        "hr_manager": ["hr_recruitment", "hr_onboarding", "hr_master", "hr_attendance", "hr_leave", "hr_payroll", "hr_self_service", "hr_reports", "hr_configuration", "masters", "expenses", "expenses_claims"],
+        "employee": ["hr_self_service", "hr_attendance", "hr_leave", "my_tasks", "tasks", "expenses", "expenses_claims"],
     }
 
     for role_code, res_codes in role_resource_allocations.items():

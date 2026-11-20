@@ -271,9 +271,17 @@ export default function Sidebar({
       const permittedItems = group.items
         .map((item) => {
           if (item.children) {
-            const validChildren = item.children.filter((child) =>
-              can('view', child.key),
-            );
+            const validChildren = item.children.filter((child) => {
+              if (child.key === 'expenses') {
+                return (
+                  can('view', 'expenses') ||
+                  can('view', 'expenses_claims') ||
+                  can('view', 'expenses_approvals') ||
+                  can('view', 'expenses_payouts')
+                );
+              }
+              return can('view', child.key);
+            });
 
             if (validChildren.length === 0) return null;
 

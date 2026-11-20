@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Paper,
@@ -52,11 +52,12 @@ import {
 } from 'lucide-react';
 import { expensesApi, Bill, Claim, Payout, PayoutEmployeeStatus, ExpenseCategory } from '@/api/expensesApi';
 import { useToast } from '@/components/ui/ToastHost';
+import { usePermission } from '@/context/AuthPermissionContext';
 
 interface TabPanelProps {
   children?: React.ReactNode;
-  index: number;
-  value: number;
+  index: string;
+  value: string;
 }
 
 function CustomTabPanel(props: TabPanelProps) {
@@ -70,7 +71,8 @@ function CustomTabPanel(props: TabPanelProps) {
 
 export default function ExpensesPage() {
   const { showToast } = useToast();
-  const [tab, setTab] = useState(0);
+  const { can } = usePermission();
+  const [tab, setTab] = useState<string>('bills');
   const [loading, setLoading] = useState(false);
 
   // Data states (Zero Demo Data rule: empty arrays by default)
@@ -122,10 +124,12 @@ export default function ExpensesPage() {
     setLoading(true);
     try {
       const [bills, claims, approvals, payoutList, confs] = await Promise.all([
-        expensesApi.getMyBills().catch(() => []),
-        expensesApi.getMyClaims().catch(() => []),
-        expensesApi.getPendingApprovals().catch(() => []),
-        expensesApi.getPayouts().catch(() => []),
+        can('view', 'expenses') ? expensesApi.getMyBills().catch(() => []) : Promise.resolve([]),
+        can('view', 'expenses_claims') ? expensesApi.getMyClaims().catch(() => []) : Promise.resolve([]),
+        (can('view', 'expenses_approvals') || can('approve', 'expenses_approvals'))
+          ? expensesApi.getPendingApprovals().catch(() => [])
+          : Promise.resolve([]),
+        can('view', 'expenses_payouts') ? expensesApi.getPayouts().catch(() => []) : Promise.resolve([]),
         expensesApi.getMyConfirmations().catch(() => []),
       ]);
       setMyBills(bills);
@@ -378,6 +382,60 @@ export default function ExpensesPage() {
   const pendingApprovalsCount = pendingApprovals.length;
   const pendingConfirmationsCount = myConfirmations.filter((c) => c.status === 'PENDING_CONFIRMATION').length;
 
+  const tabList = useMemo(() => {
+    const list: { key: string; label: React.ReactNode; icon: React.ReactElement }[] = [];
+    if (can('view', 'expenses')) {
+      list.push({ key: 'bills', label: `My Bills (${myBills.length})`, icon: <Receipt size={16} /> });
+    }
+    if (can('view', 'expenses_claims')) {
+      list.push({ key: 'claims', label: `My Claims (${myClaims.length})`, icon: <Layers size={16} /> });
+    }
+    if (can('view', 'expenses_approvals') || can('approve', 'expenses_approvals')) {
+      list.push({
+        key: 'approvals',
+        label: (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+            <span>Approvals</span>
+            {pendingApprovalsCount > 0 && (
+              <Chip
+                label={pendingApprovalsCount}
+                size="small"
+                sx={{ height: 18, fontSize: 10, bgcolor: '#FEF3C7', color: '#B45309', fontWeight: 700 }}
+              />
+            )}
+          </Box>
+        ),
+        icon: <ShieldCheck size={16} />,
+      });
+    }
+    if (can('view', 'expenses_payouts')) {
+      list.push({ key: 'payouts', label: `Payout Batches (${payouts.length})`, icon: <DollarSign size={16} /> });
+    }
+    list.push({
+      key: 'confirmations',
+      label: (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+          <span>My Confirmations</span>
+          {pendingConfirmationsCount > 0 && (
+            <Chip
+              label={pendingConfirmationsCount}
+              size="small"
+              sx={{ height: 18, fontSize: 10, bgcolor: '#DBEAFE', color: '#1E40AF', fontWeight: 700 }}
+            />
+          )}
+        </Box>
+      ),
+      icon: <CreditCard size={16} />,
+    });
+    return list;
+  }, [can, myBills.length, myClaims.length, pendingApprovalsCount, payouts.length, pendingConfirmationsCount]);
+
+  useEffect(() => {
+    if (tabList.length > 0 && !tabList.some((t) => t.key === tab)) {
+      setTab(tabList[0].key);
+    }
+  }, [tabList, tab]);
+
   return (
     <Box sx={{ pb: 6 }}>
       {/* Header */}
@@ -392,7 +450,7 @@ export default function ExpensesPage() {
         </div>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          {readyBillsCount > 0 && (
+          {readyBillsCount > 0 && can('create', 'expenses_claims') && (
             <Button
               variant="outlined"
               startIcon={<Zap size={15} className={bundlingNow ? 'animate-spin' : ''} />}
@@ -412,20 +470,22 @@ export default function ExpensesPage() {
             </Button>
           )}
 
-          <Button
-            variant="contained"
-            startIcon={<Upload size={16} />}
-            onClick={() => setUploadModalOpen(true)}
-            sx={{
-              bgcolor: '#023020',
-              '&:hover': { bgcolor: '#2A402A' },
-              borderRadius: 2,
-              fontSize: 13,
-              fontWeight: 600,
-            }}
-          >
-            Upload Bill / Receipt
-          </Button>
+          {can('create', 'expenses') && (
+            <Button
+              variant="contained"
+              startIcon={<Upload size={16} />}
+              onClick={() => setUploadModalOpen(true)}
+              sx={{
+                bgcolor: '#023020',
+                '&:hover': { bgcolor: '#2A402A' },
+                borderRadius: 2,
+                fontSize: 13,
+                fontWeight: 600,
+              }}
+            >
+              Upload Bill / Receipt
+            </Button>
+          )}
 
           <IconButton onClick={loadData} size="small" sx={{ border: '1px solid #E4EBE1', borderRadius: 2 }}>
             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
@@ -532,46 +592,14 @@ export default function ExpensesPage() {
             },
           }}
         >
-          <Tab icon={<Receipt size={16} />} iconPosition="start" label={`My Bills (${myBills.length})`} />
-          <Tab icon={<Layers size={16} />} iconPosition="start" label={`My Claims (${myClaims.length})`} />
-          <Tab
-            icon={<ShieldCheck size={16} />}
-            iconPosition="start"
-            label={
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                <span>Approvals</span>
-                {pendingApprovalsCount > 0 && (
-                  <Chip
-                    label={pendingApprovalsCount}
-                    size="small"
-                    sx={{ height: 18, fontSize: 10, bgcolor: '#FEF3C7', color: '#B45309', fontWeight: 700 }}
-                  />
-                )}
-              </Box>
-            }
-          />
-          <Tab icon={<DollarSign size={16} />} iconPosition="start" label={`Payout Batches (${payouts.length})`} />
-          <Tab
-            icon={<CreditCard size={16} />}
-            iconPosition="start"
-            label={
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                <span>My Confirmations</span>
-                {pendingConfirmationsCount > 0 && (
-                  <Chip
-                    label={pendingConfirmationsCount}
-                    size="small"
-                    sx={{ height: 18, fontSize: 10, bgcolor: '#DBEAFE', color: '#1E40AF', fontWeight: 700 }}
-                  />
-                )}
-              </Box>
-            }
-          />
+          {tabList.map((t) => (
+            <Tab key={t.key} value={t.key} icon={t.icon} iconPosition="start" label={t.label} />
+          ))}
         </Tabs>
       </Box>
 
       {/* TAB 1: MY BILLS */}
-      <CustomTabPanel value={tab} index={0}>
+      <CustomTabPanel value={tab} index="bills">
         <Paper variant="outlined" sx={{ borderColor: '#E4EBE1', borderRadius: 2.5, overflow: 'hidden' }}>
           <Table>
             <TableHead sx={{ bgcolor: '#F8FAF8' }}>
@@ -697,7 +725,7 @@ export default function ExpensesPage() {
       </CustomTabPanel>
 
       {/* TAB 2: MY CLAIMS */}
-      <CustomTabPanel value={tab} index={1}>
+      <CustomTabPanel value={tab} index="claims">
         <Paper variant="outlined" sx={{ p: 3, borderColor: '#E4EBE1', borderRadius: 2.5 }}>
           {myClaims.length === 0 ? (
             <Box sx={{ textAlign: 'center', py: 6, color: '#7A8B80' }}>
@@ -761,7 +789,7 @@ export default function ExpensesPage() {
       </CustomTabPanel>
 
       {/* TAB 3: APPROVALS */}
-      <CustomTabPanel value={tab} index={2}>
+      <CustomTabPanel value={tab} index="approvals">
         <Paper variant="outlined" sx={{ p: 3, borderColor: '#E4EBE1', borderRadius: 2.5 }}>
           {pendingApprovals.length === 0 ? (
             <Box sx={{ textAlign: 'center', py: 6, color: '#7A8B80' }}>
@@ -809,26 +837,30 @@ export default function ExpensesPage() {
                       >
                         Inspect
                       </Button>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        color="error"
-                        onClick={() => {
-                          setRejectTargetClaim(claim);
-                          setRejectModalOpen(true);
-                        }}
-                        sx={{ textTransform: 'none' }}
-                      >
-                        Reject
-                      </Button>
-                      <Button
-                        size="small"
-                        variant="contained"
-                        onClick={() => handleApproveClaim(claim.id)}
-                        sx={{ bgcolor: '#023020', '&:hover': { bgcolor: '#2A402A' }, textTransform: 'none' }}
-                      >
-                        Approve
-                      </Button>
+                      {can('approve', 'expenses_approvals') && (
+                        <>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="error"
+                            onClick={() => {
+                              setRejectTargetClaim(claim);
+                              setRejectModalOpen(true);
+                            }}
+                            sx={{ textTransform: 'none' }}
+                          >
+                            Reject
+                          </Button>
+                          <Button
+                            size="small"
+                            variant="contained"
+                            onClick={() => handleApproveClaim(claim.id)}
+                            sx={{ bgcolor: '#023020', '&:hover': { bgcolor: '#2A402A' }, textTransform: 'none' }}
+                          >
+                            Approve
+                          </Button>
+                        </>
+                      )}
                     </Box>
                   </Box>
                 </Paper>
@@ -839,7 +871,7 @@ export default function ExpensesPage() {
       </CustomTabPanel>
 
       {/* TAB 4: PAYOUTS */}
-      <CustomTabPanel value={tab} index={3}>
+      <CustomTabPanel value={tab} index="payouts">
         <Paper variant="outlined" sx={{ p: 3, borderColor: '#E4EBE1', borderRadius: 2.5 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5 }}>
             <div>
@@ -851,14 +883,16 @@ export default function ExpensesPage() {
               </Typography>
             </div>
 
-            <Button
-              variant="contained"
-              startIcon={<Plus size={16} />}
-              onClick={openCreateBatchModal}
-              sx={{ bgcolor: '#023020', '&:hover': { bgcolor: '#2A402A' }, borderRadius: 2, fontSize: 13 }}
-            >
-              Create Payout Batch
-            </Button>
+            {can('create', 'expenses_payouts') && (
+              <Button
+                variant="contained"
+                startIcon={<Plus size={16} />}
+                onClick={openCreateBatchModal}
+                sx={{ bgcolor: '#023020', '&:hover': { bgcolor: '#2A402A' }, borderRadius: 2, fontSize: 13 }}
+              >
+                Create Payout Batch
+              </Button>
+            )}
           </Box>
 
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -895,7 +929,7 @@ export default function ExpensesPage() {
                         ₹{Number(p.total_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                       </Typography>
 
-                      {p.status === 'PENDING_TRANSFER' && (
+                      {p.status === 'PENDING_TRANSFER' && can('edit', 'expenses_payouts') && (
                         <Button
                           size="small"
                           variant="contained"
@@ -926,7 +960,7 @@ export default function ExpensesPage() {
       </CustomTabPanel>
 
       {/* TAB 5: MY CONFIRMATIONS */}
-      <CustomTabPanel value={tab} index={4}>
+      <CustomTabPanel value={tab} index="confirmations">
         <Paper variant="outlined" sx={{ p: 3, borderColor: '#E4EBE1', borderRadius: 2.5 }}>
           {myConfirmations.length === 0 ? (
             <Box sx={{ textAlign: 'center', py: 6, color: '#7A8B80' }}>
