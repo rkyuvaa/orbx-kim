@@ -903,25 +903,28 @@ export default function RequirementsPage() {
     showSuccess(`${requestNo} status updated to ${newStatus.replace('_', ' ')}`);
   };
 
-  const handleUpdateStoreManagerStatus = async (currentStatus: string) => {
+  const handleUpdateStoreManagerStatus = async () => {
     if (!selectedDetailItem?.request_no) return;
 
-    const nextStatus = STORE_MANAGER_STATUS_ORDER[currentStatus];
-    if (!nextStatus) {
-      showError('No next status available for this requirement.');
-      return;
-    }
-
     try {
+      // Refetch authoritative data first so the transition is based on the
+      // true DB status, not potentially stale local state.
+      await refetchRequirements();
+
+      const fresh = requirements.find((r) => r.id === selectedDetailItem?.id);
+      const currentStatus = fresh?.status ?? selectedDetailItem.status;
+      const nextStatus = STORE_MANAGER_STATUS_ORDER[currentStatus];
+      if (!nextStatus) {
+        showError('No next status available for this requirement.');
+        return;
+      }
+
       const result = await updateStoreManagerStatus({
         request_no: selectedDetailItem.request_no,
         status: nextStatus,
       }).unwrap();
 
       if (result.ok) {
-        // Refetch from server so local state matches the authoritative DB record
-        await refetchRequirements();
-
         setRequirements((prev) =>
           prev.map((r) =>
             r.id === selectedDetailItem?.id ? { ...r, status: nextStatus } : r,
@@ -1797,7 +1800,7 @@ export default function RequirementsPage() {
                     color="primary"
                     fullWidth
                     startIcon={<Truck size={16} />}
-                    onClick={() => handleUpdateStoreManagerStatus(selectedDetailItem.status)}
+                    onClick={handleUpdateStoreManagerStatus}
                     sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600, '&:hover': { bgcolor: '#04552B' } }}
                   >
                     {STORE_MANAGER_STATUS_ORDER[selectedDetailItem.status].replace('_', ' ')}
