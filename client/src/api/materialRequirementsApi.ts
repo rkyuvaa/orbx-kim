@@ -58,6 +58,7 @@ export const materialRequirementsApi = baseApi.injectEndpoints({
         method: 'POST',
         body: { status },
       }),
+      invalidatesTags: (result, _error, _arg) => (result ? [{ type: 'AppData', id: 'crm_requirements_items_data' }] : []),
     }),
   }),
 });

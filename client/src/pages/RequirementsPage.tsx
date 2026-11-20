@@ -347,7 +347,7 @@ export default function RequirementsPage() {
   const canApprove = isSuperAdmin || can('approve', resourceCode);
 
   // Fetch initial requirements data from server (read-only, no auto-save)
-  const { data: requirementsData } = useGetAppDataQuery('crm_requirements_items_data');
+  const { data: requirementsData, refetch: refetchRequirements } = useGetAppDataQuery('crm_requirements_items_data');
   const { data: storeConfig } = useGetAppDataQuery('crm_requirements_store_incharges');
 
   // Store Manager detection: user is a store incharge if their id is in the configured user_ids list.
@@ -919,6 +919,9 @@ export default function RequirementsPage() {
       }).unwrap();
 
       if (result.ok) {
+        // Refetch from server so local state matches the authoritative DB record
+        await refetchRequirements();
+
         setRequirements((prev) =>
           prev.map((r) =>
             r.id === selectedDetailItem?.id ? { ...r, status: nextStatus } : r,
@@ -932,6 +935,8 @@ export default function RequirementsPage() {
         showError(result.message || 'Failed to update store manager status.');
       }
     } catch (err: any) {
+      // On conflict (409) or any failure, resync local state with the authoritative DB record
+      await refetchRequirements();
       showError(err?.data?.detail || err?.data?.message || 'Failed to update store manager status.');
     }
   };
