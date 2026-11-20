@@ -168,6 +168,10 @@ def _get_store_incharge_user_ids(db: Session) -> list[str]:
     value = record.value
     if isinstance(value, list):
         return [str(v) for v in value]
+    if isinstance(value, dict):
+        # Stored as {"user_ids": [...]} by the Settings → Users UI
+        user_ids = value.get("user_ids", [])
+        return [str(v) for v in user_ids]
     if isinstance(value, str):
         # Comma-separated ids
         return [v.strip() for v in value.split(",") if v.strip()]
