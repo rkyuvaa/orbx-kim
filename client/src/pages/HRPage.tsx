@@ -88,6 +88,7 @@ import {
 import { useGetUsersQuery } from '@/api/rbacApi';
 import EmployeeMaster from '@/components/hr/EmployeeMaster';
 import RecruitmentManagement from '@/components/hr/RecruitmentManagement';
+import HRConfigurationPanel from '@/components/hr/HRConfigurationPanel';
 import { formatDate, formatDateTime } from '@/utils/format';
 
 interface TabPanelProps {
@@ -1022,97 +1023,7 @@ export default function HRPage() {
 
         {/* 8. HR Configuration Tab */}
         <TabPanel value={tabValue} index={8}>
-          <Typography variant="h6" sx={{ fontWeight: 700, mb: 3 }}>HR Configuration & Policies</Typography>
-
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
-              <Card variant="outlined" sx={{ borderRadius: 2 }}>
-                <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Leave Policy Quotas (Annual)</Typography>
-                  <TextField
-                    label="Casual Leave Quota (Days)"
-                    type="number"
-                    size="small"
-                    value={configState.casualLeaveQuota}
-                    onChange={(e) => setConfigState({ ...configState, casualLeaveQuota: parseInt(e.target.value) || 0 })}
-                  />
-                  <TextField
-                    label="Sick Leave Quota (Days)"
-                    type="number"
-                    size="small"
-                    value={configState.sickLeaveQuota}
-                    onChange={(e) => setConfigState({ ...configState, sickLeaveQuota: parseInt(e.target.value) || 0 })}
-                  />
-                  <TextField
-                    label="Earned Leave Quota (Days)"
-                    type="number"
-                    size="small"
-                    value={configState.earnedLeaveQuota}
-                    onChange={(e) => setConfigState({ ...configState, earnedLeaveQuota: parseInt(e.target.value) || 0 })}
-                  />
-                </CardContent>
-              </Card>
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <Card variant="outlined" sx={{ borderRadius: 2 }}>
-                <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Shift & Attendance Rules</Typography>
-                  <Stack direction="row" spacing={2}>
-                    <TextField
-                      fullWidth
-                      label="Shift Start Time"
-                      type="time"
-                      size="small"
-                      value={configState.shiftStart}
-                      onChange={(e) => setConfigState({ ...configState, shiftStart: e.target.value })}
-                      InputLabelProps={{ shrink: true }}
-                    />
-                    <TextField
-                      fullWidth
-                      label="Shift End Time"
-                      type="time"
-                      size="small"
-                      value={configState.shiftEnd}
-                      onChange={(e) => setConfigState({ ...configState, shiftEnd: e.target.value })}
-                      InputLabelProps={{ shrink: true }}
-                    />
-                  </Stack>
-                  <TextField
-                    label="Late Mark Grace Period (Minutes)"
-                    type="number"
-                    size="small"
-                    value={configState.gracePeriodMins}
-                    onChange={(e) => setConfigState({ ...configState, gracePeriodMins: parseInt(e.target.value) || 0 })}
-                  />
-                </CardContent>
-              </Card>
-            </Grid>
-
-            <Grid item xs={12}>
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-                <Button
-                  variant="outlined"
-                  onClick={() => {
-                    setConfigState(DEFAULT_HR_CONFIG);
-                    showToast('Configuration reset to defaults', 'info');
-                  }}
-                  sx={{ textTransform: 'none', borderRadius: 2 }}
-                >
-                  Reset Defaults
-                </Button>
-                <Button
-                  variant="contained"
-                  onClick={() => {
-                    showToast('HR Configuration updated successfully', 'success');
-                  }}
-                  sx={{ bgcolor: '#16C47F', textTransform: 'none', borderRadius: 2 }}
-                >
-                  Save Settings
-                </Button>
-              </Box>
-            </Grid>
-          </Grid>
+          <HRConfigurationPanel />
         </TabPanel>
       </Box>
 

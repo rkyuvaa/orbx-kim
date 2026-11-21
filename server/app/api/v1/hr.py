@@ -545,3 +545,64 @@ def get_performance_review(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Performance review not found")
 
     return _format_performance(review)
+
+
+# ============================================================================
+# HR Configuration: Leave Policies & Shift Rules (Database-Backed)
+# ============================================================================
+
+@router.get("/configuration/leave-policies")
+def get_leave_policies(db: Session = Depends(get_db)):
+    """Fetch persistent annual leave quotas"""
+    from app.services.recruitment_ai_service import get_hr_setting
+    return {
+        "casualLeaveQuota": int(get_hr_setting(db, "casual_leave_quota", "12")),
+        "sickLeaveQuota": int(get_hr_setting(db, "sick_leave_quota", "10")),
+        "earnedLeaveQuota": int(get_hr_setting(db, "earned_leave_quota", "15")),
+    }
+
+
+@router.put("/configuration/leave-policies")
+def update_leave_policies(
+    payload: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Save persistent annual leave quotas"""
+    from app.services.recruitment_ai_service import set_hr_setting
+    if "casualLeaveQuota" in payload:
+        set_hr_setting(db, "casual_leave_quota", str(payload["casualLeaveQuota"]), "Annual Casual Leave Quota (Days)")
+    if "sickLeaveQuota" in payload:
+        set_hr_setting(db, "sick_leave_quota", str(payload["sickLeaveQuota"]), "Annual Sick Leave Quota (Days)")
+    if "earnedLeaveQuota" in payload:
+        set_hr_setting(db, "earned_leave_quota", str(payload["earnedLeaveQuota"]), "Annual Earned Leave Quota (Days)")
+    return get_leave_policies(db)
+
+
+@router.get("/configuration/shift-rules")
+def get_shift_rules(db: Session = Depends(get_db)):
+    """Fetch persistent shift and attendance rules"""
+    from app.services.recruitment_ai_service import get_hr_setting
+    return {
+        "shiftStart": get_hr_setting(db, "shift_start", "09:30"),
+        "shiftEnd": get_hr_setting(db, "shift_end", "18:30"),
+        "gracePeriodMins": int(get_hr_setting(db, "grace_period_mins", "15")),
+    }
+
+
+@router.put("/configuration/shift-rules")
+def update_shift_rules(
+    payload: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Save persistent shift and attendance rules"""
+    from app.services.recruitment_ai_service import set_hr_setting
+    if "shiftStart" in payload:
+        set_hr_setting(db, "shift_start", str(payload["shiftStart"]), "Shift Start Time")
+    if "shiftEnd" in payload:
+        set_hr_setting(db, "shift_end", str(payload["shiftEnd"]), "Shift End Time")
+    if "gracePeriodMins" in payload:
+        set_hr_setting(db, "grace_period_mins", str(payload["gracePeriodMins"]), "Late Mark Grace Period (Minutes)")
+    return get_shift_rules(db)
+

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import {
   Box,
   Button,
@@ -33,6 +33,9 @@ import {
   Tooltip,
   FormControl,
   InputLabel,
+  FormControlLabel,
+  Checkbox,
+  LinearProgress,
 } from '@mui/material';
 import {
   Plus,
@@ -60,6 +63,17 @@ import {
   Edit2,
   Trash2,
   ExternalLink,
+  Upload,
+  UploadCloud,
+  Sparkles,
+  ShieldAlert,
+  Check,
+  ThumbsUp,
+  ThumbsDown,
+  RefreshCw,
+  Bot,
+  Send,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   useGetRecruitmentKPIsQuery,
@@ -68,17 +82,37 @@ import {
   useUpdateJobRequisitionMutation,
   useDeleteJobRequisitionMutation,
   useApproveOrRejectJobRequisitionMutation,
+  useUploadJobDescriptionMutation,
+  useGenerateRequisitionRubricMutation,
+  useListJobPostingsQuery,
+  useDraftJobPostingMutation,
+  useApproveJobPostingMutation,
+  usePublishJobPostingMutation,
   useListCandidatesQuery,
+  useGetCandidateQuery,
   useCreateCandidateMutation,
   useUpdateCandidateMutation,
+  useDeleteCandidateMutation,
+  useUploadAndParseResumeMutation,
+  useBulkUploadResumesMutation,
+  useListJobApplicationsQuery,
+  useGetJobApplicationQuery,
+  useTransitionApplicationStageMutation,
+  useEvaluateCandidateAIMutation,
+  useGetCandidateEvaluationsQuery,
+  useGetCandidateInterviewsQuery,
+  useSubmitAIEvaluationFeedbackMutation,
   useTransitionCandidateStageMutation,
   useResumeCandidateRecruitmentMutation,
   useScheduleInterviewMutation,
   useUpdateCandidateOfferMutation,
   useCreateEmployeeFromCandidateMutation,
-  useDeleteCandidateMutation,
   type Candidate,
   type JobRequisition,
+  type JobPosting,
+  type CandidateAIEvaluation,
+  type Interview,
+  type JobApplication,
 } from '@/api/recruitmentApi';
 import { useGetDepartmentsQuery } from '@/api/rbacApi';
 import { useToast } from '@/components/ui/ToastHost';
@@ -151,6 +185,27 @@ export default function RecruitmentManagement() {
     req: null,
     action: 'Approve',
   });
+  const [bulkUploadDialogOpen, setBulkUploadDialogOpen] = useState(false);
+  const [publishDialogOpen, setPublishDialogOpen] = useState(false);
+  const [selectedPosting, setSelectedPosting] = useState<JobPosting | null>(null);
+
+  // Bulk Upload State
+  const [bulkUploadReqId, setBulkUploadReqId] = useState<number | undefined>(undefined);
+  const [bulkFiles, setBulkFiles] = useState<File[]>([]);
+  const [bulkConsent, setBulkConsent] = useState(true);
+  const [bulkUploadResult, setBulkUploadResult] = useState<{ total_processed: number; success_count: number; failed_count: number; errors: string[] } | null>(null);
+
+  // Resume Parsing & Consent
+  const [candConsent, setCandConsent] = useState(true);
+  const resumeInputRef = useRef<HTMLInputElement | null>(null);
+  const jdInputRef = useRef<HTMLInputElement | null>(null);
+  const bulkInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Publish Form State
+  const [publishForm, setPublishForm] = useState({
+    external_job_id: '',
+    external_post_url: 'https://indeed.com/job/',
+  });
 
   // Target stage for transition modal
   const [targetStage, setTargetStage] = useState<string>('');
@@ -169,16 +224,40 @@ export default function RecruitmentManagement() {
     candidate_source: sourceFilter !== 'All' ? sourceFilter : undefined,
   });
 
+  // Active Requisition Postings Query
+  const { data: requisitionPostings = [] } = useListJobPostingsQuery(selectedRequisition?.id ?? 0, {
+    skip: !selectedRequisition?.id,
+  });
+
+  // Active Candidate Evaluations and Interviews Queries
+  const { data: candEvaluations = [] } = useGetCandidateEvaluationsQuery(selectedCandidate?.id ?? 0, {
+    skip: !selectedCandidate?.id,
+  });
+  const { data: candInterviews = [] } = useGetCandidateInterviewsQuery(selectedCandidate?.id ?? 0, {
+    skip: !selectedCandidate?.id,
+  });
+
   // Mutations
   const [createRequisition] = useCreateJobRequisitionMutation();
   const [updateJobRequisition] = useUpdateJobRequisitionMutation();
   const [deleteJobRequisition] = useDeleteJobRequisitionMutation();
   const [approveRejectRequisition] = useApproveOrRejectJobRequisitionMutation();
+  const [uploadJobDescription, { isLoading: isUploadingJD }] = useUploadJobDescriptionMutation();
+  const [generateRubric, { isLoading: isGeneratingRubric }] = useGenerateRequisitionRubricMutation();
+  const [draftJobPosting, { isLoading: isDraftingPosting }] = useDraftJobPostingMutation();
+  const [approveJobPosting] = useApproveJobPostingMutation();
+  const [publishJobPosting] = usePublishJobPostingMutation();
+
   const [createCandidate] = useCreateCandidateMutation();
   const [updateCandidate] = useUpdateCandidateMutation();
   const [deleteCandidate] = useDeleteCandidateMutation();
   const [transitionStage] = useTransitionCandidateStageMutation();
   const [resumeCandidate] = useResumeCandidateRecruitmentMutation();
+  const [uploadAndParseResume, { isLoading: isParsingResume }] = useUploadAndParseResumeMutation();
+  const [bulkUploadResumes, { isLoading: isBulkUploading }] = useBulkUploadResumesMutation();
+  const [evaluateCandidateAI, { isLoading: isEvaluatingCandidate }] = useEvaluateCandidateAIMutation();
+  const [submitAIEvaluationFeedback] = useSubmitAIEvaluationFeedbackMutation();
+
   const [scheduleInterview] = useScheduleInterviewMutation();
   const [updateOffer] = useUpdateCandidateOfferMutation();
   const [createEmployee] = useCreateEmployeeFromCandidateMutation();
@@ -215,13 +294,15 @@ export default function RecruitmentManagement() {
   };
 
   const EMPTY_INTERVIEW_FORM = {
-    interview_type: '',
-    interview_date: '',
-    interviewer_panel: '',
-    interview_round: '',
-    interview_feedback: '',
-    interview_rating: 5,
-    interview_remarks: '',
+    round_name: 'Round 1 - Technical',
+    scheduled_at: '',
+    mode: 'ONLINE',
+    meeting_link: 'https://meet.google.com/orbx-hr',
+    location: '',
+    panel: '',
+    remarks: '',
+    notify_candidate: true,
+    notify_requester: true,
   };
 
   const EMPTY_OFFER_FORM = {
@@ -445,15 +526,144 @@ export default function RecruitmentManagement() {
   const handleScheduleInterviewSubmit = async () => {
     if (!selectedCandidate) return;
     try {
-      const updated = await scheduleInterview({
-        id: selectedCandidate.id,
-        ...interviewForm,
+      await scheduleInterview({
+        application_id: selectedCandidate.latest_application_id || selectedCandidate.id,
+        round_name: interviewForm.round_name || 'Round 1 - Technical',
+        scheduled_at: interviewForm.scheduled_at || new Date().toISOString(),
+        mode: interviewForm.mode || 'ONLINE',
+        meeting_link: interviewForm.meeting_link,
+        location: interviewForm.location,
+        panel: interviewForm.panel,
+        remarks: interviewForm.remarks,
       }).unwrap();
-      showToast('Interview scheduled successfully', 'success');
-      setSelectedCandidate(updated);
+      showToast('Interview scheduled! Candidate invitation (Email + DLT SMS) and requester alert dispatched.', 'success');
       setInterviewDialog(false);
+      setInterviewForm(EMPTY_INTERVIEW_FORM);
     } catch (err: any) {
       showToast(err?.data?.detail || 'Failed to schedule interview', 'error');
+    }
+  };
+
+  const handleJDUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedRequisition) return;
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const updated = await uploadJobDescription({ id: selectedRequisition.id, formData }).unwrap();
+      setSelectedRequisition(updated);
+      showToast('Job description uploaded and AI scoring rubric generated!', 'success');
+      if (jdInputRef.current) jdInputRef.current.value = '';
+    } catch (err: any) {
+      showToast(err?.data?.detail || 'Failed to upload job description', 'error');
+    }
+  };
+
+  const handleExtractRubric = async () => {
+    if (!selectedRequisition) return;
+    try {
+      await generateRubric(selectedRequisition.id).unwrap();
+      showToast('Scoring rubric successfully extracted and cached with AI!', 'success');
+    } catch (err: any) {
+      showToast(err?.data?.detail || 'Failed to generate scoring rubric', 'error');
+    }
+  };
+
+  const handleDraftIndeedPost = async () => {
+    if (!selectedRequisition) return;
+    try {
+      await draftJobPosting({ reqId: selectedRequisition.id, channel: 'indeed' }).unwrap();
+      showToast('AI drafted Indeed job posting successfully!', 'success');
+    } catch (err: any) {
+      showToast(err?.data?.detail || 'Failed to draft Indeed post', 'error');
+    }
+  };
+
+  const handleApprovePosting = async (postId: number) => {
+    try {
+      await approveJobPosting(postId).unwrap();
+      showToast('Indeed job posting approved by HR!', 'success');
+    } catch (err: any) {
+      showToast(err?.data?.detail || 'Failed to approve job posting', 'error');
+    }
+  };
+
+  const handlePublishPostingSubmit = async () => {
+    if (!selectedPosting) return;
+    try {
+      await publishJobPosting({
+        id: selectedPosting.id,
+        body: {
+          external_job_id: publishForm.external_job_id || `IND-${Date.now()}`,
+          external_post_url: publishForm.external_post_url,
+        },
+      }).unwrap();
+      showToast('Job posting published to Indeed successfully!', 'success');
+      setPublishDialogOpen(false);
+      setSelectedPosting(null);
+    } catch (err: any) {
+      showToast(err?.data?.detail || 'Failed to publish posting', 'error');
+    }
+  };
+
+  const handleResumeUploadAndParse = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('candidate_source', 'Direct');
+      formData.append('consent_captured', String(candConsent));
+      if (candForm.job_requisition_id) {
+        formData.append('job_requisition_id', String(candForm.job_requisition_id));
+      }
+
+      const res = await uploadAndParseResume(formData).unwrap();
+      setCandForm((prev) => ({
+        ...prev,
+        name: res.extracted_fields?.name || prev.name,
+        email: res.extracted_fields?.email || prev.email,
+        mobile: res.extracted_fields?.mobile || prev.mobile,
+        experience: res.extracted_fields?.experience || prev.experience,
+        qualification: res.extracted_fields?.qualification || prev.qualification,
+        current_company: res.extracted_fields?.current_company || prev.current_company,
+        expected_salary: res.extracted_fields?.expected_salary || prev.expected_salary,
+        resume_url: res.resume_file_url || prev.resume_url,
+      }));
+      showToast('Resume parsed with OCR & AI! Profile auto-filled.', 'success');
+      if (resumeInputRef.current) resumeInputRef.current.value = '';
+    } catch (err: any) {
+      showToast(err?.data?.detail || 'Failed to parse resume with AI', 'error');
+    }
+  };
+
+  const handleBulkUploadSubmit = async () => {
+    if (!bulkUploadReqId) {
+      showToast('Please select a Job Requisition for bulk upload', 'error');
+      return;
+    }
+    if (bulkFiles.length === 0) {
+      showToast('Please choose at least 1 resume file to upload', 'error');
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      bulkFiles.forEach((file) => formData.append('files', file));
+      formData.append('candidate_source', 'Direct');
+      formData.append('consent_captured', String(bulkConsent));
+
+      const res = await bulkUploadResumes({
+        reqId: bulkUploadReqId,
+        formData,
+      }).unwrap();
+
+      setBulkUploadResult(res);
+      showToast(`Bulk upload complete! ${res.success_count} processed, ${res.failed_count} failed.`, 'success');
+      setBulkFiles([]);
+      if (bulkInputRef.current) bulkInputRef.current.value = '';
+    } catch (err: any) {
+      showToast(err?.data?.detail || 'Bulk resume upload failed', 'error');
     }
   };
 
@@ -695,6 +905,21 @@ export default function RecruitmentManagement() {
         <Stack direction="row" spacing={1.5} alignItems="center">
           <Button
             variant="outlined"
+            startIcon={<UploadCloud size={18} />}
+            onClick={() => {
+              setBulkUploadDialogOpen(true);
+              setBulkUploadResult(null);
+              setBulkFiles([]);
+              if (reqFilter !== 'All') {
+                setBulkUploadReqId(parseInt(reqFilter));
+              }
+            }}
+            sx={{ borderColor: '#16C47F', color: '#16C47F', textTransform: 'none', borderRadius: 2 }}
+          >
+            Bulk Upload Resumes
+          </Button>
+          <Button
+            variant="outlined"
             startIcon={<Plus size={18} />}
             onClick={() => {
               setEditingReq(null);
@@ -910,9 +1135,38 @@ export default function RecruitmentManagement() {
                             {cand.job_title || 'General Pool'}
                           </Typography>
 
-                          <Typography variant="caption" sx={{ color: '#64748b', display: 'block', mb: 1 }}>
+                          <Typography variant="caption" sx={{ color: '#64748b', display: 'block', mb: 0.5 }}>
                             Exp: {cand.experience} • Exp. Salary: {cand.expected_salary || 'N/A'}
                           </Typography>
+
+                          <Stack direction="row" spacing={0.5} sx={{ mb: 1, flexWrap: 'wrap' }}>
+                            {cand.ai_match_score != null && (
+                              <Tooltip title="AI Advisory Match Score">
+                                <Chip
+                                  size="small"
+                                  icon={<Sparkles size={11} />}
+                                  label={`${cand.ai_match_score}% Match`}
+                                  sx={{
+                                    height: 20,
+                                    fontSize: 10,
+                                    fontWeight: 700,
+                                    bgcolor: cand.ai_match_score >= 80 ? '#ecfdf5' : cand.ai_match_score >= 60 ? '#fefce8' : '#fef2f2',
+                                    color: cand.ai_match_score >= 80 ? '#047857' : cand.ai_match_score >= 60 ? '#854d0e' : '#b91c1c',
+                                  }}
+                                />
+                              </Tooltip>
+                            )}
+                            {cand.ai_flagged && (
+                              <Tooltip title={`AI Security Flag: ${cand.ai_flag_reason || 'Suspicious instructions detected'}`}>
+                                <Chip
+                                  size="small"
+                                  icon={<ShieldAlert size={11} color="#b91c1c" />}
+                                  label="Security Flag"
+                                  sx={{ height: 20, fontSize: 10, fontWeight: 700, bgcolor: '#fef2f2', color: '#b91c1c' }}
+                                />
+                              </Tooltip>
+                            )}
+                          </Stack>
 
                           {cand.interview_date && (
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: '#d97706', mb: 0.5 }}>
@@ -1030,6 +1284,7 @@ export default function RecruitmentManagement() {
                 <TableCell sx={{ fontWeight: 600 }}>Job Position & Dept</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Contact Info</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Current Stage</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>AI Match</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Experience & CTC</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Source</TableCell>
                 <TableCell sx={{ fontWeight: 600 }} align="right">Actions</TableCell>
@@ -1038,7 +1293,7 @@ export default function RecruitmentManagement() {
             <TableBody>
               {candidates.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 6, color: '#64748b' }}>
+                  <TableCell colSpan={8} align="center" sx={{ py: 6, color: '#64748b' }}>
                     No candidates found. Click "Add Candidate" to populate the recruitment pipeline.
                   </TableCell>
                 </TableRow>
@@ -1081,6 +1336,33 @@ export default function RecruitmentManagement() {
                             fontWeight: 700,
                           }}
                         />
+                      </TableCell>
+                      <TableCell>
+                        <Stack direction="row" spacing={0.5} alignItems="center">
+                          {cand.ai_match_score != null ? (
+                            <Tooltip title={`AI Advisory Score: ${cand.ai_match_score}% (${cand.ai_match_category || 'Advisory'})`}>
+                              <Chip
+                                size="small"
+                                icon={<Sparkles size={11} />}
+                                label={`${cand.ai_match_score}%`}
+                                sx={{
+                                  height: 22,
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                  bgcolor: cand.ai_match_score >= 80 ? '#ecfdf5' : cand.ai_match_score >= 60 ? '#fefce8' : '#fef2f2',
+                                  color: cand.ai_match_score >= 80 ? '#047857' : cand.ai_match_score >= 60 ? '#854d0e' : '#b91c1c',
+                                }}
+                              />
+                            </Tooltip>
+                          ) : (
+                            <Typography variant="caption" sx={{ color: '#94a3b8' }}>-</Typography>
+                          )}
+                          {cand.ai_flagged && (
+                            <Tooltip title={`Prompt Injection Detected: ${cand.ai_flag_reason || 'Manual review required'}`}>
+                              <ShieldAlert size={16} color="#b91c1c" />
+                            </Tooltip>
+                          )}
+                        </Stack>
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2">{cand.experience}</Typography>
@@ -1310,6 +1592,220 @@ export default function RecruitmentManagement() {
             <Divider sx={{ mb: 2 }} />
 
             <Box sx={{ flex: 1, overflowY: 'auto', pr: 1 }}>
+              {/* Security Alert if Prompt Injection Detected */}
+              {selectedCandidate.ai_flagged && (
+                <Alert severity="error" sx={{ mb: 2.5 }} icon={<ShieldAlert size={20} />}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>AI Security Alert</Typography>
+                  <Typography variant="caption" sx={{ display: 'block' }}>
+                    Potential prompt injection or instruction override detected in resume! Reason: {selectedCandidate.ai_flag_reason || 'Instruction delimiters detected'}. Manual review required.
+                  </Typography>
+                </Alert>
+              )}
+
+              {/* AI Advisory Match Score Card */}
+              <Card variant="outlined" sx={{ p: 2, mb: 2.5, bgcolor: '#f0fdf4', borderColor: '#bbf7d0', borderRadius: 2 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                  <Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#166534' }}>
+                        AI Match Score: {selectedCandidate.ai_match_score != null ? `${selectedCandidate.ai_match_score}%` : 'Not Evaluated'}
+                      </Typography>
+                      <Chip size="small" label="AI-assisted, advisory" sx={{ bgcolor: '#eff6ff', color: '#1d4ed8', fontSize: 10, fontWeight: 700 }} />
+                    </Box>
+                    <Typography variant="caption" sx={{ color: '#475569', display: 'block' }}>
+                      Deterministic weighted scoring • Model: {candEvaluations[0]?.model_name || 'Gemini 2.5 Flash'} (Rubric v{candEvaluations[0]?.rubric_version || 1})
+                    </Typography>
+                  </Box>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    disabled={isEvaluatingCandidate || !selectedCandidate.job_requisition_id}
+                    startIcon={<Sparkles size={14} className={isEvaluatingCandidate ? 'animate-spin' : ''} />}
+                    onClick={async () => {
+                      try {
+                        await evaluateCandidateAI(selectedCandidate.id).unwrap();
+                        showToast('Candidate evaluated against requisition scoring rubric!', 'success');
+                      } catch (err: any) {
+                        showToast(err?.data?.detail || 'AI evaluation failed', 'error');
+                      }
+                    }}
+                    sx={{ bgcolor: '#16C47F', textTransform: 'none', fontSize: 11, '&:hover': { bgcolor: '#12A66C' } }}
+                  >
+                    {isEvaluatingCandidate ? 'Evaluating...' : 'Evaluate with AI'}
+                  </Button>
+                </Box>
+
+                {candEvaluations.length > 0 && candEvaluations[0] && (
+                  <Box sx={{ mt: 1.5 }}>
+                    <Grid container spacing={1} sx={{ mb: 1.5 }}>
+                      <Grid item xs={4}>
+                        <Paper variant="outlined" sx={{ p: 1, textAlign: 'center', bgcolor: '#fff' }}>
+                          <Typography variant="caption" sx={{ color: '#64748b', display: 'block' }}>Skills ({candEvaluations[0].skills_weight}%)</Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 800, color: '#047857' }}>{candEvaluations[0].skills_score}/100</Typography>
+                        </Paper>
+                      </Grid>
+                      <Grid item xs={4}>
+                        <Paper variant="outlined" sx={{ p: 1, textAlign: 'center', bgcolor: '#fff' }}>
+                          <Typography variant="caption" sx={{ color: '#64748b', display: 'block' }}>Experience ({candEvaluations[0].experience_weight}%)</Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 800, color: '#047857' }}>{candEvaluations[0].experience_score}/100</Typography>
+                        </Paper>
+                      </Grid>
+                      <Grid item xs={4}>
+                        <Paper variant="outlined" sx={{ p: 1, textAlign: 'center', bgcolor: '#fff' }}>
+                          <Typography variant="caption" sx={{ color: '#64748b', display: 'block' }}>Education ({candEvaluations[0].education_weight}%)</Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 800, color: '#047857' }}>{candEvaluations[0].education_score}/100</Typography>
+                        </Paper>
+                      </Grid>
+                    </Grid>
+
+                    {/* Matched Skills with Verbatim Evidence Quotes */}
+                    {candEvaluations[0].matched_skills && candEvaluations[0].matched_skills.length > 0 && (
+                      <Box sx={{ mb: 1.5 }}>
+                        <Typography variant="caption" sx={{ fontWeight: 700, color: '#047857', display: 'block', mb: 0.5 }}>
+                          Matched Skills (with Verbatim Resume Evidence):
+                        </Typography>
+                        <Stack spacing={0.5}>
+                          {candEvaluations[0].matched_skills.map((item: any, idx: number) => (
+                            <Box key={idx} sx={{ p: 0.75, bgcolor: '#fff', borderRadius: 1, border: '1px solid #dcfce7' }}>
+                              <Typography variant="caption" sx={{ fontWeight: 700, color: '#0f172a' }}>
+                                ✓ {item.skill}
+                              </Typography>
+                              {item.evidence && (
+                                <Typography variant="caption" sx={{ color: '#64748b', fontStyle: 'italic', display: 'block', pl: 1 }}>
+                                  "{item.evidence}"
+                                </Typography>
+                              )}
+                            </Box>
+                          ))}
+                        </Stack>
+                      </Box>
+                    )}
+
+                    {/* Missing Skills */}
+                    {candEvaluations[0].missing_skills && candEvaluations[0].missing_skills.length > 0 && (
+                      <Box sx={{ mb: 1.5 }}>
+                        <Typography variant="caption" sx={{ fontWeight: 700, color: '#b91c1c', display: 'block', mb: 0.5 }}>
+                          Missing Requisition Skills:
+                        </Typography>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                          {candEvaluations[0].missing_skills.map((s: string, idx: number) => (
+                            <Chip key={idx} label={s} size="small" variant="outlined" sx={{ borderColor: '#fca5a5', color: '#b91c1c', fontSize: 11 }} />
+                          ))}
+                        </Box>
+                      </Box>
+                    )}
+
+                    {/* Recruiter Calibration Feedback */}
+                    <Divider sx={{ my: 1 }} />
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Typography variant="caption" sx={{ color: '#475569', fontWeight: 600 }}>
+                        Recruiter Calibration: {candEvaluations[0].hr_feedback ? `Recorded (${candEvaluations[0].hr_feedback})` : 'Is this score accurate?'}
+                      </Typography>
+                      <Stack direction="row" spacing={0.5}>
+                        <Button
+                          size="small"
+                          variant={candEvaluations[0].hr_feedback === 'AGREE' ? 'contained' : 'outlined'}
+                          color="success"
+                          onClick={async () => {
+                            try {
+                              await submitAIEvaluationFeedback({ evalId: candEvaluations[0].id, hr_feedback: 'AGREE' }).unwrap();
+                              showToast('Recruiter calibration recorded: Agree', 'success');
+                            } catch (e: any) {
+                              showToast('Failed to record calibration', 'error');
+                            }
+                          }}
+                          sx={{ minWidth: 'auto', px: 1, py: 0.2, fontSize: 10, textTransform: 'none' }}
+                        >
+                          Agree
+                        </Button>
+                        <Button
+                          size="small"
+                          variant={candEvaluations[0].hr_feedback === 'TOO_HIGH' ? 'contained' : 'outlined'}
+                          color="warning"
+                          onClick={async () => {
+                            try {
+                              await submitAIEvaluationFeedback({ evalId: candEvaluations[0].id, hr_feedback: 'TOO_HIGH' }).unwrap();
+                              showToast('Recruiter calibration recorded: Too High', 'success');
+                            } catch (e: any) {
+                              showToast('Failed to record calibration', 'error');
+                            }
+                          }}
+                          sx={{ minWidth: 'auto', px: 1, py: 0.2, fontSize: 10, textTransform: 'none' }}
+                        >
+                          Too High
+                        </Button>
+                        <Button
+                          size="small"
+                          variant={candEvaluations[0].hr_feedback === 'TOO_LOW' ? 'contained' : 'outlined'}
+                          color="error"
+                          onClick={async () => {
+                            try {
+                              await submitAIEvaluationFeedback({ evalId: candEvaluations[0].id, hr_feedback: 'TOO_LOW' }).unwrap();
+                              showToast('Recruiter calibration recorded: Too Low', 'success');
+                            } catch (e: any) {
+                              showToast('Failed to record calibration', 'error');
+                            }
+                          }}
+                          sx={{ minWidth: 'auto', px: 1, py: 0.2, fontSize: 10, textTransform: 'none' }}
+                        >
+                          Too Low
+                        </Button>
+                      </Stack>
+                    </Box>
+                  </Box>
+                )}
+              </Card>
+
+              {/* Scheduled Interviews Section */}
+              <Box sx={{ mb: 2.5 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                    Interview Rounds ({candInterviews.length})
+                  </Typography>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<Calendar size={14} />}
+                    onClick={() => setInterviewDialog(true)}
+                    sx={{ textTransform: 'none', fontSize: 11, borderRadius: 1.5 }}
+                  >
+                    Schedule Interview
+                  </Button>
+                </Box>
+                {candInterviews.length === 0 ? (
+                  <Typography variant="caption" sx={{ color: '#94a3b8' }}>No interview rounds scheduled yet.</Typography>
+                ) : (
+                  <Stack spacing={1}>
+                    {candInterviews.map((inv) => (
+                      <Paper key={inv.id} variant="outlined" sx={{ p: 1.5, borderRadius: 2, bgcolor: '#f8fafc' }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#0f172a' }}>{inv.round_name}</Typography>
+                          <Chip label={inv.status} size="small" color={inv.status === 'COMPLETED' ? 'success' : inv.status === 'CONFIRMED' ? 'primary' : 'default'} sx={{ fontSize: 10, height: 20 }} />
+                        </Box>
+                        <Typography variant="caption" sx={{ color: '#64748b', display: 'block' }}>
+                          Scheduled: {formatDateTime(inv.scheduled_at)} • Mode: {inv.mode}
+                        </Typography>
+                        {inv.meeting_link && (
+                          <Typography variant="caption" sx={{ color: '#2563EB', display: 'block' }}>
+                            Link: <a href={inv.meeting_link} target="_blank" rel="noreferrer">{inv.meeting_link}</a>
+                          </Typography>
+                        )}
+                        {inv.invite_sent_at && (
+                          <Typography variant="caption" sx={{ color: '#047857', display: 'block', mt: 0.5 }}>
+                            ✓ Candidate Invitation Dispatched via Email & DLT SMS ({formatDateTime(inv.invite_sent_at)})
+                          </Typography>
+                        )}
+                        {inv.requester_notified_at && (
+                          <Typography variant="caption" sx={{ color: '#475569', display: 'block' }}>
+                            ✓ Job Requester Notified ({formatDateTime(inv.requester_notified_at)})
+                          </Typography>
+                        )}
+                      </Paper>
+                    ))}
+                  </Stack>
+                )}
+              </Box>
+
               {/* Quick Stage Transition Dropdown */}
               <Card variant="outlined" sx={{ p: 2, mb: 3, bgcolor: '#f8fafc', borderRadius: 2 }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>Move Candidate Stage</Typography>
@@ -1541,11 +2037,45 @@ export default function RecruitmentManagement() {
                 {selectedRequisition.job_description && (
                   <Grid item xs={12}>
                     <Typography variant="caption" sx={{ color: '#64748b' }}>Job Description:</Typography>
-                    <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', color: '#334155' }}>
+                    <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', color: '#334155', bgcolor: '#f8fafc', p: 1.5, borderRadius: 1.5, border: '1px solid #e2e8f0' }}>
                       {selectedRequisition.job_description}
                     </Typography>
                   </Grid>
                 )}
+
+                {/* JD Attachment and Upload Section */}
+                <Grid item xs={12}>
+                  <Box sx={{ p: 1.5, bgcolor: '#f1f5f9', borderRadius: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Box>
+                      <Typography variant="caption" sx={{ fontWeight: 700, color: '#334155', display: 'block' }}>
+                        {selectedRequisition.jd_attachment_name ? `JD Document: ${selectedRequisition.jd_attachment_name}` : 'No JD File Attached'}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: '#64748b' }}>
+                        {selectedRequisition.extracted_jd_text ? 'Text extracted via OCR & parsed' : 'Upload PDF/DOCX to extract text and generate scoring rubric'}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <input
+                        type="file"
+                        ref={jdInputRef}
+                        accept=".pdf,.docx,.txt"
+                        style={{ display: 'none' }}
+                        onChange={handleJDUpload}
+                      />
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        disabled={isUploadingJD}
+                        startIcon={<Upload size={14} className={isUploadingJD ? 'animate-spin' : ''} />}
+                        onClick={() => jdInputRef.current?.click()}
+                        sx={{ textTransform: 'none', fontSize: 11, bgcolor: '#fff' }}
+                      >
+                        {isUploadingJD ? 'Uploading...' : 'Upload JD File'}
+                      </Button>
+                    </Box>
+                  </Box>
+                </Grid>
+
                 {selectedRequisition.status === 'Rejected' && selectedRequisition.rejection_reason && (
                   <Grid item xs={12}>
                     <Alert severity="error">
@@ -1555,10 +2085,205 @@ export default function RecruitmentManagement() {
                 )}
               </Grid>
 
+              {/* AI Scoring Rubric Card */}
+              <Card variant="outlined" sx={{ p: 2, mb: 3, bgcolor: '#f8fafc', borderRadius: 2 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#0f172a' }}>
+                      Scoring Rubric {selectedRequisition.rubric_version ? `(v${selectedRequisition.rubric_version})` : ''}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: '#64748b' }}>
+                      Single cached rubric used to score all incoming applicants
+                    </Typography>
+                  </Box>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    disabled={isGeneratingRubric}
+                    startIcon={<RefreshCw size={12} className={isGeneratingRubric ? 'animate-spin' : ''} />}
+                    onClick={handleExtractRubric}
+                    sx={{ textTransform: 'none', fontSize: 11 }}
+                  >
+                    {isGeneratingRubric ? 'Extracting...' : 'Extract AI Rubric'}
+                  </Button>
+                </Box>
+
+                {selectedRequisition.scoring_rubric ? (
+                  <Stack spacing={1.5}>
+                    {/* Must-Haves */}
+                    <Box>
+                      <Typography variant="caption" sx={{ fontWeight: 700, color: '#047857', display: 'block', mb: 0.5 }}>
+                        Must-Have Skills:
+                      </Typography>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                        {((selectedRequisition.scoring_rubric as any).must_have_skills || []).map((s: string, idx: number) => (
+                          <Chip key={idx} label={s} size="small" sx={{ bgcolor: '#ecfdf5', color: '#047857', fontWeight: 600, fontSize: 11 }} />
+                        ))}
+                      </Box>
+                    </Box>
+
+                    {/* Nice-To-Haves */}
+                    {((selectedRequisition.scoring_rubric as any).nice_to_have_skills || []).length > 0 && (
+                      <Box>
+                        <Typography variant="caption" sx={{ fontWeight: 700, color: '#1d4ed8', display: 'block', mb: 0.5 }}>
+                          Nice-to-Have Skills:
+                        </Typography>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                          {((selectedRequisition.scoring_rubric as any).nice_to_have_skills || []).map((s: string, idx: number) => (
+                            <Chip key={idx} label={s} size="small" sx={{ bgcolor: '#eff6ff', color: '#1d4ed8', fontSize: 11 }} />
+                          ))}
+                        </Box>
+                      </Box>
+                    )}
+
+                    {/* Knockouts */}
+                    {((selectedRequisition.scoring_rubric as any).knockout_criteria || []).length > 0 && (
+                      <Box>
+                        <Typography variant="caption" sx={{ fontWeight: 700, color: '#b91c1c', display: 'block', mb: 0.5 }}>
+                          Knockout Criteria:
+                        </Typography>
+                        <Stack spacing={0.3}>
+                          {((selectedRequisition.scoring_rubric as any).knockout_criteria || []).map((k: string, idx: number) => (
+                            <Typography key={idx} variant="caption" sx={{ color: '#475569' }}>
+                              • {k}
+                            </Typography>
+                          ))}
+                        </Stack>
+                      </Box>
+                    )}
+                  </Stack>
+                ) : (
+                  <Paper variant="outlined" sx={{ p: 2, textAlign: 'center', bgcolor: '#fff' }}>
+                    <Typography variant="caption" sx={{ color: '#94a3b8' }}>
+                      No rubric generated yet. Upload a JD or click "Extract AI Rubric" to parse.
+                    </Typography>
+                  </Paper>
+                )}
+              </Card>
+
+              {/* Multi-Channel Postings (Indeed) Card */}
+              <Card variant="outlined" sx={{ p: 2, mb: 3, bgcolor: '#f8fafc', borderRadius: 2 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#0f172a' }}>
+                      Portal Postings (Indeed)
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: '#64748b' }}>
+                      AI drafts posting content for HR review and publishing
+                    </Typography>
+                  </Box>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    disabled={isDraftingPosting}
+                    startIcon={<Sparkles size={14} className={isDraftingPosting ? 'animate-spin' : ''} />}
+                    onClick={handleDraftIndeedPost}
+                    sx={{ bgcolor: '#2563EB', textTransform: 'none', fontSize: 11, '&:hover': { bgcolor: '#1d4ed8' } }}
+                  >
+                    {isDraftingPosting ? 'Drafting...' : 'Draft with AI'}
+                  </Button>
+                </Box>
+
+                {requisitionPostings.length === 0 ? (
+                  <Paper variant="outlined" sx={{ p: 2, textAlign: 'center', bgcolor: '#fff' }}>
+                    <Typography variant="caption" sx={{ color: '#94a3b8' }}>
+                      No job postings created for this requisition yet. Click "Draft with AI" to generate an Indeed posting.
+                    </Typography>
+                  </Paper>
+                ) : (
+                  <Stack spacing={1.5}>
+                    {requisitionPostings.map((post) => (
+                      <Paper key={post.id} variant="outlined" sx={{ p: 1.5, borderRadius: 2, bgcolor: '#fff' }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                          <Chip label={post.channel.toUpperCase()} size="small" sx={{ fontWeight: 700 }} />
+                          <Chip
+                            label={post.status}
+                            size="small"
+                            color={post.status === 'POSTED' ? 'success' : post.status === 'HR_APPROVED' ? 'primary' : 'warning'}
+                            sx={{ fontWeight: 700, fontSize: 10, height: 20 }}
+                          />
+                        </Box>
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            color: '#334155',
+                            whiteSpace: 'pre-wrap',
+                            maxHeight: 100,
+                            overflowY: 'auto',
+                            display: 'block',
+                            bgcolor: '#f8fafc',
+                            p: 1,
+                            borderRadius: 1,
+                            mb: 1,
+                          }}
+                        >
+                          {post.draft_content}
+                        </Typography>
+                        <Stack direction="row" spacing={1} justifyContent="flex-end">
+                          {post.status === 'DRAFTED' && (
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              color="primary"
+                              onClick={() => handleApprovePosting(post.id)}
+                              sx={{ textTransform: 'none', fontSize: 11 }}
+                            >
+                              Approve Draft
+                            </Button>
+                          )}
+                          {post.status === 'HR_APPROVED' && (
+                            <Button
+                              size="small"
+                              variant="contained"
+                              color="success"
+                              onClick={() => {
+                                setSelectedPosting(post);
+                                setPublishDialogOpen(true);
+                              }}
+                              sx={{ textTransform: 'none', fontSize: 11 }}
+                            >
+                              Publish to Indeed
+                            </Button>
+                          )}
+                          {post.status === 'POSTED' && post.external_post_url && (
+                            <Button
+                              size="small"
+                              variant="text"
+                              startIcon={<ExternalLink size={12} />}
+                              href={post.external_post_url}
+                              target="_blank"
+                              sx={{ textTransform: 'none', fontSize: 11 }}
+                            >
+                              View Posting
+                            </Button>
+                          )}
+                        </Stack>
+                      </Paper>
+                    ))}
+                  </Stack>
+                )}
+              </Card>
+
               {/* Linked Candidates Section */}
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
-                Linked Candidates ({candidates.filter((c) => c.job_requisition_id === selectedRequisition.id).length})
-              </Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  Linked Candidates ({candidates.filter((c) => c.job_requisition_id === selectedRequisition.id).length})
+                </Typography>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<UploadCloud size={14} />}
+                  onClick={() => {
+                    setBulkUploadReqId(selectedRequisition.id);
+                    setBulkFiles([]);
+                    setBulkUploadResult(null);
+                    setBulkUploadDialogOpen(true);
+                  }}
+                  sx={{ textTransform: 'none', fontSize: 11, borderColor: '#16C47F', color: '#16C47F' }}
+                >
+                  Bulk Upload Resumes
+                </Button>
+              </Box>
               <Stack spacing={1}>
                 {candidates.filter((c) => c.job_requisition_id === selectedRequisition.id).length === 0 ? (
                   <Typography variant="caption" sx={{ color: '#94a3b8' }}>No candidates linked to this requisition yet.</Typography>
@@ -1721,6 +2446,48 @@ export default function RecruitmentManagement() {
           {editingCand ? 'Edit Candidate Profile' : 'Add New Candidate'}
         </DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
+          {/* AI Resume Parser Banner */}
+          {!editingCand && (
+            <Paper
+              variant="outlined"
+              sx={{
+                p: 2,
+                mb: 2,
+                bgcolor: '#f0fdf4',
+                border: '1.5px dashed #86efac',
+                borderRadius: 2,
+                textAlign: 'center',
+              }}
+            >
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                <Bot size={26} color="#16C47F" />
+                <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#166534' }}>
+                  Auto-Fill from Resume (OCR & AI Extraction)
+                </Typography>
+                <Typography variant="caption" sx={{ color: '#475569' }}>
+                  Upload PDF or image to extract candidate details and auto-populate this form.
+                </Typography>
+                <input
+                  type="file"
+                  ref={resumeInputRef}
+                  accept=".pdf,.png,.jpg,.jpeg,.docx"
+                  style={{ display: 'none' }}
+                  onChange={handleResumeUploadAndParse}
+                />
+                <Button
+                  size="small"
+                  variant="contained"
+                  disabled={isParsingResume}
+                  startIcon={<Upload size={14} className={isParsingResume ? 'animate-spin' : ''} />}
+                  onClick={() => resumeInputRef.current?.click()}
+                  sx={{ bgcolor: '#16C47F', textTransform: 'none', fontSize: 11, '&:hover': { bgcolor: '#12A66C' } }}
+                >
+                  {isParsingResume ? 'Extracting with OCR & AI...' : 'Upload & Auto-Fill Resume'}
+                </Button>
+              </Box>
+            </Paper>
+          )}
+
           <FormControl fullWidth margin="normal" size="small">
             <InputLabel>Job Requisition</InputLabel>
             <Select
@@ -1820,6 +2587,7 @@ export default function RecruitmentManagement() {
               label="Candidate Source"
               onChange={(e) => setCandForm({ ...candForm, candidate_source: e.target.value })}
             >
+              <MenuItem value="Indeed">Indeed (Job Portal)</MenuItem>
               <MenuItem value="LinkedIn">LinkedIn</MenuItem>
               <MenuItem value="Job Portal">Job Portal</MenuItem>
               <MenuItem value="Referral">Employee Referral</MenuItem>
@@ -1827,6 +2595,23 @@ export default function RecruitmentManagement() {
               <MenuItem value="Direct">Direct Application</MenuItem>
             </Select>
           </FormControl>
+
+          {/* India DPDP Act 2023 Consent Checkbox */}
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={candConsent}
+                onChange={(e) => setCandConsent(e.target.checked)}
+                color="success"
+              />
+            }
+            label={
+              <Typography variant="caption" sx={{ color: '#475569' }}>
+                <strong>DPDP Act 2023 Consent:</strong> Candidate consented to automated recruitment screening and data processing.
+              </Typography>
+            }
+            sx={{ mt: 1 }}
+          />
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={() => setCreateCandidateDialog(false)}>Cancel</Button>
@@ -1891,43 +2676,103 @@ export default function RecruitmentManagement() {
         <DialogContent sx={{ pt: 2 }}>
           <TextField
             fullWidth
-            label="Interview Type"
-            value={interviewForm.interview_type}
-            onChange={(e) => setInterviewForm({ ...interviewForm, interview_type: e.target.value })}
+            label="Interview Round *"
+            value={interviewForm.round_name}
+            onChange={(e) => setInterviewForm({ ...interviewForm, round_name: e.target.value })}
             margin="normal"
             size="small"
           />
           <TextField
             fullWidth
-            label="Interview Date & Time"
+            label="Interview Date & Time *"
             type="datetime-local"
-            value={interviewForm.interview_date}
-            onChange={(e) => setInterviewForm({ ...interviewForm, interview_date: e.target.value })}
+            value={interviewForm.scheduled_at}
+            onChange={(e) => setInterviewForm({ ...interviewForm, scheduled_at: e.target.value })}
             margin="normal"
             size="small"
             InputLabelProps={{ shrink: true }}
           />
+          <Grid container spacing={2}>
+            <Grid item xs={6}>
+              <FormControl fullWidth margin="normal" size="small">
+                <InputLabel>Mode</InputLabel>
+                <Select
+                  value={interviewForm.mode}
+                  label="Mode"
+                  onChange={(e) => setInterviewForm({ ...interviewForm, mode: e.target.value })}
+                >
+                  <MenuItem value="ONLINE">Online (Video Call)</MenuItem>
+                  <MenuItem value="IN_PERSON">In-Person (On-site)</MenuItem>
+                  <MenuItem value="PHONE">Phone Call</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={6}>
+              <TextField
+                fullWidth
+                label="Interviewer / Panel"
+                value={interviewForm.panel}
+                onChange={(e) => setInterviewForm({ ...interviewForm, panel: e.target.value })}
+                margin="normal"
+                size="small"
+              />
+            </Grid>
+          </Grid>
+          {interviewForm.mode === 'ONLINE' ? (
+            <TextField
+              fullWidth
+              label="Meeting Link (Google Meet / Zoom)"
+              value={interviewForm.meeting_link}
+              onChange={(e) => setInterviewForm({ ...interviewForm, meeting_link: e.target.value })}
+              margin="normal"
+              size="small"
+            />
+          ) : (
+            <TextField
+              fullWidth
+              label="Location / Office Room"
+              value={interviewForm.location}
+              onChange={(e) => setInterviewForm({ ...interviewForm, location: e.target.value })}
+              margin="normal"
+              size="small"
+            />
+          )}
           <TextField
             fullWidth
-            label="Interviewer / Panel"
-            value={interviewForm.interviewer_panel}
-            onChange={(e) => setInterviewForm({ ...interviewForm, interviewer_panel: e.target.value })}
+            label="Interviewer Remarks / Prep Notes"
+            multiline
+            rows={2}
+            value={interviewForm.remarks}
+            onChange={(e) => setInterviewForm({ ...interviewForm, remarks: e.target.value })}
             margin="normal"
             size="small"
           />
-          <TextField
-            fullWidth
-            label="Interview Round"
-            value={interviewForm.interview_round}
-            onChange={(e) => setInterviewForm({ ...interviewForm, interview_round: e.target.value })}
-            margin="normal"
-            size="small"
-          />
+
+          {/* Dual Notifications Preview Banner */}
+          <Paper variant="outlined" sx={{ p: 1.5, mt: 2, bgcolor: '#f8fafc', borderRadius: 2 }}>
+            <Typography variant="caption" sx={{ fontWeight: 800, color: '#0f172a', display: 'block', mb: 0.5 }}>
+              Automated Dual Notifications Dispatched on Confirmation:
+            </Typography>
+            <Stack spacing={0.5}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <CheckCircle2 size={14} color="#047857" />
+                <Typography variant="caption" sx={{ color: '#334155' }}>
+                  <strong>Candidate Invitation:</strong> Email with calendar invite + <strong>Telecom DLT SMS</strong> (Sender: <code>ORBXHR</code>, Template: <code>INTV_SCHED_01</code>).
+                </Typography>
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <CheckCircle2 size={14} color="#047857" />
+                <Typography variant="caption" sx={{ color: '#334155' }}>
+                  <strong>Job Requester Alert:</strong> Email alert and in-app alert to requisition owner.
+                </Typography>
+              </Box>
+            </Stack>
+          </Paper>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={() => setInterviewDialog(false)}>Cancel</Button>
           <Button onClick={handleScheduleInterviewSubmit} variant="contained" sx={{ bgcolor: '#16C47F' }}>
-            Schedule & Move to Interview
+            Schedule & Send Invitations
           </Button>
         </DialogActions>
       </Dialog>
@@ -2079,6 +2924,179 @@ export default function RecruitmentManagement() {
           </Button>
           <Button onClick={handleConfirmDelete} variant="contained" color="error">
             Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog: Bulk Resume Upload & AI OCR Ingestion */}
+      <Dialog open={bulkUploadDialogOpen} onClose={() => setBulkUploadDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>
+          Bulk Resume Upload & AI Ingestion
+        </DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <Typography variant="body2" sx={{ color: '#64748b', mb: 2 }}>
+            Upload multiple candidate resumes (PDF, PNG, JPG, DOCX). The system will extract text with OCR, strip PII, and match against the requisition scoring rubric.
+          </Typography>
+
+          <FormControl fullWidth margin="normal" size="small">
+            <InputLabel>Target Job Requisition *</InputLabel>
+            <Select
+              value={bulkUploadReqId || ''}
+              label="Target Job Requisition *"
+              onChange={(e) => setBulkUploadReqId(Number(e.target.value))}
+            >
+              {requisitions.map((r) => (
+                <MenuItem key={r.id} value={r.id}>
+                  {r.job_title} ({r.req_code}) - {r.department}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          {/* Multi-file input zone */}
+          <Paper
+            variant="outlined"
+            sx={{
+              p: 3,
+              mt: 2,
+              mb: 2,
+              bgcolor: '#f8fafc',
+              border: '2px dashed #cbd5e1',
+              borderRadius: 2,
+              textAlign: 'center',
+              cursor: 'pointer',
+              '&:hover': { borderColor: '#16C47F' },
+            }}
+            onClick={() => bulkInputRef.current?.click()}
+          >
+            <UploadCloud size={36} color="#16C47F" style={{ margin: '0 auto 8px' }} />
+            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+              Click to browse or drag and drop resumes
+            </Typography>
+            <Typography variant="caption" sx={{ color: '#64748b' }}>
+              Supports batch of 1 to 30 files (.pdf, .png, .jpg, .docx)
+            </Typography>
+            <input
+              type="file"
+              ref={bulkInputRef}
+              multiple
+              accept=".pdf,.png,.jpg,.jpeg,.docx"
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const files = Array.from(e.target.files || []);
+                setBulkFiles(files);
+                setBulkUploadResult(null);
+              }}
+            />
+          </Paper>
+
+          {/* Selected files preview */}
+          {bulkFiles.length > 0 && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="caption" sx={{ fontWeight: 700, color: '#334155', display: 'block', mb: 0.5 }}>
+                Selected Files ({bulkFiles.length}):
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, maxHeight: 120, overflowY: 'auto' }}>
+                {bulkFiles.map((f, i) => (
+                  <Chip
+                    key={i}
+                    label={`${f.name} (${(f.size / 1024).toFixed(0)} KB)`}
+                    size="small"
+                    onDelete={() => setBulkFiles(bulkFiles.filter((_, idx) => idx !== i))}
+                  />
+                ))}
+              </Box>
+            </Box>
+          )}
+
+          {/* DPDP Consent */}
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={bulkConsent}
+                onChange={(e) => setBulkConsent(e.target.checked)}
+                color="success"
+              />
+            }
+            label={
+              <Typography variant="caption" sx={{ color: '#475569' }}>
+                <strong>India DPDP Act 2023 Compliance:</strong> Explicit consent captured from all candidates for automated processing, OCR text extraction, and advisory AI screening.
+              </Typography>
+            }
+          />
+
+          {isBulkUploading && (
+            <Box sx={{ mt: 2 }}>
+              <LinearProgress color="success" />
+              <Typography variant="caption" sx={{ color: '#16C47F', fontWeight: 600, display: 'block', mt: 1, textAlign: 'center' }}>
+                Processing resumes with OCR and indexing candidates...
+              </Typography>
+            </Box>
+          )}
+
+          {/* Results Summary */}
+          {bulkUploadResult && (
+            <Alert
+              severity={bulkUploadResult.failed_count === 0 ? 'success' : 'warning'}
+              sx={{ mt: 2 }}
+            >
+              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                Processing Complete: {bulkUploadResult.success_count} Succeeded, {bulkUploadResult.failed_count} Failed
+              </Typography>
+              {bulkUploadResult.errors && bulkUploadResult.errors.length > 0 && (
+                <Stack spacing={0.3} sx={{ mt: 1 }}>
+                  {bulkUploadResult.errors.map((err, i) => (
+                    <Typography key={i} variant="caption" sx={{ color: '#b91c1c' }}>
+                      • {err}
+                    </Typography>
+                  ))}
+                </Stack>
+              )}
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setBulkUploadDialogOpen(false)}>Close</Button>
+          <Button
+            onClick={handleBulkUploadSubmit}
+            variant="contained"
+            disabled={isBulkUploading || bulkFiles.length === 0}
+            sx={{ bgcolor: '#16C47F', '&:hover': { bgcolor: '#12A66C' } }}
+          >
+            {isBulkUploading ? 'Uploading...' : `Upload & Process ${bulkFiles.length} Resumes`}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog: Publish Job Posting to Indeed */}
+      <Dialog open={publishDialogOpen} onClose={() => setPublishDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>Publish to Indeed Portal</DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <Typography variant="body2" sx={{ color: '#475569', mb: 2 }}>
+            Provide the live Indeed job reference or confirm publishing to set posting status to POSTED.
+          </Typography>
+          <TextField
+            fullWidth
+            label="External Job Reference ID"
+            value={publishForm.external_job_id}
+            onChange={(e) => setPublishForm({ ...publishForm, external_job_id: e.target.value })}
+            placeholder="e.g. IND-2026-9812"
+            margin="normal"
+            size="small"
+          />
+          <TextField
+            fullWidth
+            label="Indeed Job URL"
+            value={publishForm.external_post_url}
+            onChange={(e) => setPublishForm({ ...publishForm, external_post_url: e.target.value })}
+            margin="normal"
+            size="small"
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setPublishDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handlePublishPostingSubmit} variant="contained" sx={{ bgcolor: '#16C47F' }}>
+            Confirm Publish
           </Button>
         </DialogActions>
       </Dialog>
