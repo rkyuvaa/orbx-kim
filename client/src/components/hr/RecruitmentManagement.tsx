@@ -336,6 +336,9 @@ export default function RecruitmentManagement() {
     requisitions.forEach((r) => {
       if (r.department) set.add(r.department);
     });
+    if (set.size === 0) {
+      ['Engineering', 'Sales', 'Finance', 'HR & Admin', 'Operations', 'IT & Systems'].forEach((d) => set.add(d));
+    }
     return Array.from(set);
   }, [systemDepartments, requisitions]);
 
@@ -410,23 +413,45 @@ export default function RecruitmentManagement() {
   };
 
   const handleSaveRequisition = async () => {
-    if (!reqForm.job_title || !reqForm.department) {
+    if (!reqForm.job_title?.trim() || !reqForm.department?.trim()) {
       showToast('Please fill required job title and department', 'error');
       return;
     }
     try {
+      const payload: any = {
+        job_title: reqForm.job_title.trim(),
+        department: reqForm.department.trim(),
+        vacancies: Number(reqForm.vacancies) || 1,
+        employment_type: reqForm.employment_type || 'Full Time',
+        required_qualification: reqForm.required_qualification || 'Not Specified',
+        required_experience: reqForm.required_experience || 'Not Specified',
+        skills: reqForm.skills || 'General',
+        salary_range: reqForm.salary_range || 'Competitive',
+        job_description: reqForm.job_description?.trim() || `${reqForm.job_title} for ${reqForm.department}`,
+        requesting_department: reqForm.requesting_department || reqForm.department,
+      };
+      if (reqForm.preferred_joining_date && reqForm.preferred_joining_date.trim() !== '') {
+        payload.preferred_joining_date = reqForm.preferred_joining_date;
+      }
+
       if (editingReq) {
-        await updateJobRequisition({ id: editingReq.id, body: reqForm }).unwrap();
+        await updateJobRequisition({ id: editingReq.id, body: payload }).unwrap();
         showToast('Job Requisition updated successfully', 'success');
       } else {
-        await createRequisition(reqForm).unwrap();
+        await createRequisition(payload).unwrap();
         showToast('Job Requisition created and submitted for approval', 'success');
       }
       setCreateReqDialog(false);
       setEditingReq(null);
       setReqForm(EMPTY_REQ_FORM);
     } catch (err: any) {
-      showToast(err?.data?.detail || 'Failed to save job requisition', 'error');
+      let errorMsg = 'Failed to save job requisition';
+      if (typeof err?.data?.detail === 'string') {
+        errorMsg = err.data.detail;
+      } else if (Array.isArray(err?.data?.detail)) {
+        errorMsg = err.data.detail.map((e: any) => `${e.loc?.slice(-1)[0] || 'Field'}: ${e.msg}`).join(', ');
+      }
+      showToast(errorMsg, 'error');
     }
   };
 
@@ -470,7 +495,13 @@ export default function RecruitmentManagement() {
       setEditingCand(null);
       setCandForm(EMPTY_CAND_FORM);
     } catch (err: any) {
-      showToast(err?.data?.detail || 'Failed to save candidate', 'error');
+      let errorMsg = 'Failed to save candidate';
+      if (typeof err?.data?.detail === 'string') {
+        errorMsg = err.data.detail;
+      } else if (Array.isArray(err?.data?.detail)) {
+        errorMsg = err.data.detail.map((e: any) => `${e.loc?.slice(-1)[0] || 'Field'}: ${e.msg}`).join(', ');
+      }
+      showToast(errorMsg, 'error');
     }
   };
 
@@ -2413,14 +2444,30 @@ export default function RecruitmentManagement() {
             margin="normal"
             size="small"
           />
-          <TextField
-            fullWidth
-            label="Salary Range"
-            value={reqForm.salary_range}
-            onChange={(e) => setReqForm({ ...reqForm, salary_range: e.target.value })}
-            margin="normal"
-            size="small"
-          />
+          <Grid container spacing={2}>
+            <Grid item xs={6}>
+              <TextField
+                fullWidth
+                label="Salary Range"
+                value={reqForm.salary_range}
+                onChange={(e) => setReqForm({ ...reqForm, salary_range: e.target.value })}
+                margin="normal"
+                size="small"
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField
+                fullWidth
+                label="Preferred Joining Date"
+                type="date"
+                value={reqForm.preferred_joining_date}
+                onChange={(e) => setReqForm({ ...reqForm, preferred_joining_date: e.target.value })}
+                margin="normal"
+                size="small"
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+          </Grid>
           <TextField
             fullWidth
             label="Job Description"

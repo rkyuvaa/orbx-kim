@@ -1,6 +1,6 @@
 from datetime import datetime, date
 from typing import Optional, List, Any, Dict
-from pydantic import BaseModel, ConfigDict, Field, EmailStr
+from pydantic import BaseModel, ConfigDict, Field, EmailStr, field_validator
 
 
 # ============================================================================
@@ -12,13 +12,32 @@ class JobRequisitionBase(BaseModel):
     department: str = Field(..., min_length=2, max_length=100)
     vacancies: int = Field(1, ge=1)
     employment_type: str = Field("Full Time", max_length=50)
-    required_qualification: str = Field(..., max_length=200)
-    required_experience: str = Field(..., max_length=100)
-    skills: str = Field(..., max_length=500)
-    salary_range: str = Field(..., max_length=100)
+    required_qualification: Optional[str] = "Not Specified"
+    required_experience: Optional[str] = "Not Specified"
+    skills: Optional[str] = "General"
+    salary_range: Optional[str] = "Competitive"
     preferred_joining_date: Optional[date] = None
-    job_description: str = Field(..., min_length=5)
-    requesting_department: str = Field(..., max_length=100)
+    job_description: Optional[str] = ""
+    requesting_department: Optional[str] = None
+
+    @field_validator("preferred_joining_date", mode="before")
+    @classmethod
+    def parse_preferred_joining_date(cls, v: Any) -> Optional[date]:
+        if not v or v == "":
+            return None
+        if isinstance(v, str):
+            try:
+                return date.fromisoformat(v[:10])
+            except Exception:
+                return None
+        return v
+
+    @field_validator("requesting_department", mode="before")
+    @classmethod
+    def parse_requesting_department(cls, v: Any, info) -> str:
+        if not v:
+            return (info.data.get("department") if info.data else None) or "HR"
+        return str(v)
 
 
 class JobRequisitionCreate(JobRequisitionBase):
@@ -37,6 +56,18 @@ class JobRequisitionUpdate(BaseModel):
     preferred_joining_date: Optional[date] = None
     job_description: Optional[str] = None
     requesting_department: Optional[str] = None
+
+    @field_validator("preferred_joining_date", mode="before")
+    @classmethod
+    def parse_preferred_joining_date(cls, v: Any) -> Optional[date]:
+        if not v or v == "":
+            return None
+        if isinstance(v, str):
+            try:
+                return date.fromisoformat(v[:10])
+            except Exception:
+                return None
+        return v
 
 
 class JobRequisitionApproveReject(BaseModel):
