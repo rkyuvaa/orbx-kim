@@ -44,7 +44,10 @@ export default function Topbar({ onToggleSidebar, isMobile, isSidebarCollapsed }
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const user = useAppSelector((state) => state.auth.user);
-  const { data: dashboard } = useDashboardQuery();
+  const { data: dashboard } = useDashboardQuery(undefined, {
+    pollingInterval: 20000,
+    refetchOnFocus: true,
+  });
   const [doLogout] = useLogoutMutation();
 
   const isScreenMobile = useMediaQuery('(max-width:1024px)');

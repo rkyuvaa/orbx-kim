@@ -48,6 +48,15 @@ class Settings(BaseSettings):
     vapid_private_key: str = ""
     vapid_claim_email: str = "mailto:admin@konwertindiamotors.com"
 
+    # SMTP Email Settings
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_security: str = "TLS"
+    smtp_user: str | None = None
+    smtp_password: str | None = None
+    smtp_from_email: str | None = None
+    smtp_from_name: str = "CRMFinance"
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

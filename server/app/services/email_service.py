@@ -36,24 +36,25 @@ def dispatch_email_smtp(
         smtp_rec = db.query(SmtpSetting).first()
         override = smtp_override or {}
 
-        host = override.get("smtp_host") or (smtp_rec.smtp_host if (smtp_rec and smtp_rec.smtp_host) else getattr(settings, "SMTP_HOST", None))
-        port = override.get("smtp_port") or (smtp_rec.smtp_port if smtp_rec else getattr(settings, "SMTP_PORT", 587))
-        security = (override.get("smtp_security") or (smtp_rec.smtp_security if smtp_rec else "TLS")).upper()
-        user = override.get("smtp_user") or (smtp_rec.smtp_user if (smtp_rec and smtp_rec.smtp_user) else getattr(settings, "SMTP_USER", None))
+        host = override.get("smtp_host") or (smtp_rec.smtp_host if (smtp_rec and smtp_rec.smtp_host) else (getattr(settings, "smtp_host", None) or getattr(settings, "SMTP_HOST", None)))
+        port = override.get("smtp_port") or (smtp_rec.smtp_port if smtp_rec else (getattr(settings, "smtp_port", None) or getattr(settings, "SMTP_PORT", 587)))
+        security = (override.get("smtp_security") or (smtp_rec.smtp_security if smtp_rec else (getattr(settings, "smtp_security", None) or "TLS"))).upper()
+        user = override.get("smtp_user") or (smtp_rec.smtp_user if (smtp_rec and smtp_rec.smtp_user) else (getattr(settings, "smtp_user", None) or getattr(settings, "SMTP_USER", None)))
 
         # Check override password first; if None, fall back to DB password if not blank
         pwd_input = override.get("smtp_password")
         if pwd_input is not None and pwd_input.strip() != "":
             password = pwd_input.strip()
         else:
-            password = smtp_rec.smtp_password if (smtp_rec and smtp_rec.smtp_password) else getattr(settings, "SMTP_PASSWORD", None)
+            password = smtp_rec.smtp_password if (smtp_rec and smtp_rec.smtp_password) else (getattr(settings, "smtp_password", None) or getattr(settings, "SMTP_PASSWORD", None))
 
         from_email = (
             override.get("smtp_from_email")
             or (smtp_rec.smtp_from_email if (smtp_rec and smtp_rec.smtp_from_email) else None)
+            or getattr(settings, "smtp_from_email", None)
             or getattr(settings, "SMTP_FROM", f"noreply@{host or 'crmfinance.com'}")
         )
-        from_name = override.get("smtp_from_name") or (smtp_rec.smtp_from_name if smtp_rec else "CRMFinance")
+        from_name = override.get("smtp_from_name") or (smtp_rec.smtp_from_name if smtp_rec else (getattr(settings, "smtp_from_name", None) or "CRMFinance"))
         is_enabled = override.get("is_enabled", smtp_rec.is_enabled if smtp_rec else True)
 
         if not is_enabled:

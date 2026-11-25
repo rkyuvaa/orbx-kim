@@ -2118,11 +2118,21 @@ def update_task(
             if not db.query(TaskFollower).filter(TaskFollower.task_id == task.id, TaskFollower.user_id == uid).first():
                 db.add(TaskFollower(task_id=task.id, user_id=uid))
             if uid not in old_assignee_ids and uid != current_user.id:
+                assign_msg = f"{updater_name} assigned task {task.task_number}: {task.title} to you"
                 db.add(Notification(
                     user_id=uid,
-                    message=f"{updater_name} assigned task {task.task_number}: {task.title} to you",
+                    message=assign_msg,
                     link=task_link,
                 ))
+                db.commit()
+                if is_push_category_enabled(db, uid, "push_task_assigned"):
+                    send_push_to_user(
+                        db=db,
+                        user_id=uid,
+                        title="New Task Assigned",
+                        body=assign_msg,
+                        url=task_link,
+                    )
                 schedule_task_assignment_notification(
                     task_id=task.id,
                     assignee_id=uid,
@@ -2135,11 +2145,21 @@ def update_task(
         if task.assignee_id and task.assignee_id != current_user.id and task.assignee_id not in old_assignee_ids:
             updater_name = current_user.full_name or current_user.username or "A colleague"
             task_link = f"/projects/{task.project_id}?taskId={task.id}" if task.project_id else f"/tasks?taskId={task.id}"
+            assign_msg = f"{updater_name} assigned task {task.task_number}: {task.title} to you"
             db.add(Notification(
                 user_id=task.assignee_id,
-                message=f"{updater_name} assigned task {task.task_number}: {task.title} to you",
+                message=assign_msg,
                 link=task_link,
             ))
+            db.commit()
+            if is_push_category_enabled(db, task.assignee_id, "push_task_assigned"):
+                send_push_to_user(
+                    db=db,
+                    user_id=task.assignee_id,
+                    title="New Task Assigned",
+                    body=assign_msg,
+                    url=task_link,
+                )
             client_base_url = resolve_client_app_url(request)
             schedule_task_assignment_notification(
                 task_id=task.id,

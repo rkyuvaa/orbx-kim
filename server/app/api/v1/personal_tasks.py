@@ -205,6 +205,8 @@ def get_personal_tasks(
 @router.post("/create", response_model=TaskOut, status_code=status.HTTP_201_CREATED)
 def create_personal_task(
     data: TaskCreate,
+    background_tasks: BackgroundTasks = None,
+    request: Request = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -212,15 +214,25 @@ def create_personal_task(
     if not data.title or not data.title.strip():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Task title is mandatory")
 
+    now_local = get_local_now()
+
+    # Determine target assignee (defaults to current_user if not specified)
+    target_assignee_id = current_user.id
+    assigned_user = None
+    if data.assignee_id:
+        assigned_user = db.query(User).filter(User.id == data.assignee_id, User.status == UserStatus.ACTIVE).first()
+        if assigned_user:
+            target_assignee_id = assigned_user.id
+
     # Start date defaults to today ON CREATION ONLY
-    start_dt = data.start_date or datetime.now(timezone.utc).date()
+    start_dt = data.start_date or now_local.date()
 
     # Validate dates
     if data.due_date and start_dt and data.due_date < start_dt:
         # Override logged as warning per spec
         pass
 
-    task_num = _generate_personal_task_number(db, current_user.id)
+    task_num = _generate_personal_task_number(db, target_assignee_id)
 
     # Validate positive estimated hours
     est_hours = max(0.0, float(data.estimated_hours or 0.0))
@@ -238,7 +250,7 @@ def create_personal_task(
         type_id=data.type_id,
         status_id=data.status_id,
         priority=data.priority or TaskPriority.NORMAL,
-        assignee_id=current_user.id,
+        assignee_id=target_assignee_id,
         created_by=current_user.id,
         updated_by=current_user.id,
         start_date=start_dt,
@@ -269,7 +281,40 @@ def create_personal_task(
     db.commit()
     db.refresh(task)
 
-    db.add(TaskAssignee(task_id=task.id, user_id=current_user.id, assigned_by=current_user.id))
+    db.add(TaskAssignee(task_id=task.id, user_id=target_assignee_id, assigned_by=current_user.id, assigned_at=now_local))
+
+    # Activity Log
+    _log_pt_activity(db, task.id, current_user.id, "CREATED", new_val=task.title, source="user")
+
+    if target_assignee_id != current_user.id:
+        assignee_name = (assigned_user.full_name or assigned_user.username) if assigned_user else "Employee"
+        _log_pt_activity(db, task.id, current_user.id, "ASSIGNED", field_name="assignee_id", new_val=assignee_name, source="user")
+        creator_name = current_user.full_name or current_user.username or "A colleague"
+        msg = f"{creator_name} assigned task {task.task_number}: {task.title} to you"
+        db.add(Notification(
+            user_id=target_assignee_id,
+            message=msg,
+            link=f"/my-tasks?taskId={task.id}",
+        ))
+        db.commit()
+
+        if is_push_category_enabled(db, target_assignee_id, "push_task_assigned"):
+            send_push_to_user(
+                db=db,
+                user_id=target_assignee_id,
+                title="New Task Assigned",
+                body=msg,
+                url=f"/my-tasks?taskId={task.id}",
+            )
+
+        client_base_url = resolve_client_app_url(request)
+        schedule_task_assignment_notification(
+            task_id=task.id,
+            assignee_id=target_assignee_id,
+            assignor_id=current_user.id,
+            background_tasks=background_tasks,
+            client_base_url=client_base_url,
+        )
 
     # Tags handling
     tids_to_add = set(data.tag_ids or [])
@@ -502,7 +547,7 @@ def update_personal_task(
 
     # Apply changes and log audit
     for key, val in update_dict.items():
-        if key == "is_completed":
+        if key in ("is_completed", "assignee_id", "assignee_ids"):
             continue
         if hasattr(task, key):
             old_val = getattr(task, key)
@@ -530,8 +575,20 @@ def update_personal_task(
     if 'estimated_hours' in update_dict and update_dict['estimated_hours'] is not None:
         task.estimated_minutes = int(float(update_dict['estimated_hours']) * 60)
 
-    # Assignment change logging
-    if 'assignee_id' in update_dict and task.assignee_id != old_assignee_id:
+    # Assignment change logging & notification dispatch
+    target_new_assignee_id = None
+    has_assignee_update = False
+
+    if 'assignee_id' in update_dict:
+        has_assignee_update = True
+        target_new_assignee_id = update_dict['assignee_id']
+    elif 'assignee_ids' in update_dict and update_dict['assignee_ids'] is not None:
+        has_assignee_update = True
+        ids = update_dict['assignee_ids']
+        target_new_assignee_id = ids[0] if ids else None
+
+    if has_assignee_update and target_new_assignee_id != old_assignee_id:
+        task.assignee_id = target_new_assignee_id
         old_u = db.get(User, old_assignee_id) if old_assignee_id else None
         new_u = db.get(User, task.assignee_id) if task.assignee_id else None
         old_name = old_u.full_name if old_u else "Unassigned"
@@ -548,6 +605,7 @@ def update_personal_task(
                     message=reassign_msg,
                     link=f"/my-tasks?taskId={task.id}",
                 ))
+                db.commit()
                 if is_push_category_enabled(db, task.assignee_id, "push_task_assigned"):
                     send_push_to_user(
                         db=db,

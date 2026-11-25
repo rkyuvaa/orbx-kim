@@ -14,7 +14,10 @@ import PushNotificationCard from '@/components/notifications/PushNotificationCar
 
 export default function NotificationsPage() {
   const navigate = useNavigate();
-  const { data, isFetching, isError, refetch } = useNotificationsQuery();
+  const { data, isFetching, isError, refetch } = useNotificationsQuery(undefined, {
+    pollingInterval: 15000,
+    refetchOnFocus: true,
+  });
   const [markRead] = useMarkReadMutation();
   const [markAllRead, { isLoading: markingAll }] = useMarkAllReadMutation();
 
