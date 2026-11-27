@@ -2145,9 +2145,6 @@ export default function VSWorkOrdersTab() {
             <Typography variant="h6" fontWeight={800} color="#023020">
               Create New Work Order
             </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Register the complaint, assign a technician, and enter the initial service details.
-            </Typography>
           </Box>
           <Chip
             label="NEW"
