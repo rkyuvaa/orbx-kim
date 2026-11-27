@@ -2347,16 +2347,6 @@ export default function VSWorkOrdersTab() {
                     </Box>
                     <Box sx={{ width: { xs: '100%', sm: '50%' } }}>
                       <AppDropdown
-                        label="Job Work Assigned to"
-                        value={newJobWorkAssignedTo}
-                        emptyLabel="Select User"
-                        allowEmpty
-                        options={users.map((u) => ({ value: u.id, label: u.full_name }))}
-                        onChange={(val) => setNewJobWorkAssignedTo(val as number | '')}
-                      />
-                    </Box>
-                    <Box sx={{ width: { xs: '100%', sm: '50%' } }}>
-                      <AppDropdown
                         label="Severity"
                         value={newSeverity}
                         options={[
@@ -2366,6 +2356,16 @@ export default function VSWorkOrdersTab() {
                           { value: 'LOW', label: 'Low' },
                         ]}
                         onChange={(val) => setNewSeverity(String(val))}
+                      />
+                    </Box>
+                    <Box sx={{ width: { xs: '100%', sm: '50%' } }}>
+                      <AppDropdown
+                        label="Job Work Assigned to"
+                        value={newJobWorkAssignedTo}
+                        emptyLabel="Select User"
+                        allowEmpty
+                        options={users.map((u) => ({ value: u.id, label: u.full_name }))}
+                        onChange={(val) => setNewJobWorkAssignedTo(val as number | '')}
                       />
                     </Box>
                   </Box>
