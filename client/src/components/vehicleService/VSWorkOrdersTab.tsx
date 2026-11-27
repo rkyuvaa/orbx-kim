@@ -2335,7 +2335,7 @@ export default function VSWorkOrdersTab() {
                     ASSIGN TECHNICIAN
                   </Typography>
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 1.5 }}>
-                    <Box sx={{ width: { xs: '100%', sm: '50%' } }}>
+                    <Box sx={{ flex: '1 1 calc(50% - 6px)' }}>
                       <AppDropdown
                         label="Assigned Technician"
                         value={newAssignedTo}
@@ -2345,7 +2345,7 @@ export default function VSWorkOrdersTab() {
                         onChange={(val) => setNewAssignedTo(val as number | '')}
                       />
                     </Box>
-                    <Box sx={{ width: { xs: '100%', sm: '50%' } }}>
+                    <Box sx={{ flex: '1 1 calc(50% - 6px)' }}>
                       <AppDropdown
                         label="Severity"
                         value={newSeverity}
@@ -2358,7 +2358,7 @@ export default function VSWorkOrdersTab() {
                         onChange={(val) => setNewSeverity(String(val))}
                       />
                     </Box>
-                    <Box sx={{ width: { xs: '100%', sm: '50%' } }}>
+                    <Box sx={{ width: '100%' }}>
                       <AppDropdown
                         label="Job Work Assigned to"
                         value={newJobWorkAssignedTo}
