@@ -2,7 +2,7 @@ import uuid
 import httpx
 import pytest
 
-from app.models import SmsSetting, UserRole
+from app.models import CrmDropdownOption, SmsSetting, UserRole
 from app.models.vehicle_service import VSComplaint, VSVehicle
 from app.services.sms_service import (
     clean_phone_number,
@@ -166,7 +166,17 @@ def test_vehicle_service_complaint_and_otp_sms_triggers(client, db, monkeypatch)
         owner_phone="9787317484",
         qr_token=uuid.uuid4().hex,
     )
-    db.add_all([user, vehicle])
+    db.add_all([
+        user,
+        vehicle,
+        CrmDropdownOption(
+            category="source",
+            label="Walk-in",
+            value="walk_in",
+            order_index=1,
+            is_active=True,
+        ),
+    ])
     db.commit()
 
     dispatched = []
@@ -186,6 +196,7 @@ def test_vehicle_service_complaint_and_otp_sms_triggers(client, db, monkeypatch)
             "vehicle_id": vehicle.id,
             "reported_by": "Ramesh Kumar",
             "reported_phone": "9787317484",
+            "source": "walk_in",
             "category": "BREAKDOWN",
             "severity": "MEDIUM",
             "description": "Engine hesitation",
@@ -197,6 +208,7 @@ def test_vehicle_service_complaint_and_otp_sms_triggers(client, db, monkeypatch)
     complaint_data = create_res.json()
     complaint_id = complaint_data["id"]
     complaint_no = complaint_data["complaint_no"]
+    assert complaint_data["source"] == "walk_in"
 
     assert len(dispatched) == 1
     reg_sms = dispatched[0]

@@ -296,6 +296,7 @@ class VSComplaintCreate(BaseModel):
     affected_component_id: Optional[int] = None
     reported_by: str = Field(..., max_length=120)
     reported_phone: str = Field(..., max_length=20)
+    source: Optional[str] = Field(None, max_length=40)
     category: str = Field(default="BREAKDOWN", max_length=40)
     severity: str = Field(default="MEDIUM", max_length=20)
     description: str
@@ -310,6 +311,7 @@ class VSPublicComplaintCreate(BaseModel):
     affected_component_id: Optional[int] = None
     reported_by: str = Field(..., max_length=120)
     reported_phone: str = Field(..., max_length=20)
+    source: Optional[str] = Field(None, max_length=40)
     category: str = Field(default="BREAKDOWN", max_length=40)
     severity: str = Field(default="MEDIUM", max_length=20)
     description: Optional[str] = Field(default="", max_length=1000)
@@ -322,6 +324,7 @@ class VSUniversalComplaintCreate(BaseModel):
     vehicle_number: str = Field(..., min_length=2, max_length=40)
     reported_by: str = Field(..., max_length=120)
     reported_phone: str = Field(..., max_length=20)
+    source: Optional[str] = Field(None, max_length=40)
     category: str = Field(default="BREAKDOWN", max_length=40)
     severity: str = Field(default="MEDIUM", max_length=20)
     description: Optional[str] = Field(default="", max_length=1000)
@@ -406,6 +409,7 @@ class VSComplaintOut(BaseModel):
     affected_component_serial: Optional[str] = None
     reported_by: str
     reported_phone: str
+    source: Optional[str] = None
     category: str
     severity: str
     description: str

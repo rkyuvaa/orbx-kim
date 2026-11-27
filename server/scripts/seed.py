@@ -16,6 +16,7 @@ from app.models import (
     ActivityType,
     Application,
     ApplicationStatus,
+    CrmDropdownOption,
     CrmTab,
     CrmTabField,
     CrmTabStageMapping,
@@ -181,6 +182,27 @@ def _ensure_masters(db) -> dict[str, FinanceCompany]:
             db.add(ActivityType(
                 name=name, description=desc, icon="Calendar",
                 created_at=now, updated_at=now,
+            ))
+    db.flush()
+
+    source_options = [
+        ("Walk-in", "walk_in", 1),
+        ("Phone", "phone", 2),
+        ("Web", "web", 3),
+        ("Referral", "referral", 4),
+        ("QR Code", "qr_code", 5),
+    ]
+    for label, value, order_index in source_options:
+        existing = db.query(CrmDropdownOption).filter_by(category="source", value=value).first()
+        if not existing:
+            db.add(CrmDropdownOption(
+                category="source",
+                label=label,
+                value=value,
+                order_index=order_index,
+                is_active=True,
+                created_at=now,
+                updated_at=now,
             ))
     db.flush()
 

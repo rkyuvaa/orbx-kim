@@ -46,6 +46,7 @@ export default function ConfigurationPage() {
           <Tab label="Sources" />
           <Tab label="Lost Reasons" />
           <Tab label="Complaint Categories" />
+          <Tab label="Work Order Sources" />
         </Tabs>
       </Box>
 
@@ -107,6 +108,15 @@ export default function ConfigurationPage() {
           singularTitle="Complaint Category"
           description="Configurable service complaint categories used across vehicle service and customer reporting."
           placeholder="e.g. Battery / Range Issue"
+        />
+      )}
+      {tab === 12 && (
+        <DropdownOptionsPanel
+          category="source"
+          title="Work Order Sources"
+          singularTitle="Source"
+          description="Configurable sources used in the Create New Work Order form."
+          placeholder="e.g. Walk-in"
         />
       )}
     </div>

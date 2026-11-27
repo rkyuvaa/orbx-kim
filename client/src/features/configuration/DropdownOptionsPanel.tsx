@@ -42,6 +42,7 @@ interface DropdownOptionsPanelProps {
   singularTitle: string;
   description: string;
   placeholder?: string;
+  permissionResource?: string;
 }
 
 export default function DropdownOptionsPanel({
@@ -50,9 +51,10 @@ export default function DropdownOptionsPanel({
   singularTitle,
   description,
   placeholder = 'e.g. Standard',
+  permissionResource = 'crm_configuration',
 }: DropdownOptionsPanelProps) {
   const { can, isSuperAdmin } = usePermission();
-  const isAdmin = isSuperAdmin || can('edit', 'crm_configuration') || can('create', 'crm_configuration');
+  const isAdmin = isSuperAdmin || can('edit', permissionResource) || can('create', permissionResource);
   const { data: options = [], isFetching, isError, refetch } = useDropdownOptionsQuery(category);
   const [createOption, { isLoading: creating }] = useCreateDropdownOptionMutation();
   const [updateOption, { isLoading: updating }] = useUpdateDropdownOptionMutation();

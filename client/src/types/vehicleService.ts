@@ -224,6 +224,7 @@ export interface VSComplaint {
   affected_component_serial: string | null;
   reported_by: string;
   reported_phone: string;
+  source: string | null;
   category: string;
   severity: string;
   description: string;
@@ -252,6 +253,7 @@ export interface VSComplaintCreate {
   affected_component_id?: number;
   reported_by: string;
   reported_phone: string;
+  source: string;
   category: string;
   severity: string;
   description: string;
@@ -266,6 +268,7 @@ export interface VSPublicComplaintCreate {
   affected_component_id?: number;
   reported_by: string;
   reported_phone: string;
+  source?: string;
   category: string;
   severity: string;
   description: string;
@@ -278,6 +281,7 @@ export interface VSUniversalComplaintCreate {
   vehicle_number: string;
   reported_by: string;
   reported_phone: string;
+  source?: string;
   category: string;
   severity: string;
   description: string;
@@ -564,6 +568,7 @@ export interface VSComplaint {
   affected_component_serial: string | null;
   reported_by: string;
   reported_phone: string;
+  source: string | null;
   category: string;
   severity: string;
   description: string;

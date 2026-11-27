@@ -278,6 +278,7 @@ def _format_complaint_out(c: VSComplaint) -> VSComplaintOut:
         affected_component_serial=c.affected_component.serial_number if c.affected_component else None,
         reported_by=c.reported_by,
         reported_phone=c.reported_phone,
+        source=c.source,
         category=c.category,
         severity=c.severity,
         description=c.description,
@@ -451,6 +452,7 @@ def submit_public_complaint(
         affected_component_id=payload.affected_component_id,
         reported_by=payload.reported_by,
         reported_phone=payload.reported_phone,
+        source=(payload.source or "").strip() or "qr_code",
         category=payload.category,
         severity=payload.severity or ComplaintSeverity.MEDIUM,
         description=payload.description or f"{payload.category} service request reported for {vehicle.vehicle_number}",
@@ -557,6 +559,7 @@ def submit_universal_complaint(
         affected_component_id=payload.affected_component_id,
         reported_by=payload.reported_by.strip(),
         reported_phone=payload.reported_phone.strip(),
+        source=(payload.source or "").strip() or "qr_code",
         category=payload.category,
         severity=payload.severity or ComplaintSeverity.MEDIUM,
         description=desc,
@@ -1506,12 +1509,32 @@ def create_complaint(
 
     complaint_no = _generate_complaint_no(db)
     gps_addr = payload.gps_address or _reverse_geocode_area_and_city(payload.gps_latitude, payload.gps_longitude)
+    source_value = (payload.source or "").strip()
+    if not source_value:
+        raise HTTPException(status_code=422, detail="Source is required")
+
+    source_options = (
+        db.query(CrmDropdownOption)
+        .filter(
+            CrmDropdownOption.category == "source",
+            CrmDropdownOption.is_active.is_(True),
+        )
+        .all()
+    )
+    if not source_options:
+        raise HTTPException(status_code=422, detail="No active Source options are configured")
+    allowed_sources = {option.value for option in source_options}
+    allowed_sources.update(option.label for option in source_options)
+    if source_value not in allowed_sources:
+        raise HTTPException(status_code=422, detail="Select a valid configured Source")
+
     complaint = VSComplaint(
         complaint_no=complaint_no,
         vehicle_id=vehicle.id,
         affected_component_id=payload.affected_component_id,
         reported_by=payload.reported_by,
         reported_phone=payload.reported_phone,
+        source=source_value,
         category=payload.category,
         severity=payload.severity,
         description=payload.description,

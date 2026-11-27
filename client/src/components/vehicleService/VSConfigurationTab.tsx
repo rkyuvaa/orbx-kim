@@ -816,6 +816,7 @@ export default function VSConfigurationTab() {
           <Tab value={4} label="3. Complaint Categories" />
           <Tab value={5} label="4. Issue Matrix config" />
           <Tab value={6} label="5. SMS Gateway" />
+          <Tab value={7} label="6. Source" />
         </Tabs>
       </Box>
 
@@ -1269,6 +1270,7 @@ export default function VSConfigurationTab() {
                 singularTitle="Complaint Category"
                 description="Configure service complaint categories available for customer reporting and work orders."
                 placeholder="e.g. Battery / Range Issue"
+                permissionResource="vs_configuration"
               />
             </Box>
           )}
@@ -1472,6 +1474,22 @@ export default function VSConfigurationTab() {
           {activeTab === 6 && (
             <Box sx={{ mt: 1 }}>
               <SmsGatewayConfigCard />
+            </Box>
+          )}
+
+          {/* =================================================================
+              SUB-TAB 7: SOURCE
+          ================================================================== */}
+          {activeTab === 7 && (
+            <Box sx={{ mt: 1 }}>
+              <DropdownOptionsPanel
+                category="source"
+                title="Work Order Sources"
+                singularTitle="Source"
+                description="Configure the Source options available in the Create New Work Order form."
+                placeholder="e.g. Walk-in"
+                permissionResource="vs_configuration"
+              />
             </Box>
           )}
 

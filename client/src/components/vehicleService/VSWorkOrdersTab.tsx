@@ -80,7 +80,7 @@ import {
 import { useAppSelector } from '@/app/hooks';
 import { usePermission } from '@/context/AuthPermissionContext';
 import { useToast } from '@/components/ui/ToastHost';
-import { useUsersQuery } from '@/api/mastersApi';
+import { useDropdownOptionsQuery, useUsersQuery } from '@/api/mastersApi';
 import { AppDropdown } from '@/components/ui/AppDropdown';
 import { LocationDisplay, formatNoteLocation, useResolvedAddress } from '@/utils/geolocation';
 import { formatDate, formatDateTime } from '@/utils/format';
@@ -521,6 +521,10 @@ export default function VSWorkOrdersTab() {
     isLoading: isComplaintCategoriesLoading,
     isError: isComplaintCategoriesError,
   } = useGetVSPublicCategoriesQuery();
+  const {
+    data: sourceOptions = [],
+    isLoading: isSourceOptionsLoading,
+  } = useDropdownOptionsQuery('source');
 
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = {
@@ -684,6 +688,7 @@ export default function VSWorkOrdersTab() {
   const [newComponentId, setNewComponentId] = useState<number | ''>('');
   const [newReportedBy, setNewReportedBy] = useState('');
   const [newReportedPhone, setNewReportedPhone] = useState('');
+  const [newSource, setNewSource] = useState('');
   const [newCategory, setNewCategory] = useState('');
   const [newSeverity, setNewSeverity] = useState('MEDIUM');
   const [newDescription, setNewDescription] = useState('');
@@ -810,6 +815,7 @@ export default function VSWorkOrdersTab() {
     setNewComponentId('');
     setNewReportedBy('');
     setNewReportedPhone('');
+    setNewSource('');
     setNewCategory(complaintCategories[0]?.key ?? '');
     setNewSeverity('MEDIUM');
     setNewDescription('');
@@ -848,6 +854,10 @@ export default function VSWorkOrdersTab() {
       setCreateError('Please search and select a vehicle/kit from KIT Master.');
       return;
     }
+    if (!newSource) {
+      setCreateError('Source is required');
+      return;
+    }
     setCreateError(null);
     if (!complaintCategories.some((category) => category.key === newCategory)) {
       setCreateError('Select a category configured in Vehicle Service Configuration.');
@@ -883,6 +893,7 @@ export default function VSWorkOrdersTab() {
         affected_component_id: newComponentId ? Number(newComponentId) : undefined,
         reported_by: reporter,
         reported_phone: phone,
+        source: newSource,
         category: newCategory,
         severity: newSeverity,
         description: desc,
@@ -2396,13 +2407,32 @@ export default function VSWorkOrdersTab() {
                 REPORTED BY
               </Typography>
               <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
+                <Grid item xs={12} sm={4}>
                   <TextField label="Reporter Name" size="small" fullWidth value={newReportedBy} onChange={(e) => setNewReportedBy(e.target.value)} placeholder="Owner / Driver name" />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid item xs={12} sm={4}>
                   <TextField label="Reporter Phone" size="small" fullWidth value={newReportedPhone} onChange={(e) => setNewReportedPhone(e.target.value)} placeholder="Contact phone" />
                 </Grid>
+                <Grid item xs={12} sm={4}>
+                  <AppDropdown
+                    label="Source"
+                    value={newSource}
+                    emptyLabel="Select Source"
+                    allowEmpty
+                    options={sourceOptions.filter((option) => option.is_active).map((option) => ({
+                      value: option.value,
+                      label: option.label,
+                    }))}
+                    onChange={(value) => setNewSource(String(value))}
+                    disabled={isSourceOptionsLoading || sourceOptions.every((option) => !option.is_active)}
+                  />
+                </Grid>
               </Grid>
+              {!isSourceOptionsLoading && sourceOptions.filter((option) => option.is_active).length === 0 && (
+                <Typography variant="caption" color="error" sx={{ display: 'block', mt: 1 }}>
+                  No Source options configured. Add options under Vehicle Service Configuration - Fields - Source.
+                </Typography>
+              )}
             </Paper>
 
             <Tabs
@@ -2585,6 +2615,8 @@ export default function VSWorkOrdersTab() {
             onClick={handleCreateSubmit}
             disabled={
               isCreating ||
+              isSourceOptionsLoading ||
+              !newSource ||
               isComplaintCategoriesLoading ||
               isComplaintCategoriesError ||
               !complaintCategories.some((category) => category.key === newCategory)

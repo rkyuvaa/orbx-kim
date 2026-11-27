@@ -1,7 +1,7 @@
 import uuid
 
 from app.api.v1 import vehicle_service
-from app.models import UserRole
+from app.models import CrmDropdownOption, UserRole
 from app.models.vehicle_service import VSComplaint, VSVehicle
 from tests.conftest import auth_headers, login, make_user
 
@@ -14,7 +14,17 @@ def test_create_work_order_with_or_without_assigned_technician(client, db):
         owner_phone="1234567890",
         qr_token=uuid.uuid4().hex,
     )
-    db.add_all([user, vehicle])
+    db.add_all([
+        user,
+        vehicle,
+        CrmDropdownOption(
+            category="source",
+            label="Walk-in",
+            value="walk_in",
+            order_index=1,
+            is_active=True,
+        ),
+    ])
     db.commit()
     headers = auth_headers(login(client, email=user.email))
     url = "/api/v1/vehicle-service/complaints"
@@ -22,6 +32,7 @@ def test_create_work_order_with_or_without_assigned_technician(client, db):
         "vehicle_id": vehicle.id,
         "reported_by": "Test Owner",
         "reported_phone": "1234567890",
+        "source": "walk_in",
         "description": "New work order",
     }
 
@@ -29,6 +40,7 @@ def test_create_work_order_with_or_without_assigned_technician(client, db):
     assert unassigned.status_code == 201, unassigned.text
     assert unassigned.json()["status"] == "OPEN"
     assert unassigned.json()["assigned_to_id"] is None
+    assert unassigned.json()["source"] == "walk_in"
 
     assigned = client.post(
         url,
