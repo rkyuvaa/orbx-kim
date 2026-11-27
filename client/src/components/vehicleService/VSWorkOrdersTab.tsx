@@ -2480,7 +2480,7 @@ export default function VSWorkOrdersTab() {
                 SERVICE WORKFLOW
               </Typography>
 
-            {/* Category & Severity */}
+            {/* Category */}
             <Grid container spacing={2}>
               <Grid item xs={6}>
                 <AppDropdown
@@ -2492,19 +2492,6 @@ export default function VSWorkOrdersTab() {
                   }))}
                   onChange={(val) => setNewCategory(String(val))}
                   disabled={isComplaintCategoriesLoading || isComplaintCategoriesError || !complaintCategories.length}
-                />
-              </Grid>
-              <Grid item xs={6}>
-                <AppDropdown
-                  label="Severity"
-                  value={newSeverity}
-                  options={[
-                    { value: 'CRITICAL', label: '🔴 Critical' },
-                    { value: 'HIGH', label: '🟠 High' },
-                    { value: 'MEDIUM', label: '🟡 Medium' },
-                    { value: 'LOW', label: '🟢 Low' },
-                  ]}
-                  onChange={(val) => setNewSeverity(String(val))}
                 />
               </Grid>
             </Grid>
