@@ -2419,18 +2419,6 @@ export default function VSWorkOrdersTab() {
                 <Grid item xs={12} sm={4}>
                   <TextField label="Reporter Phone" size="small" fullWidth value={newReportedPhone} onChange={(e) => setNewReportedPhone(e.target.value)} placeholder="Contact phone" />
                 </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    label="Address"
-                    size="small"
-                    fullWidth
-                    multiline
-                    rows={2}
-                    value={newReporterAddress}
-                    onChange={(e) => setNewReporterAddress(e.target.value)}
-                    placeholder="Reporter address (2 lines)"
-                  />
-                </Grid>
                 <Grid item xs={12} sm={4}>
                   <AppDropdown
                     label="Source"
@@ -2443,6 +2431,18 @@ export default function VSWorkOrdersTab() {
                     }))}
                     onChange={(value) => setNewSource(String(value))}
                     disabled={isSourceOptionsLoading || sourceOptions.every((option) => !option.is_active)}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    label="Address"
+                    size="small"
+                    fullWidth
+                    multiline
+                    rows={2}
+                    value={newReporterAddress}
+                    onChange={(e) => setNewReporterAddress(e.target.value)}
+                    placeholder="Reporter address (2 lines)"
                   />
                 </Grid>
               </Grid>
