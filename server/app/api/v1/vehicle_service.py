@@ -290,6 +290,8 @@ def _format_complaint_out(c: VSComplaint) -> VSComplaintOut:
         status=c.status,
         assigned_to_id=c.assigned_to_id,
         assigned_to_name=c.assigned_to.full_name if c.assigned_to else None,
+        job_work_assigned_to_id=c.job_work_assigned_to_id,
+        job_work_assigned_to_name=c.job_work_assigned_to.full_name if c.job_work_assigned_to else None,
         acknowledged_at=c.acknowledged_at,
         resolved_at=c.resolved_at,
         closed_at=c.closed_at,
@@ -1510,6 +1512,12 @@ def create_complaint(
         if assigned_user is None:
             raise HTTPException(status_code=422, detail="Selected technician does not exist")
 
+    job_work_assigned_user = None
+    if payload.job_work_assigned_to_id is not None:
+        job_work_assigned_user = db.query(User).filter(User.id == payload.job_work_assigned_to_id).first()
+        if job_work_assigned_user is None:
+            raise HTTPException(status_code=422, detail="Selected Job Work Assigned user does not exist")
+
     complaint_no = _generate_complaint_no(db)
     gps_addr = payload.gps_address or _reverse_geocode_area_and_city(payload.gps_latitude, payload.gps_longitude)
     source_value = (payload.source or "").strip()
@@ -1548,6 +1556,7 @@ def create_complaint(
         registered_via=RegisteredVia.STAFF,
         status=ComplaintStatus.ASSIGNED if assigned_user else ComplaintStatus.OPEN,
         assigned_to_id=payload.assigned_to_id,
+        job_work_assigned_to_id=payload.job_work_assigned_to_id,
     )
     db.add(complaint)
     db.flush()

@@ -694,6 +694,7 @@ export default function VSWorkOrdersTab() {
   const [newSeverity, setNewSeverity] = useState('MEDIUM');
   const [newDescription, setNewDescription] = useState('');
   const [newAssignedTo, setNewAssignedTo] = useState<number | ''>('');
+  const [newJobWorkAssignedTo, setNewJobWorkAssignedTo] = useState<number | ''>('');
   const [newInitialNote, setNewInitialNote] = useState('');
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -822,6 +823,7 @@ export default function VSWorkOrdersTab() {
     setNewSeverity('MEDIUM');
     setNewDescription('');
     setNewAssignedTo('');
+    setNewJobWorkAssignedTo('');
     setNewInitialNote('');
     setCreateError(null);
     setIsNewDialogOpen(true);
@@ -901,6 +903,7 @@ export default function VSWorkOrdersTab() {
         severity: newSeverity,
         description: desc,
         assigned_to_id: newAssignedTo ? Number(newAssignedTo) : undefined,
+        job_work_assigned_to_id: newJobWorkAssignedTo ? Number(newJobWorkAssignedTo) : undefined,
       };
 
       try {
@@ -2331,7 +2334,7 @@ export default function VSWorkOrdersTab() {
                   <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" gutterBottom>
                     ASSIGN TECHNICIAN
                   </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 1.5 }}>
                     <Box sx={{ width: { xs: '100%', sm: '50%' } }}>
                       <AppDropdown
                         label="Assigned Technician"
@@ -2340,6 +2343,16 @@ export default function VSWorkOrdersTab() {
                         allowEmpty
                         options={users.map((u) => ({ value: u.id, label: u.full_name }))}
                         onChange={(val) => setNewAssignedTo(val as number | '')}
+                      />
+                    </Box>
+                    <Box sx={{ width: { xs: '100%', sm: '50%' } }}>
+                      <AppDropdown
+                        label="Job Work Assigned to"
+                        value={newJobWorkAssignedTo}
+                        emptyLabel="Select User"
+                        allowEmpty
+                        options={users.map((u) => ({ value: u.id, label: u.full_name }))}
+                        onChange={(val) => setNewJobWorkAssignedTo(val as number | '')}
                       />
                     </Box>
                     <Box sx={{ width: { xs: '100%', sm: '50%' } }}>

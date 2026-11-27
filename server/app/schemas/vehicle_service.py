@@ -305,6 +305,7 @@ class VSComplaintCreate(BaseModel):
     gps_longitude: Optional[float] = None
     gps_address: Optional[str] = Field(None, max_length=255)
     assigned_to_id: Optional[int] = None
+    job_work_assigned_to_id: Optional[int] = None
 
 
 class VSPublicComplaintCreate(BaseModel):
@@ -424,6 +425,8 @@ class VSComplaintOut(BaseModel):
     status: str
     assigned_to_id: Optional[int]
     assigned_to_name: Optional[str] = None
+    job_work_assigned_to_id: Optional[int] = None
+    job_work_assigned_to_name: Optional[str] = None
     acknowledged_at: Optional[datetime]
     resolved_at: Optional[datetime]
     closed_at: Optional[datetime]

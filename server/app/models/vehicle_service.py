@@ -196,6 +196,7 @@ class VSComplaint(Base):
     registered_via: Mapped[str] = mapped_column(String(20), default="STAFF", nullable=False)
     status: Mapped[str] = mapped_column(String(30), default="OPEN", nullable=False, index=True)
     assigned_to_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    job_work_assigned_to_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     acknowledged_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     closed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -225,7 +226,8 @@ class VSComplaint(Base):
 
     vehicle: Mapped["VSVehicle"] = relationship("VSVehicle", back_populates="complaints", lazy="joined")
     affected_component: Mapped[Optional["VSVehicleComponent"]] = relationship("VSVehicleComponent", lazy="joined")
-    assigned_to: Mapped[Optional["User"]] = relationship("User", lazy="joined")
+    assigned_to: Mapped[Optional["User"]] = relationship("User", lazy="joined", foreign_keys=[assigned_to_id])
+    job_work_assigned_to: Mapped[Optional["User"]] = relationship("User", lazy="joined", foreign_keys=[job_work_assigned_to_id])
     notes: Mapped[List["VSComplaintNote"]] = relationship(
         "VSComplaintNote", back_populates="complaint", cascade="all, delete-orphan", lazy="selectin"
     )

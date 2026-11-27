@@ -236,6 +236,8 @@ export interface VSComplaint {
   status: string;
   assigned_to_id: number | null;
   assigned_to_name: string | null;
+  job_work_assigned_to_id: number | null;
+  job_work_assigned_to_name: string | null;
   acknowledged_at: string | null;
   resolved_at: string | null;
   closed_at: string | null;
@@ -263,6 +265,7 @@ export interface VSComplaintCreate {
   gps_longitude?: number;
   gps_address?: string;
   assigned_to_id?: number;
+  job_work_assigned_to_id?: number;
 }
 
 export interface VSPublicComplaintCreate {
@@ -584,6 +587,8 @@ export interface VSComplaint {
   status: string;
   assigned_to_id: number | null;
   assigned_to_name: string | null;
+  job_work_assigned_to_id: number | null;
+  job_work_assigned_to_name: string | null;
   acknowledged_at: string | null;
   resolved_at: string | null;
   closed_at: string | null;
