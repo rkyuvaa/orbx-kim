@@ -185,6 +185,7 @@ class VSComplaint(Base):
     )
     reported_by: Mapped[str] = mapped_column(String(120), nullable=False)
     reported_phone: Mapped[str] = mapped_column(String(20), nullable=False)
+    reporter_address: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     source: Mapped[Optional[str]] = mapped_column(String(40), nullable=True, index=True)
     category: Mapped[str] = mapped_column(String(40), default="BREAKDOWN", nullable=False, index=True)
     severity: Mapped[str] = mapped_column(String(20), default="MEDIUM", nullable=False, index=True)

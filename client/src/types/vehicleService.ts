@@ -224,6 +224,7 @@ export interface VSComplaint {
   affected_component_serial: string | null;
   reported_by: string;
   reported_phone: string;
+  reporter_address: string | null;
   source: string | null;
   category: string;
   severity: string;
@@ -253,6 +254,7 @@ export interface VSComplaintCreate {
   affected_component_id?: number;
   reported_by: string;
   reported_phone: string;
+  reporter_address?: string;
   source: string;
   category: string;
   severity: string;
@@ -268,6 +270,7 @@ export interface VSPublicComplaintCreate {
   affected_component_id?: number;
   reported_by: string;
   reported_phone: string;
+  reporter_address?: string;
   source?: string;
   category: string;
   severity: string;
@@ -281,6 +284,7 @@ export interface VSUniversalComplaintCreate {
   vehicle_number: string;
   reported_by: string;
   reported_phone: string;
+  reporter_address?: string;
   source?: string;
   category: string;
   severity: string;
@@ -568,6 +572,7 @@ export interface VSComplaint {
   affected_component_serial: string | null;
   reported_by: string;
   reported_phone: string;
+  reporter_address: string | null;
   source: string | null;
   category: string;
   severity: string;
@@ -583,7 +588,7 @@ export interface VSComplaint {
   resolved_at: string | null;
   closed_at: string | null;
   resolution_summary: string | null;
-  
+
   // New service workflow fields
   est_delivery_date: string | null;
   initial_checklist_url: string | null;

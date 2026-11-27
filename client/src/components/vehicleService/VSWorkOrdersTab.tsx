@@ -688,6 +688,7 @@ export default function VSWorkOrdersTab() {
   const [newComponentId, setNewComponentId] = useState<number | ''>('');
   const [newReportedBy, setNewReportedBy] = useState('');
   const [newReportedPhone, setNewReportedPhone] = useState('');
+  const [newReporterAddress, setNewReporterAddress] = useState('');
   const [newSource, setNewSource] = useState('');
   const [newCategory, setNewCategory] = useState('');
   const [newSeverity, setNewSeverity] = useState('MEDIUM');
@@ -815,6 +816,7 @@ export default function VSWorkOrdersTab() {
     setNewComponentId('');
     setNewReportedBy('');
     setNewReportedPhone('');
+    setNewReporterAddress('');
     setNewSource('');
     setNewCategory(complaintCategories[0]?.key ?? '');
     setNewSeverity('MEDIUM');
@@ -893,6 +895,7 @@ export default function VSWorkOrdersTab() {
         affected_component_id: newComponentId ? Number(newComponentId) : undefined,
         reported_by: reporter,
         reported_phone: phone,
+        reporter_address: newReporterAddress.trim() || undefined,
         source: newSource,
         category: newCategory,
         severity: newSeverity,
@@ -2315,6 +2318,9 @@ export default function VSWorkOrdersTab() {
                       <Typography variant="body2"><strong>Owner:</strong> {selectedKit.customer_name || '—'}</Typography>
                       <Typography variant="body2"><strong>Contact:</strong> {selectedVehicleObj?.owner_phone || '—'}</Typography>
                       <Typography variant="body2"><strong>Reported By:</strong> {newReportedBy || selectedKit.customer_name || '—'} ({newReportedPhone || selectedVehicleObj?.owner_phone || '—'})</Typography>
+                      {newReporterAddress.trim() && (
+                        <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}><strong>Address:</strong> {newReporterAddress}</Typography>
+                      )}
                       <Typography variant="body2"><strong>Kit:</strong> {selectedKit.kit_number}</Typography>
                     </Box>
                   )}
@@ -2412,6 +2418,18 @@ export default function VSWorkOrdersTab() {
                 </Grid>
                 <Grid item xs={12} sm={4}>
                   <TextField label="Reporter Phone" size="small" fullWidth value={newReportedPhone} onChange={(e) => setNewReportedPhone(e.target.value)} placeholder="Contact phone" />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    label="Address"
+                    size="small"
+                    fullWidth
+                    multiline
+                    rows={2}
+                    value={newReporterAddress}
+                    onChange={(e) => setNewReporterAddress(e.target.value)}
+                    placeholder="Reporter address (2 lines)"
+                  />
                 </Grid>
                 <Grid item xs={12} sm={4}>
                   <AppDropdown
@@ -2763,6 +2781,11 @@ export default function VSWorkOrdersTab() {
                     <Typography variant="body2">
                       <strong>Reported By:</strong> {selectedComplaint.reported_by} ({selectedComplaint.reported_phone})
                     </Typography>
+                    {selectedComplaint.reporter_address && (
+                      <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
+                        <strong>Address:</strong> {selectedComplaint.reporter_address}
+                      </Typography>
+                    )}
 
                     <Box sx={{ mt: 1.5 }}>
                       <LocationDisplay
