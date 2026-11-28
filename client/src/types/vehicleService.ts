@@ -302,6 +302,10 @@ export interface VSComplaintUpdate {
   status?: string;
   severity?: string;
   assigned_to_id?: number;
+  job_work_assigned_to_id?: number | null;
+  source?: string;
+  category?: string;
+  description?: string;
   affected_component_id?: number;
   resolution_summary?: string;
   

@@ -725,6 +725,11 @@ export default function VSWorkOrdersTab() {
     const [technicianRemarks, setTechnicianRemarks] = useState('');
     const [odometerReading, setOdometerReading] = useState<number | ''>('');
     const [serviceType, setServiceType] = useState<'FREE' | 'GENERAL' | 'PAID'>('GENERAL');
+    const [manageSource, setManageSource] = useState('');
+    const [manageJobWorkAssignedTo, setManageJobWorkAssignedTo] = useState<number | ''>('');
+    const [manageCategory, setManageCategory] = useState('');
+    const [manageDescription, setManageDescription] = useState('');
+    const [manageDetailsSaving, setManageDetailsSaving] = useState(false);
     const [timerRunning, setTimerRunning] = useState(false);
     const [timerStartTime, setTimerStartTime] = useState<Date | null>(null);
     const [serviceHours, setServiceHours] = useState<number | null>(null);
@@ -1613,6 +1618,10 @@ export default function VSWorkOrdersTab() {
       setTechnicianRemarks(selectedComplaint.technician_remarks || '');
       setOdometerReading(selectedComplaint.odometer_reading ?? '');
       setServiceType(selectedComplaint.service_type || 'GENERAL');
+      setManageSource(selectedComplaint.source || '');
+      setManageJobWorkAssignedTo(selectedComplaint.job_work_assigned_to_id ?? '');
+      setManageCategory(selectedComplaint.category || '');
+      setManageDescription(selectedComplaint.description || '');
       setTimerRunning(!!selectedComplaint.timer_started_at && !selectedComplaint.timer_ended_at);
       setServiceHours(selectedComplaint.service_hours ?? null);
       setInitialChecklistFile(null);
@@ -1631,6 +1640,10 @@ export default function VSWorkOrdersTab() {
       setTechnicianRemarks('');
       setOdometerReading('');
       setServiceType('GENERAL');
+      setManageSource('');
+      setManageJobWorkAssignedTo('');
+      setManageCategory('');
+      setManageDescription('');
       setTimerRunning(false);
       setTimerStartTime(null);
       setServiceHours(null);
@@ -1640,6 +1653,28 @@ export default function VSWorkOrdersTab() {
       setVehicleImagesFiles([]);
     }
   }, [selectedComplaint]);
+
+  const handleSaveIntakeDetails = async () => {
+    if (!selectedComplaint) return;
+    setManageDetailsSaving(true);
+    try {
+      const updated = await updateComplaint({
+        id: selectedComplaint.id,
+        body: {
+          source: manageSource,
+          job_work_assigned_to_id: manageJobWorkAssignedTo ? Number(manageJobWorkAssignedTo) : null,
+          category: manageCategory || undefined,
+          description: manageDescription,
+        },
+      }).unwrap();
+      setSelectedComplaint(updated);
+      showToast('Complaint details saved.', 'success');
+    } catch (err: any) {
+      showToast(err?.data?.detail || 'Failed to save complaint details.', 'error');
+    } finally {
+      setManageDetailsSaving(false);
+    }
+  };
 
   const handleCloseSelectedComplaint = async () => {
     if (!selectedComplaint) return;
@@ -2913,6 +2948,71 @@ export default function VSWorkOrdersTab() {
                   opacity: selectedComplaint.assigned_to_id ? 1 : 0.55,
                 }}
               >
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
+                <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" gutterBottom>
+                  COMPLAINT DETAILS
+                </Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <AppDropdown
+                      label="Source"
+                      value={manageSource}
+                      emptyLabel="Select Source"
+                      allowEmpty
+                      options={sourceOptions.filter((option) => option.is_active).map((option) => ({
+                        value: option.value,
+                        label: option.label,
+                      }))}
+                      onChange={(value) => setManageSource(String(value))}
+                      disabled={isSourceOptionsLoading || sourceOptions.every((option) => !option.is_active)}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <AppDropdown
+                      label="Job Work Assigned to"
+                      value={manageJobWorkAssignedTo}
+                      emptyLabel="Select User"
+                      allowEmpty
+                      options={users.map((u) => ({ value: u.id, label: u.full_name }))}
+                      onChange={(value) => setManageJobWorkAssignedTo(value as number | '')}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <AppDropdown
+                      label="Category"
+                      value={manageCategory}
+                      options={complaintCategories.map((category) => ({
+                        value: category.key,
+                        label: category.label,
+                      }))}
+                      onChange={(value) => setManageCategory(String(value))}
+                      disabled={isComplaintCategoriesLoading || isComplaintCategoriesError || !complaintCategories.length}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      label="Problem Description"
+                      size="small"
+                      fullWidth
+                      multiline
+                      rows={2}
+                      value={manageDescription}
+                      onChange={(e) => setManageDescription(e.target.value)}
+                    />
+                  </Grid>
+                </Grid>
+                <Box sx={{ mt: 1.5, display: 'flex', justifyContent: 'flex-end' }}>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    onClick={handleSaveIntakeDetails}
+                    disabled={manageDetailsSaving}
+                    sx={{ textTransform: 'none', fontWeight: 700 }}
+                  >
+                    {manageDetailsSaving ? 'Saving...' : 'Save Details'}
+                  </Button>
+                </Box>
+              </Paper>
               <Tabs
                 value={selectedWorkOrderTab}
                 onChange={(_, value: number) => setSelectedWorkOrderTab(value)}

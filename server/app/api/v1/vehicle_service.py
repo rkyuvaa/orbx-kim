@@ -1640,6 +1640,26 @@ def update_complaint(
         if complaint.status in {ComplaintStatus.OPEN, ComplaintStatus.ACKNOWLEDGED}:
             next_status = ComplaintStatus.ASSIGNED
 
+    if payload.job_work_assigned_to_id is not None:
+        job_work_user = db.query(User).filter(User.id == payload.job_work_assigned_to_id).first()
+        if job_work_user is None:
+            raise HTTPException(status_code=422, detail="Selected Job Work Assigned user does not exist")
+
+    if "source" in payload.model_fields_set and payload.source is not None:
+        source_value = payload.source.strip()
+        source_options = (
+            db.query(CrmDropdownOption)
+            .filter(
+                CrmDropdownOption.category == "source",
+                CrmDropdownOption.is_active.is_(True),
+            )
+            .all()
+        )
+        allowed_sources = {option.value for option in source_options}
+        allowed_sources.update(option.label for option in source_options)
+        if source_value and source_value not in allowed_sources:
+            raise HTTPException(status_code=422, detail="Select a valid configured Source")
+
     if payload.status is not None and payload.status != next_status:
         valid_transition = (
             (next_status == ComplaintStatus.OPEN and payload.status == ComplaintStatus.ACKNOWLEDGED)
@@ -1679,6 +1699,14 @@ def update_complaint(
         complaint.affected_component_id = payload.affected_component_id
     if payload.resolution_summary is not None:
         complaint.resolution_summary = payload.resolution_summary
+    if "source" in payload.model_fields_set:
+        complaint.source = (payload.source or "").strip() or None
+    if "job_work_assigned_to_id" in payload.model_fields_set:
+        complaint.job_work_assigned_to_id = payload.job_work_assigned_to_id
+    if payload.category is not None:
+        complaint.category = payload.category
+    if payload.description is not None:
+        complaint.description = payload.description
 
     workflow_fields = (
         "est_delivery_date",

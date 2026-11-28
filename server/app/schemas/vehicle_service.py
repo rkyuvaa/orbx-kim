@@ -342,6 +342,10 @@ class VSComplaintUpdate(BaseModel):
     status: Optional[str] = Field(None, max_length=30)
     severity: Optional[str] = Field(None, max_length=20)
     assigned_to_id: Optional[int] = None
+    job_work_assigned_to_id: Optional[int] = None
+    source: Optional[str] = Field(None, max_length=40)
+    category: Optional[str] = Field(None, max_length=40)
+    description: Optional[str] = None
     affected_component_id: Optional[int] = None
     resolution_summary: Optional[str] = None
     est_delivery_date: Optional[date] = None
