@@ -729,6 +729,7 @@ export default function VSWorkOrdersTab() {
     const [manageJobWorkAssignedTo, setManageJobWorkAssignedTo] = useState<number | ''>('');
     const [manageCategory, setManageCategory] = useState('');
     const [manageDescription, setManageDescription] = useState('');
+    const [manageSeverity, setManageSeverity] = useState('MEDIUM');
     const [manageDetailsSaving, setManageDetailsSaving] = useState(false);
     const [timerRunning, setTimerRunning] = useState(false);
     const [timerStartTime, setTimerStartTime] = useState<Date | null>(null);
@@ -1622,6 +1623,7 @@ export default function VSWorkOrdersTab() {
       setManageJobWorkAssignedTo(selectedComplaint.job_work_assigned_to_id ?? '');
       setManageCategory(selectedComplaint.category || '');
       setManageDescription(selectedComplaint.description || '');
+      setManageSeverity(selectedComplaint.severity || 'MEDIUM');
       setTimerRunning(!!selectedComplaint.timer_started_at && !selectedComplaint.timer_ended_at);
       setServiceHours(selectedComplaint.service_hours ?? null);
       setInitialChecklistFile(null);
@@ -1644,6 +1646,7 @@ export default function VSWorkOrdersTab() {
       setManageJobWorkAssignedTo('');
       setManageCategory('');
       setManageDescription('');
+      setManageSeverity('MEDIUM');
       setTimerRunning(false);
       setTimerStartTime(null);
       setServiceHours(null);
@@ -1665,6 +1668,7 @@ export default function VSWorkOrdersTab() {
           job_work_assigned_to_id: manageJobWorkAssignedTo ? Number(manageJobWorkAssignedTo) : null,
           category: manageCategory || undefined,
           description: manageDescription,
+          severity: manageSeverity,
         },
       }).unwrap();
       setSelectedComplaint(updated);
@@ -2828,6 +2832,20 @@ export default function VSWorkOrdersTab() {
                         showMapLink
                       />
                     </Box>
+                    <Box sx={{ mt: 2 }}>
+                      <AppDropdown
+                        label="Source"
+                        value={manageSource}
+                        emptyLabel="Select Source"
+                        allowEmpty
+                        options={sourceOptions.filter((option) => option.is_active).map((option) => ({
+                          value: option.value,
+                          label: option.label,
+                        }))}
+                        onChange={(value) => setManageSource(String(value))}
+                        disabled={!selectedComplaint.assigned_to_id || isSourceOptionsLoading || sourceOptions.every((option) => !option.is_active)}
+                      />
+                    </Box>
                   </Paper>
                 </Grid>
 
@@ -2881,6 +2899,34 @@ export default function VSWorkOrdersTab() {
                       }}
                     />
 
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, mt: 1.5 }}>
+                      <Box sx={{ flex: '1 1 calc(50% - 6px)' }}>
+                        <AppDropdown
+                          label="Severity"
+                          value={manageSeverity}
+                          options={[
+                            { value: 'CRITICAL', label: 'Critical' },
+                            { value: 'HIGH', label: 'High' },
+                            { value: 'MEDIUM', label: 'Medium' },
+                            { value: 'LOW', label: 'Low' },
+                          ]}
+                          onChange={(val) => setManageSeverity(String(val))}
+                          disabled={!selectedComplaint.assigned_to_id}
+                        />
+                      </Box>
+                      <Box sx={{ flex: '1 1 calc(50% - 6px)' }}>
+                        <AppDropdown
+                          label="Job Work Assigned to"
+                          value={manageJobWorkAssignedTo}
+                          emptyLabel="Select User"
+                          allowEmpty
+                          options={users.map((u) => ({ value: u.id, label: u.full_name }))}
+                          onChange={(value) => setManageJobWorkAssignedTo(value as number | '')}
+                          disabled={!selectedComplaint.assigned_to_id}
+                        />
+                      </Box>
+                    </Box>
+
                     <Box
                       sx={{
                         mt: 1.25,
@@ -2932,6 +2978,46 @@ export default function VSWorkOrdersTab() {
                 </Grid>
               </Grid>
 
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <AppDropdown
+                      label="Category"
+                      value={manageCategory}
+                      options={complaintCategories.map((category) => ({
+                        value: category.key,
+                        label: category.label,
+                      }))}
+                      onChange={(value) => setManageCategory(String(value))}
+                      disabled={!selectedComplaint.assigned_to_id || isComplaintCategoriesLoading || isComplaintCategoriesError || !complaintCategories.length}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      label="Problem Description"
+                      size="small"
+                      fullWidth
+                      multiline
+                      rows={2}
+                      value={manageDescription}
+                      onChange={(e) => setManageDescription(e.target.value)}
+                      disabled={!selectedComplaint.assigned_to_id}
+                    />
+                  </Grid>
+                </Grid>
+                <Box sx={{ mt: 1.5, display: 'flex', justifyContent: 'flex-end' }}>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    onClick={handleSaveIntakeDetails}
+                    disabled={manageDetailsSaving || !selectedComplaint.assigned_to_id}
+                    sx={{ textTransform: 'none', fontWeight: 700 }}
+                  >
+                    {manageDetailsSaving ? 'Saving...' : 'Save Details'}
+                  </Button>
+                </Box>
+              </Paper>
+
               {!selectedComplaint.assigned_to_id && (
                 <Alert severity="info">
                   Assign a technician before entering or changing work-order details.
@@ -2948,71 +3034,6 @@ export default function VSWorkOrdersTab() {
                   opacity: selectedComplaint.assigned_to_id ? 1 : 0.55,
                 }}
               >
-              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
-                <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" gutterBottom>
-                  COMPLAINT DETAILS
-                </Typography>
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6}>
-                    <AppDropdown
-                      label="Source"
-                      value={manageSource}
-                      emptyLabel="Select Source"
-                      allowEmpty
-                      options={sourceOptions.filter((option) => option.is_active).map((option) => ({
-                        value: option.value,
-                        label: option.label,
-                      }))}
-                      onChange={(value) => setManageSource(String(value))}
-                      disabled={isSourceOptionsLoading || sourceOptions.every((option) => !option.is_active)}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <AppDropdown
-                      label="Job Work Assigned to"
-                      value={manageJobWorkAssignedTo}
-                      emptyLabel="Select User"
-                      allowEmpty
-                      options={users.map((u) => ({ value: u.id, label: u.full_name }))}
-                      onChange={(value) => setManageJobWorkAssignedTo(value as number | '')}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <AppDropdown
-                      label="Category"
-                      value={manageCategory}
-                      options={complaintCategories.map((category) => ({
-                        value: category.key,
-                        label: category.label,
-                      }))}
-                      onChange={(value) => setManageCategory(String(value))}
-                      disabled={isComplaintCategoriesLoading || isComplaintCategoriesError || !complaintCategories.length}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      label="Problem Description"
-                      size="small"
-                      fullWidth
-                      multiline
-                      rows={2}
-                      value={manageDescription}
-                      onChange={(e) => setManageDescription(e.target.value)}
-                    />
-                  </Grid>
-                </Grid>
-                <Box sx={{ mt: 1.5, display: 'flex', justifyContent: 'flex-end' }}>
-                  <Button
-                    size="small"
-                    variant="contained"
-                    onClick={handleSaveIntakeDetails}
-                    disabled={manageDetailsSaving}
-                    sx={{ textTransform: 'none', fontWeight: 700 }}
-                  >
-                    {manageDetailsSaving ? 'Saving...' : 'Save Details'}
-                  </Button>
-                </Box>
-              </Paper>
               <Tabs
                 value={selectedWorkOrderTab}
                 onChange={(_, value: number) => setSelectedWorkOrderTab(value)}
