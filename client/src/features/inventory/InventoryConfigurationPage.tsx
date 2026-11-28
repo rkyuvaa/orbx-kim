@@ -92,7 +92,7 @@ function GenericPanel({
     try {
       const body: any = { ...form };
       if ('rate' in body) body.rate = Number(body.rate);
-      await create(body).unwrap();
+      await create[0](body).unwrap();
       showToast(`${title} saved.`, 'success');
       setOpen(false);
       setForm({});
@@ -139,7 +139,7 @@ function GenericPanel({
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpen(false)}>Cancel</Button>
-          <Button variant="contained" disabled={create.isLoading} onClick={save}>Save</Button>
+          <Button variant="contained" disabled={create[1].isLoading} onClick={save}>Save</Button>
         </DialogActions>
       </Dialog>
     </Paper>
