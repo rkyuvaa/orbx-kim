@@ -203,7 +203,17 @@ class InvItem(Base):
     tax_rate_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("inv_tax_rates.id", ondelete="SET NULL"), nullable=True
     )
-    purchase_price: Mapped[float] = mapped_column(Numeric(14, 4), default=0, server_default="0", nullable=False)
+    item_type: Mapped[str] = mapped_column(String(20), default="GOODS", server_default="GOODS", nullable=False)
+    tracking_mode: Mapped[str] = mapped_column(
+        String(20), default="BY_QUANTITY", server_default="BY_QUANTITY", nullable=False
+    )
+    sales_price: Mapped[float] = mapped_column(Numeric(14, 2), default=0, server_default="0", nullable=False)
+    sales_tax_pct: Mapped[float] = mapped_column(Numeric(5, 2), default=0, server_default="0", nullable=False)
+    purchase_tax_pct: Mapped[float] = mapped_column(Numeric(5, 2), default=0, server_default="0", nullable=False)
+    internal_reference: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    barcode: Mapped[Optional[str]] = mapped_column(String(100), unique=True, index=True, nullable=True)
+    hsn_sac_code: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
+    purchase_price: Mapped[float] = mapped_column(Numeric(14, 2), default=0, server_default="0", nullable=False)
     reorder_level: Mapped[float] = mapped_column(Float, default=0, server_default="0", nullable=False)
     reorder_qty: Mapped[float] = mapped_column(Float, default=0, server_default="0", nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1", nullable=False)

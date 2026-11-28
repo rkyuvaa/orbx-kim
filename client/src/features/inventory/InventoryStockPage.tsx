@@ -20,16 +20,15 @@ import { ErrorState, PageLoader } from '@/components/ui/PageState';
 import { useToast } from '@/components/ui/ToastHost';
 import {
   useCreateItemMutation,
+  useDeleteItemMutation,
   useListBalancesQuery,
-  useListBrandsQuery,
   useListCategoriesQuery,
   useListItemsQuery,
   useListMovesQuery,
   useListStoresQuery,
-  useListSuppliersQuery,
-  useListTaxRatesQuery,
-  useListUnitsQuery,
+  useUpdateItemMutation,
 } from '@/api/inventoryApi';
+import type { InvItem } from '@/types/inventory';
 
 const money = (v: number) => `₹${v.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 
@@ -54,26 +53,76 @@ function CatalogueTab() {
   const { showToast } = useToast();
   const { data: items = [], isLoading, isError, refetch } = useListItemsQuery({ is_active: true });
   const { data: categories = [] } = useListCategoriesQuery();
-  const { data: units = [] } = useListUnitsQuery();
-  const { data: brands = [] } = useListBrandsQuery();
-  const { data: suppliers = [] } = useListSuppliersQuery();
-  const { data: taxes = [] } = useListTaxRatesQuery();
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<InvItem | null>(null);
   const [createItem, { isLoading: saving }] = useCreateItemMutation();
+  const [updateItem] = useUpdateItemMutation();
+  const [deleteItem] = useDeleteItemMutation();
 
-  const [form, setForm] = useState<any>({ sku: '', name: '', reorder_level: 0, reorder_qty: 0, purchase_price: 0 });
+  const emptyForm = {
+    name: '',
+    category_id: null as number | null,
+    item_type: 'GOODS',
+    tracking_mode: 'BY_QUANTITY',
+    sales_price: 0,
+    sales_tax_pct: 0,
+    purchase_price: 0,
+    purchase_tax_pct: 0,
+    internal_reference: '',
+    barcode: '',
+    hsn_sac_code: '',
+  };
+  const [form, setForm] = useState<any>(emptyForm);
 
   if (isLoading) return <PageLoader />;
   if (isError) return <ErrorState onRetry={refetch} />;
 
+  const openAdd = () => {
+    setEditing(null);
+    setForm(emptyForm);
+    setOpen(true);
+  };
+
+  const openEdit = (it: InvItem) => {
+    setEditing(it);
+    setForm({
+      name: it.name,
+      category_id: it.category_id,
+      item_type: it.item_type || 'GOODS',
+      tracking_mode: it.tracking_mode || 'BY_QUANTITY',
+      sales_price: it.sales_price ?? 0,
+      sales_tax_pct: it.sales_tax_pct ?? 0,
+      purchase_price: it.purchase_price ?? 0,
+      purchase_tax_pct: it.purchase_tax_pct ?? 0,
+      internal_reference: it.internal_reference || '',
+      barcode: it.barcode || '',
+      hsn_sac_code: it.hsn_sac_code || '',
+    });
+    setOpen(true);
+  };
+
   const save = async () => {
     try {
-      await createItem(form).unwrap();
-      showToast('Item created.', 'success');
+      if (editing) {
+        await updateItem({ id: editing.id, body: form }).unwrap();
+        showToast('Item updated.', 'success');
+      } else {
+        await createItem(form).unwrap();
+        showToast('Item created.', 'success');
+      }
       setOpen(false);
-      setForm({ sku: '', name: '', reorder_level: 0, reorder_qty: 0, purchase_price: 0 });
     } catch (e: any) {
-      showToast(e?.data?.detail || 'Failed to create item.', 'error');
+      showToast(e?.data?.detail || 'Failed to save item.', 'error');
+    }
+  };
+
+  const remove = async (it: InvItem) => {
+    if (!window.confirm(`Delete item ${it.name}?`)) return;
+    try {
+      await deleteItem(it.id).unwrap();
+      showToast('Item deleted.', 'success');
+    } catch (e: any) {
+      showToast(e?.data?.detail || 'Failed to delete item.', 'error');
     }
   };
 
@@ -81,7 +130,7 @@ function CatalogueTab() {
     <Paper variant="outlined" sx={{ borderColor: '#E4EBE1', borderRadius: 2 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid #E4EBE1' }}>
         <span style={{ fontSize: 12, fontWeight: 700, color: '#7A8B80', textTransform: 'uppercase', letterSpacing: 0.6 }}>Parts Catalogue</span>
-        <Button size="small" variant="contained" onClick={() => setOpen(true)}>Add Item</Button>
+        <Button size="small" variant="contained" onClick={openAdd}>Add Item</Button>
       </div>
       {items.length === 0 ? (
         <EmptyState title="No items yet" hint="Add parts and consumables to start tracking stock." />
@@ -90,7 +139,7 @@ function CatalogueTab() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#F7FAF6' }}>
-                {['SKU', 'Name', 'Reorder', 'Price'].map((h) => (
+                {['SKU', 'Name', 'Type', 'Tracking', 'Current Stock', 'Sales Price', 'Purchase Cost', 'Actions'].map((h) => (
                   <th key={h} style={{ textAlign: 'left', padding: '10px 16px', fontSize: 11, color: '#7A8B80', textTransform: 'uppercase' }}>{h}</th>
                 ))}
               </tr>
@@ -100,8 +149,17 @@ function CatalogueTab() {
                 <tr key={i.id} style={{ borderTop: '1px solid #F0F4EE' }}>
                   <td style={{ padding: '10px 16px', fontSize: 13, fontWeight: 600 }}>{i.sku}</td>
                   <td style={{ padding: '10px 16px', fontSize: 13 }}>{i.name}</td>
-                  <td style={{ padding: '10px 16px', fontSize: 13 }}>{i.reorder_level}</td>
+                  <td style={{ padding: '10px 16px', fontSize: 13 }}>{i.item_type}</td>
+                  <td style={{ padding: '10px 16px', fontSize: 12, color: '#7A8B80' }}>{i.tracking_mode === 'BY_SERIAL_NUMBER' ? 'By Serial Number' : 'By Quantity'}</td>
+                  <td style={{ padding: '10px 16px', fontSize: 13, fontWeight: 600 }}>{i.current_stock_qty}</td>
+                  <td style={{ padding: '10px 16px', fontSize: 13 }}>{money(i.sales_price)}</td>
                   <td style={{ padding: '10px 16px', fontSize: 13 }}>{money(i.purchase_price)}</td>
+                  <td style={{ padding: '10px 16px' }}>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <Button size="small" onClick={() => openEdit(i)}>Edit</Button>
+                      <Button size="small" color="error" onClick={() => remove(i)}>Delete</Button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -110,39 +168,35 @@ function CatalogueTab() {
       )}
 
       <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Add Item</DialogTitle>
+        <DialogTitle>{editing ? 'Edit Item' : 'Add Item'}</DialogTitle>
         <DialogContent dividers>
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, pt: 1 }}>
-            <TextField label="SKU" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} />
-            <TextField label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-            <TextField select label="Category" value={form.category_id ?? ''} onChange={(e) => setForm({ ...form, category_id: e.target.value || null })}>
+            <TextField label="Product Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            <TextField select label="Category" value={form.category_id ?? ''} onChange={(e) => setForm({ ...form, category_id: e.target.value ? Number(e.target.value) : null })}>
               <MenuItem value="">None</MenuItem>
               {categories.map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
             </TextField>
-            <TextField select label="Unit" value={form.unit_id ?? ''} onChange={(e) => setForm({ ...form, unit_id: e.target.value || null })}>
-              <MenuItem value="">None</MenuItem>
-              {units.map((u) => <MenuItem key={u.id} value={u.id}>{u.name}</MenuItem>)}
+            <TextField select label="Type" value={form.item_type} onChange={(e) => setForm({ ...form, item_type: e.target.value })}>
+              <MenuItem value="GOODS">Goods</MenuItem>
+              <MenuItem value="SERVICE">Service</MenuItem>
             </TextField>
-            <TextField select label="Brand" value={form.brand_id ?? ''} onChange={(e) => setForm({ ...form, brand_id: e.target.value || null })}>
-              <MenuItem value="">None</MenuItem>
-              {brands.map((b) => <MenuItem key={b.id} value={b.id}>{b.name}</MenuItem>)}
+            <TextField select label="Inventory Tracking" value={form.tracking_mode} onChange={(e) => setForm({ ...form, tracking_mode: e.target.value })}>
+              <MenuItem value="BY_QUANTITY">By Quantity</MenuItem>
+              <MenuItem value="BY_SERIAL_NUMBER">By Serial Number</MenuItem>
             </TextField>
-            <TextField select label="Default Supplier" value={form.default_supplier_id ?? ''} onChange={(e) => setForm({ ...form, default_supplier_id: e.target.value || null })}>
-              <MenuItem value="">None</MenuItem>
-              {suppliers.map((s) => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
-            </TextField>
-            <TextField select label="Tax" value={form.tax_rate_id ?? ''} onChange={(e) => setForm({ ...form, tax_rate_id: e.target.value || null })}>
-              <MenuItem value="">None</MenuItem>
-              {taxes.map((t) => <MenuItem key={t.id} value={t.id}>{t.name} ({t.rate}%)</MenuItem>)}
-            </TextField>
-            <TextField label="Purchase Price" type="number" value={form.purchase_price} onChange={(e) => setForm({ ...form, purchase_price: Number(e.target.value) })} />
-            <TextField label="Reorder Level" type="number" value={form.reorder_level} onChange={(e) => setForm({ ...form, reorder_level: Number(e.target.value) })} />
-            <TextField label="Reorder Qty" type="number" value={form.reorder_qty} onChange={(e) => setForm({ ...form, reorder_qty: Number(e.target.value) })} />
+            <TextField label="Current Stock Qty" value={editing ? editing.current_stock_qty : 0} disabled />
+            <TextField label="Sales Price" type="number" inputProps={{ step: '0.01' }} value={form.sales_price} onChange={(e) => setForm({ ...form, sales_price: Number(e.target.value) })} />
+            <TextField label="Sales Tax %" type="number" inputProps={{ step: '0.01' }} value={form.sales_tax_pct} onChange={(e) => setForm({ ...form, sales_tax_pct: Number(e.target.value) })} />
+            <TextField label="Purchase Cost" type="number" inputProps={{ step: '0.01' }} value={form.purchase_price} onChange={(e) => setForm({ ...form, purchase_price: Number(e.target.value) })} />
+            <TextField label="Purchase Tax %" type="number" inputProps={{ step: '0.01' }} value={form.purchase_tax_pct} onChange={(e) => setForm({ ...form, purchase_tax_pct: Number(e.target.value) })} />
+            <TextField label="Internal Reference" value={form.internal_reference} onChange={(e) => setForm({ ...form, internal_reference: e.target.value })} />
+            <TextField label="Barcode" value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} />
+            <TextField label="HSN/SAC Code" value={form.hsn_sac_code} onChange={(e) => setForm({ ...form, hsn_sac_code: e.target.value })} />
           </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpen(false)}>Cancel</Button>
-          <Button variant="contained" disabled={saving || !form.sku || !form.name} onClick={save}>Save</Button>
+          <Button variant="contained" disabled={saving || !form.name} onClick={save}>Save</Button>
         </DialogActions>
       </Dialog>
     </Paper>

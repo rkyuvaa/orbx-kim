@@ -214,14 +214,22 @@ class InvTaxRateOut(ORMModel):
 
 
 class InvItemCreate(BaseModel):
-    sku: str = Field(..., max_length=60)
+    sku: Optional[str] = Field(None, max_length=60)
     name: str = Field(..., max_length=200)
     category_id: Optional[int] = None
     unit_id: Optional[int] = None
     brand_id: Optional[int] = None
     default_supplier_id: Optional[int] = None
     tax_rate_id: Optional[int] = None
+    item_type: str = Field("GOODS", max_length=20)
+    tracking_mode: str = Field("BY_QUANTITY", max_length=20)
+    sales_price: float = 0.0
+    sales_tax_pct: float = 0.0
     purchase_price: float = 0.0
+    purchase_tax_pct: float = 0.0
+    internal_reference: Optional[str] = Field(None, max_length=100)
+    barcode: Optional[str] = Field(None, max_length=100)
+    hsn_sac_code: Optional[str] = Field(None, max_length=40)
     reorder_level: float = 0.0
     reorder_qty: float = 0.0
     is_active: bool = True
@@ -235,7 +243,15 @@ class InvItemUpdate(BaseModel):
     brand_id: Optional[int] = None
     default_supplier_id: Optional[int] = None
     tax_rate_id: Optional[int] = None
+    item_type: Optional[str] = Field(None, max_length=20)
+    tracking_mode: Optional[str] = Field(None, max_length=20)
+    sales_price: Optional[float] = None
+    sales_tax_pct: Optional[float] = None
     purchase_price: Optional[float] = None
+    purchase_tax_pct: Optional[float] = None
+    internal_reference: Optional[str] = Field(None, max_length=100)
+    barcode: Optional[str] = Field(None, max_length=100)
+    hsn_sac_code: Optional[str] = Field(None, max_length=40)
     reorder_level: Optional[float] = None
     reorder_qty: Optional[float] = None
     is_active: Optional[bool] = None
@@ -250,10 +266,19 @@ class InvItemOut(ORMModel):
     brand_id: Optional[int] = None
     default_supplier_id: Optional[int] = None
     tax_rate_id: Optional[int] = None
+    item_type: str
+    tracking_mode: str
+    sales_price: float
+    sales_tax_pct: float
     purchase_price: float
+    purchase_tax_pct: float
+    internal_reference: Optional[str] = None
+    barcode: Optional[str] = None
+    hsn_sac_code: Optional[str] = None
     reorder_level: float
     reorder_qty: float
     is_active: bool
+    current_stock_qty: float = 0
     created_at: datetime
     updated_at: datetime
 

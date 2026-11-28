@@ -555,7 +555,14 @@ def list_items(
     if search:
         s = f"%{search}%"
         q = q.filter(or_(InvItem.name.ilike(s), InvItem.sku.ilike(s)))
-    return q.order_by(InvItem.name.asc()).all()
+    items = q.order_by(InvItem.name.asc()).all()
+    qty_map = inventory_service.available_qty_by_item(db)
+    result: List[InvItemOut] = []
+    for it in items:
+        out = InvItemOut.model_validate(it)
+        out.current_stock_qty = qty_map.get(it.id, 0.0)
+        result.append(out)
+    return result
 
 
 @router.post("/items", response_model=InvItemOut, status_code=status.HTTP_201_CREATED)
@@ -564,13 +571,28 @@ def create_item(
     db: Session = Depends(get_db),
     user: User = Depends(require_permission("create", "inv_stock")),
 ):
-    if db.query(InvItem).filter(InvItem.sku == payload.sku).first():
+    data = payload.model_dump()
+    sku = (data.get("sku") or "").strip()
+    if not sku:
+        sku = generate_next_document_number(
+            db, "inventory_item", default_prefix="ITEM-", default_padding=4
+        )
+    data["sku"] = sku
+    if db.query(InvItem).filter(InvItem.sku == sku).first():
         raise HTTPException(status_code=400, detail="SKU already exists")
-    obj = InvItem(**payload.model_dump())
+
+    barcode = (data.get("barcode") or "").strip() or None
+    data["barcode"] = barcode
+    if barcode and db.query(InvItem).filter(InvItem.barcode == barcode).first():
+        raise HTTPException(status_code=400, detail="Barcode already exists")
+
+    obj = InvItem(**data)
     db.add(obj)
     db.commit()
     db.refresh(obj)
-    return obj
+    out = InvItemOut.model_validate(obj)
+    out.current_stock_qty = 0.0
+    return out
 
 
 @router.patch("/items/{item_id}", response_model=InvItemOut)
@@ -583,11 +605,28 @@ def update_item(
     obj = db.get(InvItem, item_id)
     if not obj:
         raise HTTPException(status_code=404, detail="Item not found")
-    for k, v in payload.model_dump(exclude_unset=True).items():
+    data = payload.model_dump(exclude_unset=True)
+    # SKU is auto-generated and not editable from the form
+    data.pop("sku", None)
+    if "barcode" in data:
+        barcode = (data["barcode"] or "").strip() or None
+        data["barcode"] = barcode
+        if barcode:
+            dup = (
+                db.query(InvItem)
+                .filter(InvItem.barcode == barcode, InvItem.id != item_id)
+                .first()
+            )
+            if dup:
+                raise HTTPException(status_code=400, detail="Barcode already exists")
+    for k, v in data.items():
         setattr(obj, k, v)
     db.commit()
     db.refresh(obj)
-    return obj
+    qty_map = inventory_service.available_qty_by_item(db)
+    out = InvItemOut.model_validate(obj)
+    out.current_stock_qty = qty_map.get(obj.id, 0.0)
+    return out
 
 
 @router.delete("/items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)

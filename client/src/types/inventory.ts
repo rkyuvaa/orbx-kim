@@ -93,10 +93,19 @@ export interface InvItem {
   brand_id: number | null;
   default_supplier_id: number | null;
   tax_rate_id: number | null;
+  item_type: string;
+  tracking_mode: string;
+  sales_price: number;
+  sales_tax_pct: number;
   purchase_price: number;
+  purchase_tax_pct: number;
+  internal_reference: string | null;
+  barcode: string | null;
+  hsn_sac_code: string | null;
   reorder_level: number;
   reorder_qty: number;
   is_active: boolean;
+  current_stock_qty: number;
   created_at: string;
   updated_at: string;
 }
