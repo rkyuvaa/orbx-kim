@@ -19,9 +19,6 @@ export default function InventoryReportsPage() {
   return (
     <Box sx={{ pb: 6, width: '100%' }}>
       <Typography sx={{ fontSize: 22, fontWeight: 800, color: '#023020', mb: 0.5 }}>Inventory Reports</Typography>
-      <Typography sx={{ fontSize: 13, color: '#667085', mb: 2 }}>
-        Stock valuation, low-stock, non-moving, usage and purchase history.
-      </Typography>
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }} variant="scrollable" scrollButtons="auto">
         <Tab label="Valuation" />
         <Tab label="Low Stock" />

@@ -38,9 +38,6 @@ export default function InventoryStockPage() {
   return (
     <Box sx={{ pb: 6, width: '100%' }}>
       <Typography sx={{ fontSize: 22, fontWeight: 800, color: '#023020', mb: 0.5 }}>Inventory Stock</Typography>
-      <Typography sx={{ fontSize: 13, color: '#667085', mb: 2 }}>
-        Parts & consumables catalogue, stock by location/bin and movement history.
-      </Typography>
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
         <Tab label="Catalogue" />
         <Tab label="Stock by Location" />

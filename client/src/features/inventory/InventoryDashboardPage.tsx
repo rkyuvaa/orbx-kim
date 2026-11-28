@@ -19,9 +19,6 @@ export default function InventoryDashboardPage() {
       <Typography sx={{ fontSize: 22, fontWeight: 800, color: '#023020', mb: 0.5 }}>
         Inventory Dashboard
       </Typography>
-      <Typography sx={{ fontSize: 13, color: '#667085', mb: 3 }}>
-        Stock health, purchasing pipeline and parts issued to open service jobs.
-      </Typography>
 
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: 'repeat(4, 1fr)' }, gap: 2, mb: 3 }}>
         <KpiCard icon={<TrendingUp size={20} />} iconBg="#E7F7EF" iconColor="#16C47F" label="Stock Value" value={money(data.total_stock_value)} sub="Valuation at moving cost" />

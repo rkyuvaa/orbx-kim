@@ -51,9 +51,6 @@ export default function InventoryConfigurationPage() {
   return (
     <Box sx={{ pb: 6, width: '100%' }}>
       <Typography sx={{ fontSize: 22, fontWeight: 800, color: '#023020', mb: 0.5 }}>Inventory Configuration</Typography>
-      <Typography sx={{ fontSize: 13, color: '#667085', mb: 2 }}>
-        Stores, locations, bins, categories, units, brands, suppliers and tax settings.
-      </Typography>
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }} variant="scrollable" scrollButtons="auto">
         {tabs.map((t) => <Tab key={t} label={t} />)}
       </Tabs>
