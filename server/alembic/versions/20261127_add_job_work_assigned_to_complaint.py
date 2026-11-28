@@ -25,14 +25,13 @@ def upgrade() -> None:
         return
 
     existing_cols = {c["name"] for c in inspector.get_columns('vs_complaints')}
-    if 'job_work_assigned_to_id' not in existing_cols:
-        op.add_column(
-            'vs_complaints',
-            sa.Column('job_work_assigned_to_id', sa.Integer(), nullable=True)
-        )
-        op.create_foreign_key(
+    with op.batch_alter_table('vs_complaints') as batch_op:
+        if 'job_work_assigned_to_id' not in existing_cols:
+            batch_op.add_column(
+                sa.Column('job_work_assigned_to_id', sa.Integer(), nullable=True)
+            )
+        batch_op.create_foreign_key(
             'fk_vs_complaints_job_work_assigned_to_id',
-            'vs_complaints',
             'users',
             ['job_work_assigned_to_id'],
             ['id'],
@@ -48,5 +47,8 @@ def downgrade() -> None:
 
     existing_cols = {c["name"] for c in inspector.get_columns('vs_complaints')}
     if 'job_work_assigned_to_id' in existing_cols:
-        op.drop_constraint('fk_vs_complaints_job_work_assigned_to_id', 'vs_complaints', type_='foreignkey')
-        op.drop_column('vs_complaints', 'job_work_assigned_to_id')
+        with op.batch_alter_table('vs_complaints') as batch_op:
+            batch_op.drop_constraint(
+                'fk_vs_complaints_job_work_assigned_to_id', type_='foreignkey'
+            )
+            batch_op.drop_column('job_work_assigned_to_id')

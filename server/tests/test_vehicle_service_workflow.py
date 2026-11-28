@@ -244,3 +244,80 @@ def test_work_order_status_lifecycle_and_unassigned_edit_guard(client, db):
     assert saved is not None
     assert saved.status == "RESOLVED"
     assert saved.resolved_at is not None
+
+
+def test_complaint_reporter_source_jobwork_category_description_roundtrip(client, db):
+    user = make_user("service-fields@kim.com", UserRole.ADMIN)
+    other = make_user("service-jobwork@kim.com", UserRole.ADMIN)
+    vehicle = VSVehicle(
+        vehicle_number="FIELDS-001",
+        owner_name="Fields Owner",
+        owner_phone="9876543210",
+        qr_token=uuid.uuid4().hex,
+    )
+    db.add_all([
+        user,
+        other,
+        vehicle,
+        CrmDropdownOption(
+            category="source",
+            label="Walk-in",
+            value="walk_in",
+            order_index=1,
+            is_active=True,
+        ),
+    ])
+    db.commit()
+    headers = auth_headers(login(client, email=user.email))
+    url = "/api/v1/vehicle-service/complaints"
+
+    created = client.post(
+        url,
+        json={
+            "vehicle_id": vehicle.id,
+            "reported_by": "Fields Owner",
+            "reported_phone": "9876543210",
+            "reporter_address": "12 Test Street, Chennai",
+            "source": "walk_in",
+            "category": "BREAKDOWN",
+            "description": "Engine noise",
+            "assigned_to_id": user.id,
+            "job_work_assigned_to_id": other.id,
+        },
+        headers=headers,
+    )
+    assert created.status_code == 201, created.text
+    body = created.json()
+    complaint_id = body["id"]
+    assert body["reporter_address"] == "12 Test Street, Chennai"
+    assert body["source"] == "walk_in"
+    assert body["job_work_assigned_to_id"] == other.id
+    assert body["job_work_assigned_to_name"] == other.full_name
+    assert body["category"] == "BREAKDOWN"
+    assert body["description"] == "Engine noise"
+
+    fetched = client.get(f"{url}/{complaint_id}", headers=headers)
+    assert fetched.status_code == 200, fetched.text
+    assert fetched.json()["reporter_address"] == "12 Test Street, Chennai"
+    assert fetched.json()["job_work_assigned_to_id"] == other.id
+
+    updated = client.patch(
+        f"{url}/{complaint_id}",
+        json={
+            "source": "walk_in",
+            "job_work_assigned_to_id": user.id,
+            "category": "GENERAL",
+            "description": "Updated description",
+        },
+        headers=headers,
+    )
+    assert updated.status_code == 200, updated.text
+    assert updated.json()["job_work_assigned_to_id"] == user.id
+    assert updated.json()["category"] == "GENERAL"
+    assert updated.json()["description"] == "Updated description"
+
+    db.expire_all()
+    saved = db.get(VSComplaint, complaint_id)
+    assert saved.job_work_assigned_to_id == user.id
+    assert saved.category == "GENERAL"
+    assert saved.description == "Updated description"
