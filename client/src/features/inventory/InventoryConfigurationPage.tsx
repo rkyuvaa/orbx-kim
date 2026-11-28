@@ -92,12 +92,20 @@ function GenericPanel({
     try {
       const body: any = { ...form };
       if ('rate' in body) body.rate = Number(body.rate);
+      if ('code' in body && !String(body.code || '').trim()) {
+        const base = String(body.name || title || 'ITEM')
+          .toUpperCase()
+          .replace(/[^A-Z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '')
+          .slice(0, 30) || 'ITEM';
+        body.code = `${base}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+      }
       await create[0](body).unwrap();
       showToast(`${title} saved.`, 'success');
       setOpen(false);
       setForm({});
     } catch (e: any) {
-      showToast(e?.data?.detail || 'Failed to save.', 'error');
+      showToast(errorMessage(e), 'error');
     }
   };
 
@@ -144,4 +152,15 @@ function GenericPanel({
       </Dialog>
     </Paper>
   );
+}
+
+function errorMessage(e: any): string {
+  const detail = e?.data?.detail;
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) {
+    return detail
+      .map((d: any) => (d && typeof d === 'object' ? d.msg || JSON.stringify(d) : String(d)))
+      .join(', ');
+  }
+  return 'Failed to save.';
 }

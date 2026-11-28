@@ -10,12 +10,33 @@ interface Toast {
 }
 
 interface ToastContextValue {
-  showToast: (message: string, severity?: AlertColor) => void;
+  showToast: (message: unknown, severity?: AlertColor) => void;
   showSuccess: (message: string) => void;
   showError: (message: string) => void;
 }
 
 const ToastContext = createContext<ToastContextValue | null>(null);
+
+function normalizeMessage(message: unknown): string {
+  if (typeof message === 'string') return message;
+  if (message == null) return '';
+  if (Array.isArray(message)) {
+    return message
+      .map((m) => normalizeMessage(m))
+      .filter(Boolean)
+      .join(', ');
+  }
+  if (typeof message === 'object') {
+    const obj = message as Record<string, unknown>;
+    if (typeof obj.msg === 'string') return obj.msg;
+    try {
+      return JSON.stringify(message);
+    } catch {
+      return String(message);
+    }
+  }
+  return String(message);
+}
 
 export function useToast(): ToastContextValue {
   const ctx = useContext(ToastContext);
@@ -29,9 +50,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const counter = useRef(0);
 
-  const showToast = useCallback((message: string, severity: AlertColor = 'info') => {
+  const showToast = useCallback((message: unknown, severity: AlertColor = 'info') => {
     const id = ++counter.current;
-    setToasts((prev) => [...prev.slice(-3), { id, message, severity }]);
+    const text = normalizeMessage(message);
+    setToasts((prev) => [...prev.slice(-3), { id, message: text, severity }]);
     window.setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 3500);
