@@ -17,7 +17,7 @@ const money = (v: number) => `₹${v.toLocaleString('en-IN', { maximumFractionDi
 export default function InventoryReportsPage() {
   const [tab, setTab] = useState(0);
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ pb: 6, width: '100%' }}>
       <Typography sx={{ fontSize: 22, fontWeight: 800, color: '#023020', mb: 0.5 }}>Inventory Reports</Typography>
       <Typography sx={{ fontSize: 13, color: '#667085', mb: 2 }}>
         Stock valuation, low-stock, non-moving, usage and purchase history.

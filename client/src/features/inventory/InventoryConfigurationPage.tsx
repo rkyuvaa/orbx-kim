@@ -49,7 +49,7 @@ export default function InventoryConfigurationPage() {
   const tabs = ['Stores', 'Locations', 'Bins', 'Categories', 'Units', 'Brands', 'Suppliers', 'Tax Rates'];
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ pb: 6, width: '100%' }}>
       <Typography sx={{ fontSize: 22, fontWeight: 800, color: '#023020', mb: 0.5 }}>Inventory Configuration</Typography>
       <Typography sx={{ fontSize: 13, color: '#667085', mb: 2 }}>
         Stores, locations, bins, categories, units, brands, suppliers and tax settings.

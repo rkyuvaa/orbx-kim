@@ -15,7 +15,7 @@ export default function InventoryDashboardPage() {
   if (isError || !data) return <ErrorState onRetry={refetch} />;
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ pb: 6, width: '100%' }}>
       <Typography sx={{ fontSize: 22, fontWeight: 800, color: '#023020', mb: 0.5 }}>
         Inventory Dashboard
       </Typography>

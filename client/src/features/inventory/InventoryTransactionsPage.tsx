@@ -91,7 +91,7 @@ export default function InventoryTransactionsPage() {
   const current = { pr, po, gr, issue, return: ret, transfer, adjustment: adj }[tab];
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ pb: 6, width: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
         <Typography sx={{ fontSize: 22, fontWeight: 800, color: '#023020' }}>Inventory Transactions</Typography>
         <Button variant="contained" startIcon={<Plus size={16} />} onClick={() => setCreateOpen(true)}>
