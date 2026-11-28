@@ -103,3 +103,17 @@ and Assumptions.
 
 ## 2. Always Push Changes Rule
 - Automatically commit and push (`git push origin main`) all completed changes, fixes, and features for this repository without prompting.
+
+## 3. New Field / API Verification Rule
+- Whenever you add or rename ANY field (DB column, schema field, request/response
+  field, or form field), you MUST verify the full API path, not just the UI:
+  - **Model**: column + type + nullable + FK/index added.
+  - **Migration**: Alembic revision created and `alembic upgrade head` succeeds.
+  - **Schemas**: create/update/out Pydantic schemas include the field.
+  - **Endpoints**: create AND update paths read/write the field; validators run.
+  - **Frontend**: types + form + list/detail all handle the field.
+  - **DB check**: confirm the column exists and round-trips (write then read)
+    against the real database, not only static/type checks.
+- Report explicitly whether the field was verified end-to-end against the DB
+  (write -> read) or only statically (syntax/typecheck). Do not claim DB/API
+  verification that was not actually run.
