@@ -7,13 +7,15 @@ import {
   DialogContent,
   DialogTitle,
   MenuItem,
+  Menu,
+  IconButton,
   Paper,
   Tab,
   Tabs,
   TextField,
   Typography,
 } from '@mui/material';
-import { Package } from 'lucide-react';
+import { Package, MoreVertical } from 'lucide-react';
 
 import EmptyState from '@/components/ui/EmptyState';
 import { ErrorState, PageLoader } from '@/components/ui/PageState';
@@ -58,6 +60,12 @@ function CatalogueTab() {
   const [createItem, { isLoading: saving }] = useCreateItemMutation();
   const [updateItem] = useUpdateItemMutation();
   const [deleteItem] = useDeleteItemMutation();
+  const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
+  const [menuItem, setMenuItem] = useState<InvItem | null>(null);
+  const categoryMap = useMemo(
+    () => Object.fromEntries(categories.map((c) => [c.id, c.name])),
+    [categories],
+  );
 
   const emptyForm = {
     name: '',
@@ -139,7 +147,7 @@ function CatalogueTab() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#F7FAF6' }}>
-                {['SKU', 'Name', 'Type', 'Tracking', 'Current Stock', 'Sales Price', 'Purchase Cost', 'Actions'].map((h) => (
+                {['Internal Reference', 'Name', 'Type', 'Category', 'Stock Qty', 'Barcode', 'Sales Price', 'Actions'].map((h) => (
                   <th key={h} style={{ textAlign: 'left', padding: '10px 16px', fontSize: 11, color: '#7A8B80', textTransform: 'uppercase' }}>{h}</th>
                 ))}
               </tr>
@@ -147,18 +155,23 @@ function CatalogueTab() {
             <tbody>
               {items.map((i) => (
                 <tr key={i.id} style={{ borderTop: '1px solid #F0F4EE' }}>
-                  <td style={{ padding: '10px 16px', fontSize: 13, fontWeight: 600 }}>{i.sku}</td>
-                  <td style={{ padding: '10px 16px', fontSize: 13 }}>{i.name}</td>
-                  <td style={{ padding: '10px 16px', fontSize: 13 }}>{i.item_type}</td>
-                  <td style={{ padding: '10px 16px', fontSize: 12, color: '#7A8B80' }}>{i.tracking_mode === 'BY_SERIAL_NUMBER' ? 'By Serial Number' : 'By Quantity'}</td>
+                  <td style={{ padding: '10px 16px', fontSize: 13 }}>{i.internal_reference || '-'}</td>
+                  <td style={{ padding: '10px 16px', fontSize: 13, fontWeight: 600 }}>{i.name}</td>
+                  <td style={{ padding: '10px 16px', fontSize: 13 }}>{i.item_type === 'SERVICE' ? 'Service' : 'Goods'}</td>
+                  <td style={{ padding: '10px 16px', fontSize: 13 }}>{i.category_id ? categoryMap[i.category_id as number] || '-' : '-'}</td>
                   <td style={{ padding: '10px 16px', fontSize: 13, fontWeight: 600 }}>{i.current_stock_qty}</td>
+                  <td style={{ padding: '10px 16px', fontSize: 13 }}>{i.barcode || '-'}</td>
                   <td style={{ padding: '10px 16px', fontSize: 13 }}>{money(i.sales_price)}</td>
-                  <td style={{ padding: '10px 16px', fontSize: 13 }}>{money(i.purchase_price)}</td>
                   <td style={{ padding: '10px 16px' }}>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <Button size="small" onClick={() => openEdit(i)}>Edit</Button>
-                      <Button size="small" color="error" onClick={() => remove(i)}>Delete</Button>
-                    </div>
+                    <IconButton
+                      size="small"
+                      onClick={(e) => {
+                        setMenuAnchor(e.currentTarget);
+                        setMenuItem(i);
+                      }}
+                    >
+                      <MoreVertical size={16} />
+                    </IconButton>
                   </td>
                 </tr>
               ))}
@@ -166,6 +179,26 @@ function CatalogueTab() {
           </table>
         </Box>
       )}
+
+      <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)}>
+        <MenuItem
+          onClick={() => {
+            if (menuItem) openEdit(menuItem);
+            setMenuAnchor(null);
+          }}
+        >
+          Edit
+        </MenuItem>
+        <MenuItem
+          sx={{ color: '#F04438' }}
+          onClick={() => {
+            if (menuItem) remove(menuItem);
+            setMenuAnchor(null);
+          }}
+        >
+          Delete
+        </MenuItem>
+      </Menu>
 
       <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>{editing ? 'Edit Item' : 'Add Item'}</DialogTitle>
