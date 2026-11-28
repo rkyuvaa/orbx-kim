@@ -33,6 +33,7 @@ def seed_rbac_data(db: Session) -> None:
         {"name": "Expenses & Claim Management", "code": "expenses_module", "display_order": 5, "icon": "Receipt"},
         {"name": "Renewal Tracker", "code": "renewal_tracker_module", "display_order": 6, "icon": "RefreshCw"},
         {"name": "Requirements Management", "code": "requirements_module", "display_order": 6, "icon": "ClipboardList"},
+        {"name": "Inventory", "code": "inventory_module", "display_order": 6, "icon": "Package"},
         {"name": "KIM - Policy & Compliance", "code": "policy_compliance_module", "display_order": 7, "icon": "ShieldCheck"},
         {"name": "Administration", "code": "administration", "display_order": 8, "icon": "ShieldCheck"},
         {"name": "Reports & Analytics", "code": "reports", "display_order": 9, "icon": "BarChart3"},
@@ -108,6 +109,13 @@ def seed_rbac_data(db: Session) -> None:
         # Requirements
         {"module_code": "requirements_module", "name": "Material Requirement", "code": "req_material", "display_order": 1},
         {"module_code": "requirements_module", "name": "IT Requirement", "code": "req_it", "display_order": 2},
+
+        # Inventory
+        {"module_code": "inventory_module", "name": "Inventory Dashboard", "code": "inv_dashboard", "display_order": 1},
+        {"module_code": "inventory_module", "name": "Inventory Transactions", "code": "inv_transactions", "display_order": 2},
+        {"module_code": "inventory_module", "name": "Inventory Stock", "code": "inv_stock", "display_order": 3},
+        {"module_code": "inventory_module", "name": "Inventory Reports", "code": "inv_reports", "display_order": 4},
+        {"module_code": "inventory_module", "name": "Inventory Configuration", "code": "inv_configuration", "display_order": 5},
 
         # Policy & Compliance
         {"module_code": "policy_compliance_module", "name": "Company Policies", "code": "compliance_policies", "display_order": 1},

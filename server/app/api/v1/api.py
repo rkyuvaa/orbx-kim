@@ -11,6 +11,7 @@ from app.api.v1 import (
     expenses,
     final_submission,
     hr,
+    inventory,
     masters,
     material_requirements,
     notifications,
@@ -54,6 +55,7 @@ api_router.include_router(personal_tasks.router)
 api_router.include_router(tasks.router)
 api_router.include_router(calendar.router)
 api_router.include_router(vehicle_service.router)
+api_router.include_router(inventory.router)
 api_router.include_router(expenses.router, prefix="/expenses", tags=["expenses"])
 api_router.include_router(rbac_admin.router, prefix="/admin", tags=["admin"])
 api_router.include_router(backup_admin.router, prefix="/admin/backup", tags=["backup"])

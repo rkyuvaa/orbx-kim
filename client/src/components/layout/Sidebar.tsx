@@ -35,6 +35,8 @@ import {
   Wrench,
   ClipboardType,
   Receipt,
+  ArrowLeftRight,
+  Boxes,
 } from 'lucide-react';
 
 import type { LucideIcon } from 'lucide-react';
@@ -101,6 +103,24 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
           { key: 'vs_service_history', label: 'Service History', path: '/vehicle-service/service-history', icon: ClipboardType, badge: null },
           { key: 'vs_reports', label: 'Reports', path: '/vehicle-service/reports', icon: BarChart3, badge: null },
           { key: 'vs_configuration', label: 'Configuration', path: '/vehicle-service/configuration', icon: Settings2, badge: null },
+        ],
+      },
+    ],
+  },
+  {
+    label: 'Inventory',
+    items: [
+      {
+        key: 'inventory',
+        label: 'Inventory',
+        icon: Package,
+        badge: null,
+        children: [
+          { key: 'inv_dashboard', label: 'Dashboard', path: '/inventory/dashboard', icon: LayoutDashboard, badge: null },
+          { key: 'inv_transactions', label: 'Transactions', path: '/inventory/transactions', icon: ArrowLeftRight, badge: null },
+          { key: 'inv_stock', label: 'Stock', path: '/inventory/stock', icon: Boxes, badge: null },
+          { key: 'inv_reports', label: 'Reports', path: '/inventory/reports', icon: BarChart3, badge: null },
+          { key: 'inv_configuration', label: 'Configuration', path: '/inventory/configuration', icon: Settings2, badge: null },
         ],
       },
     ],

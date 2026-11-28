@@ -36,6 +36,11 @@ import ConfigurationPage from '@/pages/ConfigurationPage';
 import DashboardPage from '@/features/dashboard/DashboardPage';
 import PublicFinancierDocumentView from '@/pages/PublicFinancierDocumentView';
 import VehicleServiceRegisterPage from '@/pages/VehicleServiceRegisterPage';
+import InventoryDashboardPage from '@/features/inventory/InventoryDashboardPage';
+import InventoryTransactionsPage from '@/features/inventory/InventoryTransactionsPage';
+import InventoryStockPage from '@/features/inventory/InventoryStockPage';
+import InventoryReportsPage from '@/features/inventory/InventoryReportsPage';
+import InventoryConfigurationPage from '@/features/inventory/InventoryConfigurationPage';
 
 // Admin RBAC Pages
 const UserManagementPage = lazy(() => import('@/pages/admin/UserManagementPage'));
@@ -153,6 +158,14 @@ export default function App() {
                 {/* Expenses & Claims */}
                 <Route path="/expenses" element={<ExpensesPage />} />
                 <Route path="/expenses/configuration" element={<ExpenseConfigurationPage />} />
+
+                {/* Inventory */}
+                <Route path="/inventory" element={<Navigate to="/inventory/dashboard" replace />} />
+                <Route path="/inventory/dashboard" element={<InventoryDashboardPage />} />
+                <Route path="/inventory/transactions" element={<InventoryTransactionsPage />} />
+                <Route path="/inventory/stock" element={<InventoryStockPage />} />
+                <Route path="/inventory/reports" element={<InventoryReportsPage />} />
+                <Route path="/inventory/configuration" element={<InventoryConfigurationPage />} />
                 
                 {/* Administration / Access Control */}
                 <Route path="/admin/users" element={<UserManagementPage />} />

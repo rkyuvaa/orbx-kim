@@ -180,6 +180,21 @@ export const AuthPermissionProvider: React.FC<{ children: React.ReactNode }> = (
       return can('view', 'req_material') || can('view', 'req_it');
     }
 
+    if (path.startsWith('/inventory')) {
+      if (path === '/inventory/dashboard') return can('view', 'inv_dashboard');
+      if (path === '/inventory/transactions') return can('view', 'inv_transactions');
+      if (path === '/inventory/stock') return can('view', 'inv_stock');
+      if (path === '/inventory/reports') return can('view', 'inv_reports');
+      if (path === '/inventory/configuration') return can('view', 'inv_configuration');
+      return (
+        can('view', 'inv_dashboard') ||
+        can('view', 'inv_transactions') ||
+        can('view', 'inv_stock') ||
+        can('view', 'inv_reports') ||
+        can('view', 'inv_configuration')
+      );
+    }
+
     if (path.startsWith('/compliance')) {
       if (path === '/compliance/policies') return can('view', 'compliance_policies');
       if (path === '/compliance/audit') return can('view', 'compliance_audit');

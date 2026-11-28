@@ -121,6 +121,12 @@ export const baseApi = createApi({
       'VSComplaintIssueMatrixItems',
       'AppData',
       'PushNotifications',
+      'InvConfig',
+      'InvItems',
+      'InvStock',
+      'InvTransactions',
+      'InvDashboard',
+      'InvReports',
     ],
   endpoints: () => ({}),
 });
