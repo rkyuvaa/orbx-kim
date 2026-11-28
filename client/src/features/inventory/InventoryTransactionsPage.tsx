@@ -98,9 +98,6 @@ export default function InventoryTransactionsPage() {
           New {TABS.find((t) => t.key === tab)?.label.replace(/s$/, '')}
         </Button>
       </div>
-      <Typography sx={{ fontSize: 13, color: '#667085', mb: 2 }}>
-        Every transaction requires approval before it posts stock. Only approved documents affect balances.
-      </Typography>
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }} variant="scrollable" scrollButtons="auto">
         {TABS.map((t) => <Tab key={t.key} value={t.key} label={t.label} />)}
       </Tabs>
